@@ -7,6 +7,8 @@ import ListingsPage from './pages/ListingsPage';
 import ReportsPage from './pages/ReportsPage';
 import CommentsPage from './pages/CommentsPage';
 import UsersPage from './pages/UsersPage';
+import OpsPage from './pages/OpsPage';
+import AuditLogPage from './pages/AuditLogPage';
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
               <Route path="/reports"   element={<ReportsPage />} />
               <Route path="/comments"  element={<CommentsPage />} />
               <Route path="/users"     element={<UsersPage />} />
+              <Route path="/ops"       element={<OpsPage />} />
+              <Route path="/audit"    element={<AuditLogPage />} />
             </Routes>
           </main>
         </div>

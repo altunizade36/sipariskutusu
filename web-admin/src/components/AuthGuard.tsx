@@ -9,6 +9,8 @@ interface Profile {
   is_banned: boolean;
 }
 
+const ADMIN_ERROR_MESSAGE = 'Bu hesap admin yetkisine sahip degil. Lutfen admin rolundeki bir hesapla giris yapin.';
+
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [email, setEmail] = useState('');
@@ -26,8 +28,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         .single();
       if (p?.role === 'admin') {
         setProfile({ ...p, email: data.session.user.email });
+        setError('');
       } else {
         await supabase.auth.signOut();
+        setError(ADMIN_ERROR_MESSAGE);
         setProfile(null);
       }
     });
@@ -41,8 +45,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         .single();
       if (p?.role === 'admin') {
         setProfile({ ...p, email: session.user.email });
+        setError('');
       } else {
         await supabase.auth.signOut();
+        setError(ADMIN_ERROR_MESSAGE);
         setProfile(null);
       }
     });
