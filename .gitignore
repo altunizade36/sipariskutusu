@@ -48,3 +48,6 @@ Thumbs.db
 
 # local service artifacts
 .supabase/
+
+# shipper platform sandbox artifacts
+.shipper/
