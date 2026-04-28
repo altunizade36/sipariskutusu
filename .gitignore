@@ -51,3 +51,6 @@ Thumbs.db
 
 # shipper platform sandbox artifacts
 .shipper/
+
+# typescript build cache
+tsconfig.tsbuildinfo
