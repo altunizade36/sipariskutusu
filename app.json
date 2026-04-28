@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Sipariş Kutusu",
-    "slug": "siparis-kutusu",
+    "name": "siparişkutusu",
+    "slug": "sipariskutusu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
