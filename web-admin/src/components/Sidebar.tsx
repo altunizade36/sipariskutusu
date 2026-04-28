@@ -3,12 +3,15 @@ import { supabase } from '../lib/supabase';
 
 const links = [
   { to: '/', label: 'Dashboard' },
-  { to: '/listings', label: 'Ilanlar' },
-  { to: '/reports', label: 'Sikayetler' },
+  { to: '/analytics', label: 'Analitik' },
+  { to: '/listings', label: 'İlanlar' },
+  { to: '/reports', label: 'Şikayetler' },
   { to: '/comments', label: 'Yorumlar' },
-  { to: '/users', label: 'Kullanicilar' },
+  { to: '/users', label: 'Kullanıcılar' },
+  { to: '/stores', label: 'Mağazalar' },
   { to: '/ops', label: 'Operasyon' },
-  { to: '/audit', label: 'Denetim Gunlugu' },
+  { to: '/audit', label: 'Denetim Günlüğü' },
+  { to: '/settings', label: 'Ayarlar' },
 ];
 
 export default function Sidebar() {

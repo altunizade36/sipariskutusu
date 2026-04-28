@@ -9,6 +9,9 @@ import CommentsPage from './pages/CommentsPage';
 import UsersPage from './pages/UsersPage';
 import OpsPage from './pages/OpsPage';
 import AuditLogPage from './pages/AuditLogPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import StoresPage from './pages/StoresPage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
   return (
@@ -24,7 +27,10 @@ export default function App() {
               <Route path="/comments"  element={<CommentsPage />} />
               <Route path="/users"     element={<UsersPage />} />
               <Route path="/ops"       element={<OpsPage />} />
-              <Route path="/audit"    element={<AuditLogPage />} />
+              <Route path="/audit"     element={<AuditLogPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/stores"    element={<StoresPage />} />
+              <Route path="/settings"  element={<SettingsPage />} />
             </Routes>
           </main>
         </div>

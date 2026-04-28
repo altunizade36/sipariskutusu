@@ -12,6 +12,12 @@ interface User {
   created_at: string;
 }
 
+interface UserDetail {
+  user: User;
+  listings: { id: string; title: string; status: string; created_at: string }[];
+  reports: { id: string; reason: string; status: string; created_at: string }[];
+}
+
 type BulkUserAction = 'ban' | 'unban' | null;
 
 export default function UsersPage() {
@@ -30,6 +36,8 @@ export default function UsersPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<BulkUserAction>(null);
   const [bulkReason, setBulkReason] = useState('');
+  const [detailUser, setDetailUser] = useState<UserDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   async function load(q?: string) {
     setLoading(true);
@@ -77,6 +85,30 @@ export default function UsersPage() {
     }, 15000);
     return () => window.clearInterval(timer);
   }, [autoRefresh, search, roleFilter, statusFilter]);
+
+  async function openDetail(u: User) {
+    setLoadingDetail(true);
+    const [{ data: listings }, { data: reports }] = await Promise.all([
+      supabase
+        .from('listings')
+        .select('id, title, status, created_at')
+        .eq('seller_id', u.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('reports')
+        .select('id, reason, status, created_at')
+        .eq('target_id', u.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
+    setDetailUser({
+      user: u,
+      listings: (listings ?? []) as any,
+      reports: (reports ?? []) as any,
+    });
+    setLoadingDetail(false);
+  }
 
   async function ban() {
     if (!banId) return;
@@ -230,7 +262,15 @@ export default function UsersPage() {
                       />
                     )}
                   </td>
-                  <td>{u.full_name ?? '-'}</td>
+                  <td>
+                    <button
+                      className="user-name-btn"
+                      onClick={() => void openDetail(u)}
+                      title="Detayları gör"
+                    >
+                      {u.full_name ?? '-'}
+                    </button>
+                  </td>
                   <td><span className="badge badge-active">{u.role}</span></td>
                   <td>
                     {u.is_banned
@@ -273,6 +313,78 @@ export default function UsersPage() {
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={() => setBanId(null)}>Iptal</button>
               <button className="btn btn-danger" disabled={acting} onClick={() => void ban()}>Yasakla</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Detail Modal */}
+      {detailUser && (
+        <div className="modal-overlay" onClick={() => setDetailUser(null)}>
+          <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{detailUser.user.full_name ?? 'Kullanıcı'}</h3>
+              <button className="modal-close" onClick={() => setDetailUser(null)}>✕</button>
+            </div>
+
+            <div className="user-detail-meta">
+              <div><span className="detail-key">ID:</span> <code style={{ fontSize: 11 }}>{detailUser.user.id}</code></div>
+              <div><span className="detail-key">Rol:</span> <span className="badge badge-active">{detailUser.user.role}</span></div>
+              <div><span className="detail-key">Durum:</span> {detailUser.user.is_banned ? <span className="badge badge-banned">Yasaklı</span> : <span className="badge badge-active">Aktif</span>}</div>
+              {detailUser.user.banned_reason && <div><span className="detail-key">Ban Gerekçesi:</span> {detailUser.user.banned_reason}</div>}
+              <div><span className="detail-key">Kayıt:</span> {new Date(detailUser.user.created_at).toLocaleDateString('tr-TR')}</div>
+            </div>
+
+            <div className="user-detail-sections">
+              <div className="user-detail-col">
+                <div className="section-title">İlanlar ({detailUser.listings.length})</div>
+                {detailUser.listings.length === 0 ? (
+                  <div className="small-empty">İlan yok</div>
+                ) : detailUser.listings.map(l => (
+                  <div key={l.id} className="detail-row">
+                    <div style={{ flex: 1, fontSize: 13 }}>{l.title}</div>
+                    <span className={`badge ${l.status === 'active' ? 'badge-active' : l.status === 'pending' ? 'badge-pending' : 'badge-rejected'}`}>
+                      {l.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="user-detail-col">
+                <div className="section-title">Şikayetler ({detailUser.reports.length})</div>
+                {detailUser.reports.length === 0 ? (
+                  <div className="small-empty">Şikayet yok</div>
+                ) : detailUser.reports.map(r => (
+                  <div key={r.id} className="detail-row">
+                    <div style={{ flex: 1, fontSize: 13 }}>{r.reason}</div>
+                    <span className={`badge ${r.status === 'resolved' ? 'badge-active' : r.status === 'pending' ? 'badge-pending' : 'badge-rejected'}`}>
+                      {r.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              {!detailUser.user.is_banned && detailUser.user.role !== 'admin' && (
+                <button
+                  className="btn btn-danger"
+                  disabled={acting}
+                  onClick={() => { setDetailUser(null); setBanId(detailUser.user.id); setBanReason(''); }}
+                >
+                  Yasakla
+                </button>
+              )}
+              {detailUser.user.is_banned && (
+                <button
+                  className="btn btn-success"
+                  disabled={acting}
+                  onClick={() => { void unban(detailUser.user.id); setDetailUser(null); }}
+                >
+                  Yasağı Kaldır
+                </button>
+              )}
+              <button className="btn btn-ghost" onClick={() => setDetailUser(null)}>Kapat</button>
             </div>
           </div>
         </div>
