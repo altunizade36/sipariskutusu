@@ -1,0 +1,49 @@
+{
+  "description": "Cloudflare cache rules for SiparisKutusu product read endpoints",
+  "rules": [
+    {
+      "name": "cache-public-product-detail",
+      "expression": "(http.request.method eq \"GET\" and starts_with(http.request.uri.path, \"/v1/products/\") and not exists(http.request.headers[\"authorization\"][0]))",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "respect_origin"
+        },
+        "browser_ttl": {
+          "mode": "respect_origin"
+        },
+        "cache_key": {
+          "cache_deception_armor": true,
+          "ignore_query_strings_order": true
+        }
+      }
+    },
+    {
+      "name": "cache-public-product-search",
+      "expression": "(http.request.method eq \"GET\" and http.request.uri.path eq \"/v1/products\" and not exists(http.request.headers[\"authorization\"][0]))",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "respect_origin"
+        },
+        "browser_ttl": {
+          "mode": "respect_origin"
+        },
+        "cache_key": {
+          "cache_deception_armor": true,
+          "ignore_query_strings_order": true
+        }
+      }
+    },
+    {
+      "name": "bypass-authenticated-or-mutation",
+      "expression": "(http.request.method ne \"GET\" or exists(http.request.headers[\"authorization\"][0]))",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": false
+      }
+    }
+  ]
+}

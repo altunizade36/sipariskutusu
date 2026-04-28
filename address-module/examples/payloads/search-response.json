@@ -1,0 +1,23 @@
+{
+  "query": "istanbul kadikoy moda caferaga",
+  "normalizedQuery": "istanbul kadikoy moda caferaga",
+  "results": [
+    {
+      "province": { "id": 34, "name": "Istanbul" },
+      "district": { "id": 101, "name": "Kadikoy" },
+      "neighborhood": { "id": 9001, "name": "Caferaga", "type": "mahalle" },
+      "street": { "id": 555, "name": "Moda Caddesi", "type": "cadde" },
+      "buildingNo": "12",
+      "unitNo": "3",
+      "confidence": 0.93,
+      "matchedParts": {
+        "province": true,
+        "district": true,
+        "neighborhood": true,
+        "street": true,
+        "buildingNo": true,
+        "unitNo": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {},
+  "extends": "expo/tsconfig.base",
+  "exclude": ["supabase/functions", "address-module"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
+  ]
+}

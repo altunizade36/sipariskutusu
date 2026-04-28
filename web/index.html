@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1.00001,viewport-fit=cover" />
+  <script>
+  // Prevent fontfaceobserver timeout from crashing the preview
+  window.addEventListener('unhandledrejection', function(e) {
+    if (e.reason && e.reason.message && e.reason.message.indexOf('timeout exceeded') !== -1) {
+      e.preventDefault();
+    }
+  });
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+[
+  { "id": 9001, "provinceId": 34, "districtId": 34016, "code": "34016001", "name": "Caferaga", "type": "mahalle" },
+  { "id": 9002, "provinceId": 34, "districtId": 34016, "code": "34016002", "name": "Moda", "type": "mahalle" }
+]

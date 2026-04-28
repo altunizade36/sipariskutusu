@@ -1,0 +1,36 @@
+{
+  "query": "istanbul kadikoy moda caferaga no 12 d 3",
+  "normalizedQuery": "istanbul kadikoy moda caferaga no 12 daire 3",
+  "bestMatch": {
+    "candidate": {
+      "provinceId": 34,
+      "provinceName": "Istanbul",
+      "districtId": 34016,
+      "districtName": "Kadikoy",
+      "neighborhoodId": 9001,
+      "neighborhoodName": "Caferaga",
+      "neighborhoodType": "mahalle",
+      "streetId": 555,
+      "streetName": "Moda Caddesi",
+      "streetType": "cadde"
+    },
+    "buildingNo": "12",
+    "unitNo": "3",
+    "confidence": 0.93,
+    "matchedParts": {
+      "province": true,
+      "district": true,
+      "neighborhood": true,
+      "street": true,
+      "buildingNo": true,
+      "unitNo": true
+    }
+  },
+  "alternatives": [],
+  "validation": {
+    "isValid": true,
+    "confidence": 0.93,
+    "band": "high",
+    "requiresUserConfirmation": false
+  }
+}
