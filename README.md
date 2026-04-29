@@ -53,7 +53,3 @@ The application will start and display the local URL in your terminal.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-
-Built with ❤️ using [Shipper](https://shipper.now)
