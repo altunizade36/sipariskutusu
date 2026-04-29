@@ -67,3 +67,34 @@ Bu proje icin onerilen altyapi parcasi ve gorevleri:
   - `unregister_my_push_token`
   - `unregister_all_my_push_tokens`
   - token yasam dongusu icin ek indeks/alanlar
+
+## Security Audit Runbook (RLS + RPC + Storage)
+
+Bu proje icin guvenlik sertlestirme migrationlari:
+
+- `045_security_rls_storage_admin_hardening.sql`
+  - admin RPC fonksiyonlarinda admin role dogrulamasi
+  - profile alanlarinda privilege-escalation engeli
+  - mesaj update/delete owner-only kisiti
+  - storage access policy hardening
+- `046_security_function_grants_and_policy_sweep.sql`
+  - hassas fonksiyon grant sweep (anon/public kapatma)
+  - legacy policy temizligi ve savunma-derinligi
+
+Canli dogrulama sorgulari:
+
+- `supabase/security_rls_audit_queries.sql`
+
+Uygulama adimlari:
+
+1. Supabase SQL Editor'da migrationlari sirali calistirin.
+2. Ardindan `supabase/security_rls_audit_queries.sql` dosyasini calistirin.
+3. Asagidaki kosullari dogrulayin:
+   - public tablolarinda RLS kapali tablo kalmamis olmali.
+   - admin RPC fonksiyonlarinda `anon` execute hakki olmamali.
+   - storage `message-files`/`message-images` bucket politikalarinda katilimci + owner/path kontrolu olmali.
+   - `profiles` update policy owner check + with_check ile sinirli olmali.
+
+Beklenen sonuc:
+
+- Audit scriptindeki "expected 0 rows" kontrolleri bos donmelidir.
