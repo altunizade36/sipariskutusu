@@ -24,6 +24,8 @@ import { TR_CITIES } from '../src/constants/tr-cities';
 import { pickImageFromLibrary } from '../src/utils/imagePicker';
 import { submitListingToSupabase } from '../src/services/listingService';
 import { isSupabaseConfigured } from '../src/services/supabase';
+import { useUploadProgress } from '../src/hooks/useUploadProgress';
+import { UploadProgressOverlay } from '../src/components/UploadProgressOverlay';
 
 type Condition = 'Yeni' | 'Az kullanılmış' | 'İkinci el' | 'Hasarlı';
 type Delivery = 'Kargo' | 'Elden' | 'Görüşülür';
@@ -39,6 +41,7 @@ export default function CreateListingScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { addListing } = useListings();
+  const uploadProgress = useUploadProgress();
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [coverIndex, setCoverIndex] = useState(0);
@@ -118,6 +121,7 @@ export default function CreateListingScreen() {
     if (!canPublish) return;
 
     setSubmitting(true);
+    uploadProgress.startUpload(photos.length);
     try {
       if (isSupabaseConfigured) {
         const created = await submitListingToSupabase({
@@ -135,6 +139,7 @@ export default function CreateListingScreen() {
           stock: 1,
         });
 
+        uploadProgress.completeUpload();
         Alert.alert('Yayınlandı', 'İlanın Supabase\'e kaydedildi.', [
           { text: 'Tamam', onPress: () => router.replace(`/product/${created.id}`) },
         ]);
@@ -159,18 +164,28 @@ export default function CreateListingScreen() {
           attributes: bargaining ? [{ label: 'Pazarlık', value: 'Var' }] : [],
         });
 
+        uploadProgress.completeUpload();
         Alert.alert('Yayınlandı', 'İlanın yayınlandı.', [
           { text: 'Tamam', onPress: () => router.replace(`/product/${created.id}`) },
         ]);
       }
     } catch (err: any) {
+      uploadProgress.failUpload(err?.message ?? 'İlan yayınlanamadı.');
       Alert.alert('Hata', err?.message ?? 'İlan yayınlanamadı.');
     } finally {
       setSubmitting(false);
+      uploadProgress.resetProgress();
     }
   };
 
   return (
+    <>
+      <UploadProgressOverlay
+        visible={uploadProgress.isUploading}
+        progress={uploadProgress.progress}
+        message={uploadProgress.message}
+        error={uploadProgress.error}
+      />
     <SafeAreaView className="flex-1 bg-[#F7F7F7]" edges={['top']}>
       <View className="flex-row items-center justify-between px-4 h-12 bg-white border-b border-[#33333315]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2">
@@ -590,6 +605,7 @@ export default function CreateListingScreen() {
         })}
       </PickerModal>
     </SafeAreaView>
+    </>
   );
 }
 
