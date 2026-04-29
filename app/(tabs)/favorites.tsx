@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { colors, fonts } from '../../src/constants/theme';
 import { ProductCard } from '../../src/components/ProductCard';
+import SkeletonCard from '../../src/components/SkeletonCard';
 import { ProfileButton } from '../../src/components/ProfileButton';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { useAuth } from '../../src/context/AuthContext';
@@ -194,11 +195,17 @@ Favorilerim
             </View>
           ) : (
             <View className="flex-row flex-wrap px-4 pt-3" style={{ gap: 12 }}>
-              {visibleFavorites.map((p) => (
-                <View key={p.id} style={{ width: cardWidth }}>
-                  <ProductCard product={p} />
-                </View>
-              ))}
+              {favLoading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <View key={`skeleton-${i}`} style={{ width: cardWidth }}>
+                      <SkeletonCard width={cardWidth} />
+                    </View>
+                  ))
+                : visibleFavorites.map((p) => (
+                    <View key={p.id} style={{ width: cardWidth }}>
+                      <ProductCard product={p} />
+                    </View>
+                  ))}
             </View>
           )}
           <View className="h-8" />

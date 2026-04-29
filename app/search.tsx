@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../src/constants/theme';
 import { MARKETPLACE_CATEGORIES } from '../src/constants/marketplaceCategories';
+import SkeletonCard from '../src/components/SkeletonCard';
 import { useListings } from '../src/context/ListingsContext';
 import { useProducts } from '../src/hooks/useProducts';
 import { isSupabaseConfigured } from '../src/services/supabase';
@@ -456,28 +457,38 @@ export default function SearchScreen() {
 
             {searchResults.length > 0 ? (
               <View style={{ gap: 8 }}>
-                {searchResults.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => router.push(`/product/${item.id}`)}
-                    style={{ borderColor: colors.borderLight }}
-                    className="bg-white border rounded-2xl px-3 py-3 flex-row items-center active:opacity-80"
-                  >
-                    <View
-                      style={{ backgroundColor: '#F1F5F9' }}
-                      className="w-12 h-12 rounded-xl overflow-hidden mr-3"
-                    >
-                      {item.image ? (
-                        <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                      ) : null}
-                    </View>
-                    <View className="flex-1 pr-2">
-                      <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>
-                        {item.brand}
-                      </Text>
-                      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textPrimary, marginTop: 1 }}>
-                        {item.title}
-                      </Text>
+                {searchLoading && searchResults.length === 0
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <View key={`skeleton-${i}`} className="bg-white border rounded-2xl px-3 py-3 flex-row items-center" style={{ borderColor: colors.borderLight }}>
+                        <View className="w-12 h-12 rounded-xl bg-slate-200 mr-3" />
+                        <View className="flex-1">
+                          <View className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
+                          <View className="h-3 bg-slate-200 rounded w-2/3" />
+                        </View>
+                      </View>
+                    ))
+                  : searchResults.map((item) => (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => router.push(`/product/${item.id}`)}
+                        style={{ borderColor: colors.borderLight }}
+                        className="bg-white border rounded-2xl px-3 py-3 flex-row items-center active:opacity-80"
+                      >
+                        <View
+                          style={{ backgroundColor: '#F1F5F9' }}
+                          className="w-12 h-12 rounded-xl overflow-hidden mr-3"
+                        >
+                          {item.image ? (
+                            <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          ) : null}
+                        </View>
+                        <View className="flex-1 pr-2">
+                          <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>
+                            {item.brand}
+                          </Text>
+                          <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textPrimary, marginTop: 1 }}>
+                            {item.title}
+                          </Text>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                         {item.price > 0 ? `₺${item.price.toFixed(2)}` : 'Fiyat Sor'}
                       </Text>
