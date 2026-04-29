@@ -345,6 +345,36 @@ async function uploadListingImage(userId: string, listingId: string, uri: string
   return { url: data.publicUrl, path };
 }
 
+async function uploadListingImagesWithConcurrency(
+  userId: string,
+  listingId: string,
+  uris: string[],
+): Promise<Array<{ listing_id: string; url: string; sort_order: number; is_cover: boolean; path: string }>> {
+  const concurrency = Math.max(1, IMAGE_UPLOAD_CONCURRENCY);
+  const uploaded: Array<{ listing_id: string; url: string; sort_order: number; is_cover: boolean; path: string }> = [];
+
+  for (let start = 0; start < uris.length; start += concurrency) {
+    const chunk = uris.slice(start, start + concurrency);
+    const chunkResults = await Promise.all(
+      chunk.map(async (uri, chunkIndex) => {
+        const sortOrder = start + chunkIndex;
+        const uploadedImage = await uploadListingImage(userId, listingId, uri, sortOrder);
+        return {
+          listing_id: listingId,
+          url: uploadedImage.url,
+          sort_order: sortOrder,
+          is_cover: sortOrder === 0,
+          path: uploadedImage.path,
+        };
+      }),
+    );
+
+    uploaded.push(...chunkResults);
+  }
+
+  return uploaded;
+}
+
 async function compressListingImage(uri: string): Promise<string> {
   const normalizedUri = uri.trim();
 
@@ -431,20 +461,12 @@ export async function submitListingToSupabase(input: SubmitListingInput): Promis
   const uploadedPaths: string[] = [];
 
   try {
-    const uploadedImages = await Promise.all(
-      orderedUris.map(async (uri, index) => {
-        const uploaded = await uploadListingImage(userId, listing.id, uri, index);
-        uploadedPaths.push(uploaded.path);
-        return {
-          listing_id: listing.id,
-          url: uploaded.url,
-          sort_order: index,
-          is_cover: index === 0,
-        };
-      }),
-    );
+    const uploadedImages = await uploadListingImagesWithConcurrency(userId, listing.id, orderedUris);
+    uploadedPaths.push(...uploadedImages.map((item) => item.path));
 
-    const { error: imageError } = await supabase.from('listing_images').insert(uploadedImages);
+    const { error: imageError } = await supabase.from('listing_images').insert(
+      uploadedImages.map(({ path: _path, ...row }) => row),
+    );
     if (imageError) {
       throw new Error(`İlan görselleri kaydedilemedi: ${imageError.message}`);
     }
