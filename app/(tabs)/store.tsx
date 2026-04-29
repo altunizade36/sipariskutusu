@@ -21,6 +21,8 @@ import {
 } from '../../src/data/storeData';
 import { FavoriteButton } from '../../src/components/FavoriteButton';
 import { ProfileButton } from '../../src/components/ProfileButton';
+import { RatingSummary } from '../../src/components/RatingSummary';
+import { QuickStats } from '../../src/components/QuickStats';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
@@ -761,6 +763,25 @@ export default function StoreScreen() {
         {/* About Tab */}
         {activeTab === 'about' && (
           <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}>
+            {/* Rating Summary */}
+            <View style={{ marginBottom: 16 }}>
+              <RatingSummary
+                rating={currentStore.rating}
+                reviewCount={currentStore.reviewCount || 0}
+              />
+            </View>
+
+            {/* Quick Stats */}
+            <View style={{ marginBottom: 20 }}>
+              <QuickStats
+                stats={[
+                  { label: 'Ürün', value: `${activeStoreProducts.length}`, icon: 'cube-outline' },
+                  { label: 'Takipçi', value: currentStore.followers || '0', icon: 'people-outline' },
+                  { label: 'Satış', value: '0', icon: 'cart-outline' },
+                ]}
+              />
+            </View>
+
             {/* Description */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
