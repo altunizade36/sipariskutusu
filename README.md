@@ -1,4 +1,4 @@
-# Sipari Kutusu
+# Siparis Kutusu
 
 This project was created with Shipper.
 
