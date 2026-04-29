@@ -11,6 +11,7 @@ import { isSupabaseConfigured } from '../../src/services/supabase';
 import { captureError } from '../../src/services/monitoring';
 import { FavoriteButton } from '../../src/components/FavoriteButton';
 import { ProfileButton } from '../../src/components/ProfileButton';
+import { SkeletonCard } from '../../src/components/SkeletonCard';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
@@ -64,6 +65,7 @@ export default function ExploreScreen() {
   const [backendSellers, setBackendSellers] = useState<DiscoverStore[]>([]);
   const [rankedSellers, setRankedSellers] = useState<DiscoverStore[]>([]);
   const [isRankingLoading, setIsRankingLoading] = useState(false);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [featuredStories, setFeaturedStories] = useState<any[]>([]);
   const [leaderboardEntries, setLeaderboardEntries] = useState<any[]>([]);
   const canUseBackend = isSupabaseConfigured && Boolean(user) && !user?.id.startsWith('demo-');
@@ -87,11 +89,13 @@ export default function ExploreScreen() {
 
   useEffect(() => {
     if (!canUseBackend) {
+      setIsLoadingInitial(false);
       return;
     }
 
     let active = true;
 
+    setIsLoadingInitial(true);
     fetchDiscoverStores(24)
       .then(async (stores) => {
         if (!active) {
@@ -117,11 +121,13 @@ export default function ExploreScreen() {
           const algorithmic = await getAlgorithmicExploreSelection(stores, nextMap, 24);
           if (active) {
             setRankedSellers(algorithmic);
+            setIsLoadingInitial(false);
           }
         } catch (error) {
           console.error('Ranking failed:', error);
           if (active) {
             setRankedSellers(stores);
+            setIsLoadingInitial(false);
           }
         } finally {
           if (active) {
@@ -131,6 +137,9 @@ export default function ExploreScreen() {
       })
       .catch((error) => {
         captureError(error, { scope: 'explore_fetch_stores' });
+        if (active) {
+          setIsLoadingInitial(false);
+        }
       });
 
     return () => {
@@ -353,50 +362,58 @@ export default function ExploreScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 14, gap: 14, paddingBottom: 2 }}
           >
-            {popularSellerItems.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => openPopularSeller(item)}
-                className="items-center"
-                style={{ width: Math.min(104, Math.max(94, SCREEN_WIDTH / 4.1)) }}
-              >
-                <View className="relative">
-                  <View
-                    className="rounded-full overflow-hidden"
-                    style={{
-                      width: 82,
-                      height: 82,
-                      padding: 3,
-                      borderWidth: 2,
-                      borderColor: colors.primary,
-                      backgroundColor: '#EFF6FF',
-                    }}
+            {isLoadingInitial
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <View key={`skeleton-${i}`} style={{ width: Math.min(104, Math.max(94, SCREEN_WIDTH / 4.1)) }}>
+                    <View className="w-20 h-20 rounded-full bg-slate-200 self-center mb-2" />
+                    <View className="h-3 bg-slate-200 rounded w-full mb-2" />
+                    <View className="h-2 bg-slate-200 rounded w-2/3 self-center" />
+                  </View>
+                ))
+              : popularSellerItems.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => openPopularSeller(item)}
+                    className="items-center"
+                    style={{ width: Math.min(104, Math.max(94, SCREEN_WIDTH / 4.1)) }}
                   >
-                    <Image source={{ uri: item.image }} className="w-full h-full rounded-full" resizeMode="cover" />
-                  </View>
-                  <View className="absolute -bottom-1 self-center px-2 py-[2px] rounded-full" style={{ backgroundColor: colors.primary }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff' }}>{item.badge}</Text>
-                  </View>
-                </View>
-                <Text
-                  numberOfLines={2}
-                  style={{
-                    fontFamily: fonts.medium,
-                    fontSize: 11,
-                    color: colors.textPrimary,
-                    textAlign: 'center',
-                    marginTop: 7,
-                    lineHeight: 14,
-                    maxWidth: Math.min(104, Math.max(94, SCREEN_WIDTH / 4.1)),
-                  }}
-                >
-                  {item.storeName || item.seller}
-                </Text>
-                <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted, marginTop: 1 }}>
-                  {item.metricLabel}
-                </Text>
-              </Pressable>
-            ))}
+                    <View className="relative">
+                      <View
+                        className="rounded-full overflow-hidden"
+                        style={{
+                          width: 82,
+                          height: 82,
+                          padding: 3,
+                          borderWidth: 2,
+                          borderColor: colors.primary,
+                          backgroundColor: '#EFF6FF',
+                        }}
+                      >
+                        <Image source={{ uri: item.image }} className="w-full h-full rounded-full" resizeMode="cover" />
+                      </View>
+                      <View className="absolute -bottom-1 self-center px-2 py-[2px] rounded-full" style={{ backgroundColor: colors.primary }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff' }}>{item.badge}</Text>
+                      </View>
+                    </View>
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        fontFamily: fonts.medium,
+                        fontSize: 11,
+                        color: colors.textPrimary,
+                        textAlign: 'center',
+                        marginTop: 7,
+                        lineHeight: 14,
+                        maxWidth: Math.min(104, Math.max(94, SCREEN_WIDTH / 4.1)),
+                      }}
+                    >
+                      {item.storeName || item.seller}
+                    </Text>
+                    <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted, marginTop: 1 }}>
+                      {item.metricLabel}
+                    </Text>
+                  </Pressable>
+                ))}
           </ScrollView>
         </View>
 

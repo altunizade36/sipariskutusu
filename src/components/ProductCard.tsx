@@ -145,12 +145,24 @@ export function ProductCard({ product, width = '100%' }: Props) {
       return;
     }
 
+    // Optimistic update: toggle UI immediately
+    const wasF = favorited;
+    const wasFCount = liveFavoriteCount;
+    setFavorited(!favorited);
+    setLiveFavoriteCount((current) => Math.max(!wasF ? current + 1 : current - 1, 0));
     setFavoriteLoading(true);
+
     try {
       const next = await toggle(product.id);
-      setFavorited(next);
-      setLiveFavoriteCount((current) => Math.max(next ? current + 1 : current - 1, 0));
+      // Only update if different from optimistic (shouldn't happen if server agrees)
+      if (next !== !wasF) {
+        setFavorited(next);
+        setLiveFavoriteCount((current) => Math.max(next ? current + 1 : current - 1, 0));
+      }
     } catch (error) {
+      // Revert on error
+      setFavorited(wasF);
+      setLiveFavoriteCount(wasFCount);
       Alert.alert('Favori güncellenemedi', error instanceof Error ? error.message : 'Lütfen tekrar dene.');
     } finally {
       setFavoriteLoading(false);
