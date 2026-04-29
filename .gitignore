@@ -54,3 +54,7 @@ Thumbs.db
 
 # typescript build cache
 tsconfig.tsbuildinfo
+# Firebase / Google Services (secret — download from Firebase Console)
+google-services.json
+service-account-key.json
+GoogleService-Info.plist
