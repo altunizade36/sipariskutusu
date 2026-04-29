@@ -8,9 +8,6 @@ import { getOrderedMediaUris, hasVideoMedia, resolveMediaCover } from '../utils/
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { isSupabaseConfigured } from '../services/supabase';
-import { subscribeToListingFavoriteState } from '../services/favoriteService';
-import { fetchListing, subscribeToListingChanges } from '../services/listingService';
-import { mapListingToProduct } from '../utils/listingMapper';
 
 type Props = {
   product: Product;
@@ -89,25 +86,6 @@ export function ProductCard({ product, width = '100%' }: Props) {
   }, [canUseLiveListing, initialFavoriteCount, product.reviewCount]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !canUseLiveListing) {
-      return;
-    }
-
-    const refreshCounts = () => {
-      fetchListing(product.id)
-        .then((listing) => {
-          const mapped = mapListingToProduct(listing);
-          setLiveFavoriteCount(parseCount(mapped.favoriteCount));
-          setLiveReviewCount(mapped.reviewCount);
-        })
-        .catch(() => undefined);
-    };
-
-    refreshCounts();
-    return subscribeToListingChanges(product.id, refreshCounts);
-  }, [canUseLiveListing, product.id]);
-
-  useEffect(() => {
     let alive = true;
 
     if (!isSupabaseConfigured || !user || !canUseLiveListing) {
@@ -126,11 +104,9 @@ export function ProductCard({ product, width = '100%' }: Props) {
     };
 
     refresh();
-    const unsubscribe = subscribeToListingFavoriteState(user.id, product.id, refresh);
 
     return () => {
       alive = false;
-      unsubscribe();
     };
   }, [canUseLiveListing, checkFavorited, product.id, user?.id]);
 

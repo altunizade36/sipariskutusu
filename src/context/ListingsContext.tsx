@@ -1,5 +1,5 @@
 import { fetchMyStore, createSellerStore } from '../services/storeService';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCategorySlugPath } from '../catalog';
 import { products, stories, type Product, type Story } from '../data/mockData';
@@ -417,6 +417,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const [backendPage, setBackendPage] = useState(0);
   const [backendHasMore, setBackendHasMore] = useState(true);
   const [backendLoadingMore, setBackendLoadingMore] = useState(false);
+  const backendLoadingMoreRef = useRef(false);
   const [publishedListings, setPublishedListings] = useState<Product[]>([]);
   const [storyLinkedProducts, setStoryLinkedProducts] = useState<Product[]>([]);
   const [storePosts, setStorePosts] = useState<StorePost[]>(initialStorePosts);
@@ -732,10 +733,11 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (backendLoadingMore) {
+    if (backendLoadingMoreRef.current) {
       return;
     }
 
+    backendLoadingMoreRef.current = true;
     setBackendLoadingMore(true);
     try {
       const items = await fetchListings({}, page, HOME_PRODUCTS_PAGE_SIZE);
@@ -759,9 +761,10 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       }
       throw error;
     } finally {
+      backendLoadingMoreRef.current = false;
       setBackendLoadingMore(false);
     }
-  }, [backendLoadingMore]);
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {

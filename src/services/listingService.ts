@@ -22,6 +22,8 @@ const MAX_IMAGE_BYTES = Number(process.env.EXPO_PUBLIC_MAX_IMAGE_BYTES ?? 3 * 10
 const MAX_VIDEO_BYTES = Number(process.env.EXPO_PUBLIC_MAX_VIDEO_BYTES ?? 50 * 1024 * 1024);
 const IMAGE_UPLOAD_CONCURRENCY = Number(process.env.EXPO_PUBLIC_IMAGE_UPLOAD_CONCURRENCY ?? 2);
 const MAX_LISTINGS_PAGE_SIZE = 100;
+const LISTING_IMAGE_MAX_WIDTH = Number(process.env.EXPO_PUBLIC_LISTING_IMAGE_MAX_WIDTH ?? 1600);
+const LISTING_IMAGE_QUALITY_STEPS = [0.82, 0.74, 0.66, 0.58, 0.5, 0.42];
 const LISTING_VIEW_DEVICE_ID_KEY = 'listing-view-device-id-v1';
 const SUPPORTED_MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'm4v']);
 const MIN_DESCRIPTION_LENGTH = 20;
@@ -38,6 +40,11 @@ const PROHIBITED_WORDS = [
   'fisek',
 ];
 const SUSPICIOUS_MEDIA_TERMS = ['nud', 'nude', 'gun', 'weapon', 'drug', '18+', 'adult'];
+
+function isVideoUri(uri: string): boolean {
+  const cleanUri = (uri.split('?')[0] ?? uri).toLowerCase();
+  return cleanUri.endsWith('.mp4') || cleanUri.endsWith('.mov') || cleanUri.endsWith('.m4v') || cleanUri.endsWith('.webm');
+}
 
 export type ListingCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
 export type ListingStatus = 'active' | 'sold' | 'paused' | 'deleted';
@@ -314,7 +321,8 @@ async function uploadListingImage(userId: string, listingId: string, uri: string
   const ext = getMediaExtension(uri);
   const path = `${userId}/${listingId}/${Date.now()}-${sortOrder}.${ext}`;
 
-  const response = await fetch(uri);
+  const compressedUri = await compressListingImage(uri);
+  const response = await fetch(compressedUri);
   const blob = await response.blob();
   const arrayBuffer = await blob.arrayBuffer();
 
@@ -335,6 +343,41 @@ async function uploadListingImage(userId: string, listingId: string, uri: string
 
   const { data } = supabase.storage.from('listing-images').getPublicUrl(path);
   return { url: data.publicUrl, path };
+}
+
+async function compressListingImage(uri: string): Promise<string> {
+  const normalizedUri = uri.trim();
+
+  if (!normalizedUri || isVideoUri(normalizedUri)) {
+    return normalizedUri;
+  }
+
+  const tries = [normalizedUri];
+
+  for (const quality of LISTING_IMAGE_QUALITY_STEPS) {
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        tries[tries.length - 1],
+        [{ resize: { width: LISTING_IMAGE_MAX_WIDTH } }],
+        {
+          compress: quality,
+          format: ImageManipulator.SaveFormat.WEBP,
+        },
+      );
+
+      tries.push(manipulated.uri);
+
+      const probe = await fetch(manipulated.uri);
+      const probeBuffer = await (await probe.blob()).arrayBuffer();
+      if (probeBuffer.byteLength <= MAX_IMAGE_BYTES) {
+        return manipulated.uri;
+      }
+    } catch {
+      return normalizedUri;
+    }
+  }
+
+  return tries[tries.length - 1] ?? normalizedUri;
 }
 
 export async function submitListingToSupabase(input: SubmitListingInput): Promise<Listing> {
@@ -489,7 +532,35 @@ export async function fetchListings(
 
   let query = supabase
     .from('listings')
-    .select()
+    .select(
+      `
+      id,
+      seller_id,
+      owner_id,
+      store_id,
+      title,
+      description,
+      price,
+      original_price,
+      currency,
+      category_id,
+      condition,
+      status,
+      delivery,
+      city,
+      district,
+      stock,
+      view_count,
+      favorite_count,
+      comment_count,
+      is_negotiable,
+      like_count,
+      share_count,
+      created_at,
+      updated_at,
+      profiles!listings_seller_id_fkey(id, full_name, username, avatar_url)
+      `,
+    )
     .eq('status', 'active');
 
   // If onlyOwned, filter by current user
@@ -535,7 +606,44 @@ export async function fetchListings(
     return [];
   }
 
-  return (data || []) as unknown as Listing[];
+  const listings = ((data || []) as unknown as Listing[]);
+  if (listings.length === 0) {
+    return listings;
+  }
+
+  const listingIds = listings.map((item) => item.id);
+  const { data: coverRows, error: coverError } = await supabase
+    .from('listing_images')
+    .select('listing_id, url, sort_order, is_cover')
+    .in('listing_id', listingIds)
+    .eq('is_cover', true);
+
+  if (coverError) {
+    return listings;
+  }
+
+  const coverMap = new Map<string, { url: string; sort_order: number; is_cover: boolean }>();
+  for (const row of (coverRows ?? []) as Array<{ listing_id: string; url: string; sort_order: number; is_cover: boolean }>) {
+    if (!coverMap.has(row.listing_id)) {
+      coverMap.set(row.listing_id, {
+        url: row.url,
+        sort_order: row.sort_order,
+        is_cover: row.is_cover,
+      });
+    }
+  }
+
+  return listings.map((listing) => {
+    const cover = coverMap.get(listing.id);
+    return {
+      ...listing,
+      listing_images: cover ? [{
+        url: cover.url,
+        sort_order: cover.sort_order,
+        is_cover: cover.is_cover,
+      }] : [],
+    };
+  });
 }
 
 /**
