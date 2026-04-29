@@ -1,8 +1,8 @@
-import { ActivityIndicator, View, Text, ScrollView, Pressable, TextInput, Image, RefreshControl, Alert, Platform } from 'react-native';
+import { ActivityIndicator, View, Text, ScrollView, Pressable, TextInput, Image, RefreshControl, Alert, Platform, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../src/constants/theme';
 import { MARKETPLACE_CATEGORIES } from '../src/constants/marketplaceCategories';
@@ -11,6 +11,7 @@ import { useListings } from '../src/context/ListingsContext';
 import { useProducts } from '../src/hooks/useProducts';
 import { useSearchHistory } from '../src/hooks/useSearchHistory';
 import { isSupabaseConfigured } from '../src/services/supabase';
+import { unifiedSearch, StoreSearchResult, isInstagramQuery, SearchSortOption, StoreSortOption } from '../src/services/advancedSearchService';
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -25,6 +26,20 @@ export default function SearchScreen() {
   const [visualSearchActive, setVisualSearchActive] = useState(false);
   const [visualSearchUri, setVisualSearchUri] = useState<string | null>(null);
   const [visualSearchLoading, setVisualSearchLoading] = useState(false);
+
+  // Advanced search state
+  const [sortOption, setSortOption] = useState<SearchSortOption>('newest');
+  const [storeSort, setStoreSort] = useState<StoreSortOption>('relevance');
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
+  const [cityFilter, setCityFilter] = useState<string>('');
+  const [storeResults, setStoreResults] = useState<StoreSearchResult[]>([]);
+  const [storeLoading, setStoreLoading] = useState(false);
+  const [hasMoreStores, setHasMoreStores] = useState(false);
+  const [storePage, setStorePage] = useState(1);
+  const [hasMoreProducts, setHasMoreProducts] = useState(false);
+  const [productPage, setProductPage] = useState(1);
 
   // Load search history on mount
   useEffect(() => {
@@ -59,10 +74,56 @@ export default function SearchScreen() {
     enabled: isSupabaseConfigured && debouncedQuery.length >= 2,
   });
 
+  // Store search via unified search
+  const runStoreSearch = useCallback(async (q: string, page: number) => {
+    if (!isSupabaseConfigured || q.length < 2) {
+      setStoreResults([]);
+      setHasMoreStores(false);
+      return;
+    }
+    setStoreLoading(true);
+    try {
+      const result = await unifiedSearch({
+        query: q,
+        categoryId: selectedCategory ?? undefined,
+        city: cityFilter || undefined,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        sort: sortOption,
+        storeSort,
+        page,
+        pageSize: 20,
+      });
+      if (page === 1) {
+        setStoreResults(result.stores);
+        setHasMoreProducts(result.hasMoreProducts);
+      } else {
+        setStoreResults((prev) => [...prev, ...result.stores]);
+      }
+      setHasMoreStores(result.hasMoreStores);
+    } catch (e) {
+      console.error('[search] store search error', e);
+    } finally {
+      setStoreLoading(false);
+    }
+  }, [selectedCategory, cityFilter, minPrice, maxPrice, sortOption, storeSort]);
+
+  useEffect(() => {
+    setStorePage(1);
+    setStoreResults([]);
+    if (debouncedQuery.length >= 2) {
+      runStoreSearch(debouncedQuery, 1);
+    } else {
+      setStoreResults([]);
+      setHasMoreStores(false);
+    }
+  }, [debouncedQuery, runStoreSearch]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
       await serverRefresh();
+      if (debouncedQuery.length >= 2) await runStoreSearch(debouncedQuery, 1);
     } finally {
       setRefreshing(false);
     }
@@ -288,6 +349,14 @@ export default function SearchScreen() {
 
   const isSearching = query.trim().length > 0 || visualSearchActive;
 
+  const SORT_OPTIONS: { label: string; value: SearchSortOption }[] = [
+    { label: 'En Yeni', value: 'newest' },
+    { label: 'Ucuzdan Pahalıya', value: 'price_asc' },
+    { label: 'Pahalıdan Ucuza', value: 'price_desc' },
+    { label: 'Çok Beğenilen', value: 'most_liked' },
+    { label: 'Çok Yorumlanan', value: 'most_commented' },
+  ];
+
   useEffect(() => {
     if (!isSearching) return;
 
@@ -298,6 +367,76 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      {/* Filter Modal */}
+      <Modal visible={filterVisible} animationType="slide" transparent onRequestClose={() => setFilterVisible(false)}>
+        <Pressable className="flex-1 bg-black/40" onPress={() => setFilterVisible(false)} />
+        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-8" style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Filtrele ve Sırala</Text>
+            <Pressable onPress={() => setFilterVisible(false)}>
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          {/* Sort options */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Sıralama</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
+            {SORT_OPTIONS.map((opt) => {
+              const active = sortOption === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setSortOption(opt.value)}
+                  style={{ backgroundColor: active ? colors.primary : '#F1F5F9', borderColor: active ? colors.primary : '#E2E8F0' }}
+                  className="px-4 h-8 rounded-full border items-center justify-center"
+                >
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: active ? '#fff' : colors.textPrimary }}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Price range */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Fiyat Aralığı (₺)</Text>
+          <View className="flex-row gap-3 mb-4">
+            <TextInput
+              value={minPrice}
+              onChangeText={setMinPrice}
+              keyboardType="numeric"
+              placeholder="Min"
+              placeholderTextColor={colors.textMuted}
+              style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12 }}
+            />
+            <TextInput
+              value={maxPrice}
+              onChangeText={setMaxPrice}
+              keyboardType="numeric"
+              placeholder="Maks"
+              placeholderTextColor={colors.textMuted}
+              style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12 }}
+            />
+          </View>
+
+          {/* City */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Şehir</Text>
+          <TextInput
+            value={cityFilter}
+            onChangeText={setCityFilter}
+            placeholder="İstanbul, Ankara..."
+            placeholderTextColor={colors.textMuted}
+            style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12, marginBottom: 20 }}
+          />
+
+          <Pressable
+            onPress={() => setFilterVisible(false)}
+            style={{ backgroundColor: colors.primary }}
+            className="h-12 rounded-2xl items-center justify-center"
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Uygula</Text>
+          </Pressable>
+        </View>
+      </Modal>
+
       <View className="flex-row items-center px-3 py-2 border-b border-[#33333315]">
         <Pressable onPress={() => router.back()} className="w-9 h-9 items-center justify-center">
           <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
@@ -352,6 +491,13 @@ export default function SearchScreen() {
             </Pressable>
           )}
         </View>
+        {/* Filter button */}
+        <Pressable
+          onPress={() => setFilterVisible(true)}
+          className="w-10 h-10 items-center justify-center rounded-xl bg-[#F1F5F9] border border-[#E2E8F0] ml-2"
+        >
+          <Ionicons name="options-outline" size={20} color={colors.textPrimary} />
+        </Pressable>
       </View>
 
       {query.trim().length > 0 && querySuggestions.length > 0 ? (
@@ -531,6 +677,88 @@ export default function SearchScreen() {
                 </Text>
               </View>
             )}
+
+            {/* ── Mağaza Sonuçları ── */}
+            {!visualSearchActive && (storeResults.length > 0 || storeLoading) ? (
+              <View className="mt-5 mb-3">
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center">
+                    <Ionicons name="storefront-outline" size={16} color={colors.primary} />
+                    <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary, marginLeft: 6 }}>
+                      Mağazalar
+                    </Text>
+                    {isInstagramQuery(query) ? (
+                      <View className="ml-2 px-2 h-5 rounded-full bg-[#FBCFE8] items-center justify-center">
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#BE185D' }}>@instagram</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {storeLoading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
+                </View>
+
+                {storeResults.map((store) => (
+                  <Pressable
+                    key={store.store_id}
+                    onPress={() => router.push(`/store/${store.store_id}` as any)}
+                    style={{ borderColor: colors.borderLight }}
+                    className="bg-white border rounded-2xl px-3 py-3 flex-row items-center mb-2 active:opacity-80"
+                  >
+                    {store.avatar_url ? (
+                      <Image source={{ uri: store.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
+                    ) : (
+                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name="storefront" size={22} color={colors.textMuted} />
+                      </View>
+                    )}
+                    <View className="flex-1 pr-2">
+                      <View className="flex-row items-center">
+                        <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
+                          {store.store_name ?? 'Mağaza'}
+                        </Text>
+                        {store.verified_seller ? (
+                          <Ionicons name="checkmark-circle" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
+                        ) : null}
+                      </View>
+                      {store.instagram_username ? (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#7C3AED', marginTop: 1 }}>
+                          @{store.instagram_username}
+                        </Text>
+                      ) : null}
+                      <View className="flex-row items-center mt-1" style={{ gap: 8 }}>
+                        {store.city ? (
+                          <View className="flex-row items-center">
+                            <Ionicons name="location-outline" size={11} color={colors.textMuted} />
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginLeft: 2 }}>{store.city}</Text>
+                          </View>
+                        ) : null}
+                        {store.rating > 0 ? (
+                          <View className="flex-row items-center">
+                            <Ionicons name="star" size={11} color="#F59E0B" />
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginLeft: 2 }}>{store.rating.toFixed(1)}</Text>
+                          </View>
+                        ) : null}
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{store.product_count} ürün</Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </Pressable>
+                ))}
+
+                {hasMoreStores ? (
+                  <Pressable
+                    onPress={() => {
+                      const next = storePage + 1;
+                      setStorePage(next);
+                      runStoreSearch(debouncedQuery, next);
+                    }}
+                    className="h-10 rounded-xl border border-[#E2E8F0] items-center justify-center mt-1"
+                  >
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>Daha fazla mağaza</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+
           </View>
         ) : (
           <>

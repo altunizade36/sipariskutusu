@@ -64,6 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="categories"
         options={{
+          href: null,
           title: 'Kategoriler',
           tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} />,
         }}
@@ -71,6 +72,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
+          href: null,
           title: 'Favoriler',
           tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
         }}

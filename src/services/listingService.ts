@@ -96,10 +96,12 @@ export type SearchFilters = {
   minPrice?: number;
   maxPrice?: number;
   city?: string;
+  district?: string;
   page?: number;
   pageSize?: number;
   sellerId?: string;
   onlyOwned?: boolean;
+  sort?: 'newest' | 'price_asc' | 'price_desc' | 'most_liked' | 'most_commented';
 };
 
 export type CreateListingInput = {
@@ -613,13 +615,31 @@ export async function fetchListings(
     query = query.or(`title.ilike.%${filters.query}%,description.ilike.%${filters.query}%`);
   }
 
+  if (filters?.district) {
+    query = query.eq('district', filters.district);
+  }
+
   const page = typeof userIdOrPage === 'number' ? userIdOrPage : (filters?.page ?? 0);
   const pageSize = Math.min(pageSizeArg ?? filters?.pageSize ?? 20, MAX_LISTINGS_PAGE_SIZE);
   const offset = page * pageSize;
 
-  query = query
-    .range(offset, offset + pageSize - 1)
-    .order('created_at', { ascending: false });
+  // Sort
+  switch (filters?.sort) {
+    case 'price_asc':
+      query = query.range(offset, offset + pageSize - 1).order('price', { ascending: true });
+      break;
+    case 'price_desc':
+      query = query.range(offset, offset + pageSize - 1).order('price', { ascending: false });
+      break;
+    case 'most_liked':
+      query = query.range(offset, offset + pageSize - 1).order('like_count', { ascending: false });
+      break;
+    case 'most_commented':
+      query = query.range(offset, offset + pageSize - 1).order('comment_count', { ascending: false });
+      break;
+    default:
+      query = query.range(offset, offset + pageSize - 1).order('created_at', { ascending: false });
+  }
 
   const { data, error } = await query;
 
