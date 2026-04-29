@@ -2,7 +2,7 @@ import { Dimensions, Image, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { colors, fonts } from '../../src/constants/theme';
 import { discoverSellers } from '../../src/data/storeData';
 import { fetchDiscoverStores, type DiscoverStore } from '../../src/services/storeService';
@@ -12,6 +12,7 @@ import { captureError } from '../../src/services/monitoring';
 import { FavoriteButton } from '../../src/components/FavoriteButton';
 import { ProfileButton } from '../../src/components/ProfileButton';
 import SkeletonCard from '../../src/components/SkeletonCard';
+import { ScrollToTopButton } from '../../src/components/ScrollToTopButton';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
@@ -60,6 +61,7 @@ export default function ExploreScreen() {
   useAndroidTabBackToHome();
   const { user } = useAuth();
   const { allProducts, followedSellers, toggleSellerFollow, setFollowedSellersMap } = useListings();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [activeFilter, setActiveFilter] = useState<FilterId>('all');
   const [backendSellers, setBackendSellers] = useState<DiscoverStore[]>([]);
@@ -68,6 +70,7 @@ export default function ExploreScreen() {
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [featuredStories, setFeaturedStories] = useState<any[]>([]);
   const [leaderboardEntries, setLeaderboardEntries] = useState<any[]>([]);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
   const canUseBackend = isSupabaseConfigured && Boolean(user) && !user?.id.startsWith('demo-');
 
   function parseFollowersText(value: string) {
@@ -334,7 +337,15 @@ export default function ExploreScreen() {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        onScroll={({ nativeEvent }) => {
+          setShowScrollToTop(nativeEvent.contentOffset.y > 300);
+        }}
+        scrollEventThrottle={16}
+      >
 
         {/* ── Popular sellers ───────────────── */}
         <View className="bg-white pt-3 pb-4 border-b border-[#33333315]">
@@ -735,6 +746,12 @@ export default function ExploreScreen() {
         </View>
 
       </ScrollView>
+      <ScrollToTopButton
+        visible={showScrollToTop}
+        onPress={() => {
+          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        }}
+      />
     </SafeAreaView>
   );
 }
