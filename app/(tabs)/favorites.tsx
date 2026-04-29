@@ -1,7 +1,7 @@
-import { View, Text, ScrollView, Pressable, Dimensions, RefreshControl, ActivityIndicator, Share } from 'react-native';
+import { View, Text, ScrollView, Pressable, Dimensions, RefreshControl, ActivityIndicator, Share, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { colors, fonts } from '../../src/constants/theme';
 import { ProductCard } from '../../src/components/ProductCard';
@@ -9,15 +9,27 @@ import { ProfileButton } from '../../src/components/ProfileButton';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
+import { getSupabaseClient } from '../../src/services/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - 12) / 2;
 
+interface FollowedStore {
+  id: string;
+  name: string;
+  username: string | null;
+  avatar_url: string | null;
+  city: string | null;
+  follower_count: number;
+  is_verified: boolean;
+  listing_count: number;
+}
+
 export default function FavoritesScreen() {
   const router = useRouter();
   useAndroidTabBackToHome();
-    const { user } = useAuth();
-    const { favorites, loading: favLoading, refresh: refreshFavs } = useFavorites();
+  const { user } = useAuth();
+  const { favorites, loading: favLoading, refresh: refreshFavs } = useFavorites();
   const [tab, setTab] = useState<'products' | 'collections' | 'brands'>('products');
   const [sortBy, setSortBy] = useState<'default' | 'priceAsc' | 'priceDesc' | 'topRated'>('default');
   const [onlyDiscount, setOnlyDiscount] = useState(false);

@@ -121,3 +121,82 @@ CREATE TRIGGER on_order_status_change
 
 -- Süresi dolmuş hikayeleri temizle (pg_cron ile günlük çalıştırın)
 -- SELECT cron.schedule('clean-stories', '0 3 * * *', 'DELETE FROM stories WHERE expires_at < NOW()');
+
+-- ============================================================
+-- ADMIN RPC Functions
+-- ============================================================
+
+-- Onay bekleyen ilanları listele
+CREATE OR REPLACE FUNCTION get_pending_listings_admin(p_limit INT DEFAULT 100, p_offset INT DEFAULT 0)
+RETURNS TABLE (
+  id UUID,
+  title TEXT,
+  price NUMERIC,
+  status TEXT,
+  created_at TIMESTAMPTZ,
+  user_name TEXT,
+  cover_url TEXT
+)
+LANGUAGE plpgsql STABLE AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    l.id,
+    l.title,
+    l.price,
+    l.status::TEXT,
+    l.created_at,
+    COALESCE(p.full_name, p.username, 'Anonim') AS user_name,
+    (SELECT url FROM listing_images WHERE listing_id = l.id AND is_cover = true LIMIT 1) AS cover_url
+  FROM listings l
+  LEFT JOIN profiles p ON p.id = l.seller_id
+  WHERE l.status = 'pending'
+  ORDER BY l.created_at ASC
+  LIMIT p_limit OFFSET p_offset;
+END;
+$$;
+
+-- Açık şikayetleri listele
+CREATE OR REPLACE FUNCTION get_open_reports_admin(p_limit INT DEFAULT 100, p_offset INT DEFAULT 0)
+RETURNS TABLE (
+  id UUID,
+  target_type TEXT,
+  target_id UUID,
+  reason TEXT,
+  status TEXT,
+  created_at TIMESTAMPTZ,
+  reporter_name TEXT
+)
+LANGUAGE plpgsql STABLE AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    r.id,
+    r.target_type::TEXT,
+    r.target_id,
+    r.reason,
+    r.status::TEXT,
+    r.created_at,
+    COALESCE(p.full_name, p.username, 'Anonim') AS reporter_name
+  FROM reports r
+  LEFT JOIN profiles p ON p.id = r.reporter_id
+  WHERE r.status = 'pending'
+  ORDER BY r.created_at ASC
+  LIMIT p_limit OFFSET p_offset;
+END;
+$$;
+
+-- Ban/unban user functions
+CREATE OR REPLACE FUNCTION ban_user_admin(p_user_id UUID, p_reason TEXT DEFAULT NULL)
+RETURNS VOID LANGUAGE SQL SECURITY DEFINER AS $$
+  UPDATE profiles
+  SET is_banned = true, banned_reason = p_reason
+  WHERE id = p_user_id;
+$$;
+
+CREATE OR REPLACE FUNCTION unban_user_admin(p_user_id UUID)
+RETURNS VOID LANGUAGE SQL SECURITY DEFINER AS $$
+  UPDATE profiles
+  SET is_banned = false, banned_reason = NULL
+  WHERE id = p_user_id;
+$$;

@@ -44,34 +44,15 @@ const filterChips: { id: FilterId; label: string; icon: string }[] = [
   { id: 'live', label: 'Canlı Yayın', icon: 'radio-outline' },
 ];
 
-// product preview images per seller (3 thumbnails)
-const sellerPreviewMap: Record<string, string[]> = {
-  ds1: [
-    'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=200&q=70',
-    'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=70',
-    'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=200&q=70',
-  ],
-  ds2: [
-    'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=200&q=70',
-    'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200&q=70',
-    'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=200&q=70',
-  ],
-  ds3: [
-    'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=200&q=70',
-    'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=200&q=70',
-    'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=200&q=70',
-  ],
-  ds4: [
-    'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=200&q=70',
-    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=70',
-    'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=200&q=70',
-  ],
-  ds5: [
-    'https://images.unsplash.com/photo-1522335789203-aaa0db1ebcd1?w=200&q=70',
-    'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=200&q=70',
-    'https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=200&q=70',
-  ],
-};
+// Skeleton loader component for seller cards
+function SkeletonSellerCard() {
+  return (
+    <View style={{ backgroundColor: '#E5E7EB', borderRadius: 12, height: 200, marginBottom: 8 }} />
+  );
+}
+
+// Note: Product preview images are now loaded from real store listings via fetchDiscoverStores()
+// which includes store data with actual product images from Supabase storage
 
 export default function ExploreScreen() {
   const router = useRouter();

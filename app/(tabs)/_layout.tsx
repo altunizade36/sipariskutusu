@@ -104,6 +104,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Mesajlar',
+          tabBarBadge: undefined, // Will be set dynamically from useListings context
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />,
         }}
       />
