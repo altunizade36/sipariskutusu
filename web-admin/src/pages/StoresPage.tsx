@@ -168,7 +168,7 @@ export default function StoresPage() {
           <p className="page-sub">
             Toplam <strong>{stores.length}</strong> mağaza —{' '}
             <span style={{ color: 'var(--success)' }}>{activeCount} aktif</span>,{' '}
-            <span style={{ color: '#2563eb' }}>{verifiedCount} doğrulanmış</span>
+            <span style={{ color: '#2563eb' }}>{verifiedCount} satıcı onaylı</span>
           </p>
         </div>
         <div className="header-actions">
@@ -193,7 +193,7 @@ export default function StoresPage() {
             className={`btn ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => { setFilter(f); setSelectedIds([]); }}
           >
-            {f === 'all' ? 'Tümü' : f === 'active' ? 'Aktif' : f === 'inactive' ? 'Devre Dışı' : f === 'verified' ? 'Doğrulanmış' : 'Doğrulanmamış'}
+            {f === 'all' ? 'Tümü' : f === 'active' ? 'Aktif' : f === 'inactive' ? 'Devre Dışı' : f === 'verified' ? 'Satıcı Onaylı' : 'Satıcı Onayı Bekleyen'}
           </button>
         ))}
         <input
@@ -210,8 +210,8 @@ export default function StoresPage() {
           <span>{selectedIds.length} mağaza seçildi</span>
           <button className="btn btn-success" onClick={() => setBulkAction('activate')} disabled={acting}>Toplu Aktifleştir</button>
           <button className="btn btn-warn" onClick={() => setBulkAction('deactivate')} disabled={acting}>Toplu Devre Dışı</button>
-          <button className="btn btn-primary" onClick={() => setBulkAction('verify')} disabled={acting}>Toplu Doğrula</button>
-          <button className="btn btn-ghost" onClick={() => setBulkAction('unverify')} disabled={acting}>Doğrulama Kaldır</button>
+          <button className="btn btn-primary" onClick={() => setBulkAction('verify')} disabled={acting}>Toplu Satıcı Onayı Ver</button>
+          <button className="btn btn-ghost" onClick={() => setBulkAction('unverify')} disabled={acting}>Toplu Satıcı Onayını Kaldır</button>
           <button className="btn btn-ghost" onClick={() => setSelectedIds([])}>İptal</button>
         </div>
       )}
@@ -273,7 +273,7 @@ export default function StoresPage() {
                   </td>
                   <td>
                     <span className={`badge ${s.is_verified ? 'badge-open' : ''}`} style={s.is_verified ? {} : { background: '#f3f4f6', color: '#6b7280' }}>
-                      {s.is_verified ? '✓ Doğrulandı' : 'Doğrulanmamış'}
+                      {s.is_verified ? '✓ Satıcı Onaylı' : 'Onay Bekliyor'}
                     </span>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
@@ -291,7 +291,7 @@ export default function StoresPage() {
                       onClick={() => void toggleSingle(s.id, 'is_verified', s.is_verified)}
                       style={{ fontSize: 11 }}
                     >
-                      {s.is_verified ? 'Doğrulamayı Kaldır' : 'Doğrula'}
+                      {s.is_verified ? 'Satıcı Onayını Kaldır' : 'Satıcıyı Onayla'}
                     </button>
                   </td>
                 </tr>
@@ -306,8 +306,8 @@ export default function StoresPage() {
         title={
           bulkAction === 'activate' ? `${selectedIds.length} Mağazayı Aktifleştir` :
           bulkAction === 'deactivate' ? `${selectedIds.length} Mağazayı Devre Dışı Bırak` :
-          bulkAction === 'verify' ? `${selectedIds.length} Mağazayı Doğrula` :
-          `${selectedIds.length} Mağazanın Doğrulamasını Kaldır`
+          bulkAction === 'verify' ? `${selectedIds.length} Mağazaya Satıcı Onayı Ver` :
+          `${selectedIds.length} Mağazanın Satıcı Onayını Kaldır`
         }
         description={`${selectedIds.length} seçili mağazaya toplu işlem uygulanacak.`}
         confirmLabel="Onayla"

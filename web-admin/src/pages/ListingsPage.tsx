@@ -12,7 +12,7 @@ interface Listing {
   cover_url: string | null;
 }
 
-type FilterStatus = 'pending' | 'active' | 'rejected';
+type FilterStatus = 'pending' | 'active' | 'paused' | 'rejected';
 type BulkAction = 'approve' | 'reject' | null;
 
 export default function ListingsPage() {
@@ -98,11 +98,17 @@ export default function ListingsPage() {
   async function approve(id: string) {
     setActing(true);
     setNotice(null);
-    await supabase.rpc('review_listing_admin', {
+    setError(null);
+    const { error: opErr } = await supabase.rpc('review_listing_admin', {
       p_listing_id: id,
-      p_action: 'approve',
-      p_reason: null,
+      p_decision: 'active',
+      p_review_note: null,
     });
+    if (opErr) {
+      setError(opErr.message);
+      setActing(false);
+      return;
+    }
     await load();
     setNotice('Ilan onaylandi.');
     setActing(false);
@@ -112,15 +118,42 @@ export default function ListingsPage() {
     if (!rejectId) return;
     setActing(true);
     setNotice(null);
-    await supabase.rpc('review_listing_admin', {
+    setError(null);
+    const { error: opErr } = await supabase.rpc('review_listing_admin', {
       p_listing_id: rejectId,
-      p_action: 'reject',
-      p_reason: rejectReason || 'Kural ihlali',
+      p_decision: 'rejected',
+      p_review_note: rejectReason || 'Kural ihlali',
     });
+    if (opErr) {
+      setError(opErr.message);
+      setActing(false);
+      return;
+    }
     setRejectId(null);
     setRejectReason('');
     await load();
     setNotice('Ilan reddedildi.');
+    setActing(false);
+  }
+
+  async function updateListingStatus(id: string, status: 'paused' | 'active') {
+    setActing(true);
+    setNotice(null);
+    setError(null);
+
+    const { error: opErr } = await supabase
+      .from('listings')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (opErr) {
+      setError(opErr.message);
+      setActing(false);
+      return;
+    }
+
+    await load();
+    setNotice(status === 'paused' ? 'Ilan pasife alindi.' : 'Ilan yeniden aktif edildi.');
     setActing(false);
   }
 
@@ -153,8 +186,8 @@ export default function ListingsPage() {
     for (const id of selectedIds) {
       const { error: actErr } = await supabase.rpc('review_listing_admin', {
         p_listing_id: id,
-        p_action: bulkAction,
-        p_reason: bulkAction === 'reject' ? bulkRejectReason || 'Toplu red' : null,
+          p_decision: bulkAction === 'approve' ? 'active' : 'rejected',
+          p_review_note: bulkAction === 'reject' ? bulkRejectReason || 'Toplu red' : null,
       });
 
       if (actErr) failed += 1;
@@ -174,13 +207,13 @@ export default function ListingsPage() {
       <h1 className="page-title">Ilan Yonetimi</h1>
 
       <div className="toolbar-row">
-        {(['pending', 'active', 'rejected'] as FilterStatus[]).map(s => (
+        {(['pending', 'active', 'paused', 'rejected'] as FilterStatus[]).map(s => (
           <button
             key={s}
             className={`btn ${filter === s ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setFilter(s)}
           >
-            {s === 'pending' ? 'Onay Bekliyor' : s === 'active' ? 'Aktif' : 'Reddedilmis'}
+            {s === 'pending' ? 'Onay Bekliyor' : s === 'active' ? 'Aktif' : s === 'paused' ? 'Pasif' : 'Reddedilmis'}
           </button>
         ))}
         <button className={`btn ${autoRefresh ? 'btn-success' : 'btn-ghost'}`} onClick={() => setAutoRefresh(v => !v)}>
@@ -223,7 +256,7 @@ export default function ListingsPage() {
                 <th>Satici</th>
                 <th>Tarih</th>
                 <th>Durum</th>
-                {filter === 'pending' && <th>Islem</th>}
+                <th>Islem</th>
               </tr>
             </thead>
             <tbody>
@@ -247,14 +280,20 @@ export default function ListingsPage() {
                   <td>
                     <span className={`badge badge-${l.status}`}>{l.status}</span>
                   </td>
-                  {filter === 'pending' && (
-                    <td>
+                  <td>
+                    {filter === 'pending' ? (
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-success" disabled={acting} onClick={() => void approve(l.id)}>Onayla</button>
                         <button className="btn btn-danger" disabled={acting} onClick={() => { setRejectId(l.id); setRejectReason(''); }}>Reddet</button>
                       </div>
-                    </td>
-                  )}
+                    ) : filter === 'active' ? (
+                      <button className="btn btn-warn" disabled={acting} onClick={() => void updateListingStatus(l.id, 'paused')}>Pasife Al</button>
+                    ) : filter === 'paused' ? (
+                      <button className="btn btn-success" disabled={acting} onClick={() => void updateListingStatus(l.id, 'active')}>Aktif Et</button>
+                    ) : (
+                      <span style={{ color: '#64748b', fontSize: 13 }}>-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
