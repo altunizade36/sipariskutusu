@@ -21,6 +21,7 @@
     "smoke:reactions": "node scripts/reactions-smoke.mjs",
     "smoke:chat": "node scripts/chat-smoke.mjs",
     "smoke:notifications": "node scripts/notifications-smoke.mjs",
+    "uat:summary": "node scripts/uat-summary.mjs",
     "infra:auto": "node scripts/infra-setup.mjs",
     "reliability:check": "node scripts/reliability-gate.mjs",
     "system:ready": "node scripts/system-readiness.mjs",
