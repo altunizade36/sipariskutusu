@@ -1,7 +1,7 @@
 import { ActivityIndicator, Alert, View, Text, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../constants/theme';
 import type { Product } from '../data/mockData';
 import { getOrderedMediaUris, hasVideoMedia, resolveMediaCover } from '../utils/media';
@@ -64,7 +64,7 @@ function parseCount(value: string | number | undefined) {
   return Number(normalized.replace(/[^0-9.]/g, '')) || 0;
 }
 
-export function ProductCard({ product, width = '100%' }: Props) {
+function ProductCardComponent({ product, width = '100%' }: Props) {
   const router = useRouter();
   const { user } = useAuth();
   const { checkFavorited, toggle } = useFavorites();
@@ -325,3 +325,17 @@ export function ProductCard({ product, width = '100%' }: Props) {
     </Pressable>
   );
 }
+
+export const ProductCard = memo(ProductCardComponent, (prev, next) => {
+  return (
+    prev.width === next.width
+    && prev.product.id === next.product.id
+    && prev.product.price === next.product.price
+    && prev.product.originalPrice === next.product.originalPrice
+    && prev.product.favoriteCount === next.product.favoriteCount
+    && prev.product.reviewCount === next.product.reviewCount
+    && prev.product.badge === next.product.badge
+    && prev.product.image === next.product.image
+    && prev.product.title === next.product.title
+  );
+});

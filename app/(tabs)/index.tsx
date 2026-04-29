@@ -17,6 +17,7 @@ import { getTopDailyPerformers, getRankBadge } from '../../src/services/leaderbo
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 24) / 2;
+const LOAD_MORE_SCROLL_THROTTLE_MS = 350;
 
 type ProductTabId = 'all' | 'new' | 'flash' | 'discount' | 'freeShipping';
 type ProductSortId = 'newest' | 'priceAsc' | 'priceDesc' | 'topRated';
@@ -75,6 +76,7 @@ export default function HomeScreen() {
   useAndroidTabBackToHome(true);
   const scrollRef = useRef<ScrollView>(null);
   const productSectionOffsetRef = useRef(0);
+  const lastLoadMoreAttemptRef = useRef(0);
   const [activeBanner, setActiveBanner] = useState(0);
   const [activeProductTab, setActiveProductTab] = useState<ProductTabId>('all');
   const [activeProductSort, setActiveProductSort] = useState<ProductSortId>('newest');
@@ -195,9 +197,15 @@ export default function HomeScreen() {
       return;
     }
 
+    const now = Date.now();
+    if (now - lastLoadMoreAttemptRef.current < LOAD_MORE_SCROLL_THROTTLE_MS) {
+      return;
+    }
+
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const threshold = 280;
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold) {
+      lastLoadMoreAttemptRef.current = now;
       loadMoreProducts().catch(() => undefined);
     }
   }, [homeHasMore, homeLoadingMore, loadMoreProducts]);
