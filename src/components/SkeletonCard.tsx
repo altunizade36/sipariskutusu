@@ -14,7 +14,7 @@ export default function SkeletonCard({ width = '100%' }: Props) {
   );
 
   return (
-    <View style={{ width }} className="bg-white">
+    <View style={{ width: typeof width === 'number' ? width : undefined }} className="bg-white">
       {/* Image skeleton */}
       <View
         style={{ aspectRatio: 3 / 4 }}

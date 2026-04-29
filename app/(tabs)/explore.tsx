@@ -11,7 +11,7 @@ import { isSupabaseConfigured } from '../../src/services/supabase';
 import { captureError } from '../../src/services/monitoring';
 import { FavoriteButton } from '../../src/components/FavoriteButton';
 import { ProfileButton } from '../../src/components/ProfileButton';
-import { SkeletonCard } from '../../src/components/SkeletonCard';
+import SkeletonCard from '../../src/components/SkeletonCard';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
@@ -503,7 +503,6 @@ export default function ExploreScreen() {
               {featuredSellers.map((seller) => {
                 const followed = Boolean(followedSellers[seller.id]);
                 const displayFollowers = formatFollowersCount(parseFollowersText(seller.followers) + (followed ? 1 : 0));
-                const previews = sellerPreviewMap[seller.id] ?? [];
                 return (
                   <Pressable
                     key={seller.id}
@@ -536,20 +535,6 @@ export default function ExploreScreen() {
                       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textPrimary }} className="mt-2.5">
                         {seller.headline}
                       </Text>
-
-                      {/* Product thumbnails */}
-                      {previews.length > 0 ? (
-                        <View className="flex-row gap-1.5 mt-3">
-                          {previews.map((uri, i) => (
-                            <Image
-                              key={i}
-                              source={{ uri }}
-                              style={{ width: 70, height: 70, borderRadius: 10, backgroundColor: '#F1F5F9' }}
-                              resizeMode="cover"
-                            />
-                          ))}
-                        </View>
-                      ) : null}
 
                       {/* Stats + follow */}
                       <View className="flex-row items-center justify-between mt-4">
@@ -615,7 +600,6 @@ export default function ExploreScreen() {
             {filteredSellers.map((seller) => {
               const followed = Boolean(followedSellers[seller.id]);
               const isLive = seller.id === 'ds4' || seller.id === 'ds2';
-              const preview = sellerPreviewMap[seller.id]?.[0];
               const displayFollowers = formatFollowersCount(parseFollowersText(seller.followers) + (followed ? 1 : 0));
 
               return (
@@ -695,15 +679,6 @@ export default function ExploreScreen() {
                     >
                       {seller.headline}
                     </Text>
-
-                    {/* Preview product image */}
-                    {preview ? (
-                      <Image
-                        source={{ uri: preview }}
-                        style={{ width: '100%', height: 70, borderRadius: 10, marginTop: 8, backgroundColor: '#F1F5F9' }}
-                        resizeMode="cover"
-                      />
-                    ) : null}
 
                     {/* Weekly drop */}
                     <View style={{ backgroundColor: '#ECFDF5' }} className="rounded-full px-2 py-1 mt-2 self-start">

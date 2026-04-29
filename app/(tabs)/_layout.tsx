@@ -3,9 +3,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import { useUnreadMessageCount } from '../../src/hooks/useUnreadMessageCount';
 
 export default function TabLayout() {
   const { isLoading } = useAuth();
+  const unreadCount = useUnreadMessageCount();
 
   if (isLoading) {
     return (
@@ -104,7 +106,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Mesajlar',
-          tabBarBadge: undefined, // Will be set dynamically from useListings context
+          tabBarBadge: unreadCount > 0 ? unreadCount : null,
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />,
         }}
       />
