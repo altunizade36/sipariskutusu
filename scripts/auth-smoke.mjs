@@ -47,7 +47,8 @@ function getArg(name) {
 const explicitEmail = getArg('--email').trim();
 const explicitPassword = getArg('--password').trim();
 const fullName = getArg('--full-name').trim() || 'Auth Smoke';
-const email = explicitEmail || `authsmoke+${Date.now()}@smoke.dev`;
+const smokeEmailDomain = (process.env.SMOKE_TEST_EMAIL_DOMAIN || 'mailinator.com').trim();
+const email = explicitEmail || `authsmoke+${Date.now()}@${smokeEmailDomain}`;
 const password = explicitPassword || `AuthSmoke_${Date.now()}!`;
 const mode = getArg('--mode') || 'register-and-login';
 const keepUser = getArg('--keep-user') === 'true' || Boolean(explicitEmail);

@@ -33,6 +33,7 @@ if (!url || !anonKey || !serviceKey) {
 const admin = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+const smokeEmailDomain = (process.env.SMOKE_TEST_EMAIL_DOMAIN || 'mailinator.com').trim();
 
 const resources = {
   users: [],
@@ -55,7 +56,7 @@ function record(name, ok, detail = '') {
 }
 
 async function createUser(label, role = 'buyer') {
-  const email = `${label}${stamp()}@smoke.dev`;
+  const email = `${label}${stamp()}@${smokeEmailDomain}`;
   const password = `Smoke_${stamp()}!`;
 
   const created = await admin.auth.admin.createUser({

@@ -34,6 +34,7 @@ try {
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const smokeEmailDomain = (process.env.SMOKE_TEST_EMAIL_DOMAIN || 'mailinator.com').trim();
 
 if (!url || !anonKey) {
   console.error('Missing: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY');
@@ -73,7 +74,7 @@ async function main() {
       );
     }
     smokePassword = `Smoke_${Date.now()}_Test!`;
-    smokeEmail = `smoke+${Date.now()}@smoke.dev`;
+    smokeEmail = `smoke+${Date.now()}@${smokeEmailDomain}`;
     const { data, error } = await admin.auth.admin.createUser({
       email: smokeEmail,
       password: smokePassword,

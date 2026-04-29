@@ -55,8 +55,9 @@ const explicitEmail = getArg('--email').trim();
 const explicitPassword = getArg('--password').trim();
 const explicitAccessToken = getArg('--access-token').trim() || process.env.SMOKE_ACCESS_TOKEN || '';
 const keepUser = getArg('--keep-user') === 'true' || Boolean(explicitEmail);
+const smokeEmailDomain = (process.env.SMOKE_TEST_EMAIL_DOMAIN || 'mailinator.com').trim();
 
-const smokeEmail = explicitEmail || `notifsmoke+${Date.now()}@smoke.dev`;
+const smokeEmail = explicitEmail || `notifsmoke+${Date.now()}@${smokeEmailDomain}`;
 const smokePassword = explicitPassword || `NotifSmoke_${Date.now()}!`;
 
 let userId = null;

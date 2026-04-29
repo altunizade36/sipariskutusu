@@ -35,6 +35,8 @@ const admin = createClient(url, serviceKey, {
 });
 
 const results = [];
+const smokeEmailDomain = (process.env.SMOKE_TEST_EMAIL_DOMAIN || 'mailinator.com').trim();
+const enableEmailFlows = process.env.SMOKE_ENABLE_EMAIL_FLOWS === 'true';
 const resources = {
   users: [],
   listings: [],
@@ -55,7 +57,7 @@ function record(name, ok, detail = '') {
 }
 
 async function makeUser(label, role = 'buyer') {
-  const email = `${label}${stamp()}@smoke.dev`;
+  const email = `${label}${stamp()}@${smokeEmailDomain}`;
   const password = `Smoke_${stamp()}!`;
 
   const created = await admin.auth.admin.createUser({
@@ -156,22 +158,27 @@ async function main() {
   const adminUser = await makeUser('admin', 'admin');
   const categoryId = await getAnyActiveCategoryId();
 
-  // 1) Sign-up smoke (real anon signUp)
+  // 1) Sign-up smoke (real anon signUp) - optional to avoid outbound email noise in regular runs.
   {
-    const signUpClient = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const email = `signup${stamp()}@smoke.dev`;
-    const password = `Signup_${stamp()}!`;
-    const signUp = await signUpClient.auth.signUp({ email, password });
-
-    if (signUp.error) {
-      record('Kayıt ol', false, signUp.error.message);
+    if (!enableEmailFlows) {
+      record('Kayıt ol', true, 'SMOKE_ENABLE_EMAIL_FLOWS=false oldugu icin atlandi');
+      record('E-posta doğrulama', true, 'SMOKE_ENABLE_EMAIL_FLOWS=false oldugu icin atlandi');
     } else {
-      const newUserId = signUp.data.user?.id;
-      record('Kayıt ol', true, newUserId ? `user_id=${newUserId}` : 'ok');
-      record('E-posta doğrulama', signUp.data.session == null, signUp.data.session == null ? 'session yok (confirm email bekleniyor olabilir)' : 'session var');
-      if (newUserId) resources.users.push(newUserId);
+      const signUpClient = createClient(url, anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const email = `signup${stamp()}@${smokeEmailDomain}`;
+      const password = `Signup_${stamp()}!`;
+      const signUp = await signUpClient.auth.signUp({ email, password });
+
+      if (signUp.error) {
+        record('Kayıt ol', false, signUp.error.message);
+      } else {
+        const newUserId = signUp.data.user?.id;
+        record('Kayıt ol', true, newUserId ? `user_id=${newUserId}` : 'ok');
+        record('E-posta doğrulama', signUp.data.session == null, signUp.data.session == null ? 'session yok (confirm email bekleniyor olabilir)' : 'session var');
+        if (newUserId) resources.users.push(newUserId);
+      }
     }
   }
 
@@ -184,12 +191,16 @@ async function main() {
     record('Giriş yap', !login.error, login.error?.message ?? 'ok');
   }
 
-  // 3) Forgot password
+  // 3) Forgot password - optional to avoid outbound email noise in regular runs.
   {
-    const forgot = await seller.client.auth.resetPasswordForEmail(seller.email, {
-      redirectTo: 'sipariskutusu://reset-password',
-    });
-    record('Şifremi unuttum', !forgot.error, forgot.error?.message ?? 'reset mail talebi kabul edildi');
+    if (!enableEmailFlows) {
+      record('Şifremi unuttum', true, 'SMOKE_ENABLE_EMAIL_FLOWS=false oldugu icin atlandi');
+    } else {
+      const forgot = await seller.client.auth.resetPasswordForEmail(seller.email, {
+        redirectTo: 'sipariskutusu://reset-password',
+      });
+      record('Şifremi unuttum', !forgot.error, forgot.error?.message ?? 'reset mail talebi kabul edildi');
+    }
   }
 
   // 4) Listing create -> pending

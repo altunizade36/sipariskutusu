@@ -22,6 +22,7 @@ try {
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const smokeEmailDomain = (process.env.SMOKE_TEST_EMAIL_DOMAIN || 'mailinator.com').trim();
 
 if (!url || !anonKey || !serviceKey) {
   console.error('INTERACTIONS SMOKE FAIL: Missing env');
@@ -37,7 +38,7 @@ function stamp() {
 }
 
 async function createBuyer() {
-  const email = `buyer${stamp()}@smoke.dev`;
+  const email = `buyer${stamp()}@${smokeEmailDomain}`;
   const password = `Smoke_${stamp()}!`;
   const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: 'Buyer Smoke' } });
   if (created.error) throw new Error(created.error.message);
