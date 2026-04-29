@@ -18,6 +18,7 @@ import { fetchMyProfile } from '../../src/services/profileService';
 import { submitReport, type ReportTargetType } from '../../src/services/reportService';
 import { getOrCreateConversationForListing } from '../../src/services/chatLinkageService';
 import { buildConversationMessagesRoute, buildMessagesInboxRoute, buildSellerMessagesRoute } from '../../src/utils/messageRouting';
+import { InfoBanner } from '../../src/components/InfoBanner';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -547,6 +548,14 @@ export default function ProductDetailScreen() {
             })}
           </ScrollView>
         ) : null}
+
+        <InfoBanner
+          icon="information-circle"
+          title="Bu bir P2P Pazaryeri"
+          description="Doğrudan satıcıyla iletişim kurarak ürünü satın alabilirsiniz. İletişim bölümünden mesaj gönderin veya WhatsApp ile bağlantı kurun."
+          dismissible
+          variant="info"
+        />
 
         <View className="px-4 pt-3 pb-4">
           {/* Brand & title */}
