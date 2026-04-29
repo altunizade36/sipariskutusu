@@ -16,6 +16,15 @@
 - `npm run smoke:reactions`: Ilk calistirmada timeout fail, sistem readiness icinde PASS
 - `npm run system:ready`: PASS (6/6)
 
+## E-posta hata notu (cozuldu)
+- Koken neden: Smoke scriptlerinde `@smoke.dev` kullanimi (MX/NXDOMAIN nedeniyle bounce).
+- Cozum: Varsayilan test domaini MX kayitli domain fallback'i ile degistirildi.
+- Standart:
+	- `SMOKE_TEST_EMAIL_DOMAIN=mailinator.com`
+	- `SMOKE_ENABLE_EMAIL_FLOWS=false` (default)
+- E-posta akisi test etmek istenirse kontrollu calistirma:
+	- `SMOKE_ENABLE_EMAIL_FLOWS=true node scripts/full-flow-smoke.mjs`
+
 ## UAT uygulama adimlari (ekip icin)
 1. 10-20 testeri role gore dagit (alici/satici/karma).
 2. Her testere tekil tester_id ver (or: T01..T20).

@@ -51,6 +51,9 @@ Bu listeyi release oncesi birebir doldurun. Her satir isaretlenmeden production 
 - [ ] Follow ve store gecis akislarinda state kaybi yok.
 - [ ] `npm run smoke:notifications` basarili (dispatch + delivery log).
 - [ ] Email login kapaliysa smoke komutu JWT ile calisti: `npm run smoke:notifications -- --access-token <JWT>`.
+- [ ] Smoke email domaini MX kayitli: `SMOKE_TEST_EMAIL_DOMAIN` (`smoke.dev` gibi NXDOMAIN domainler kullanilmiyor).
+- [ ] Gereksiz outbound maili engellemek icin default: `SMOKE_ENABLE_EMAIL_FLOWS=false`.
+- [ ] E-posta akis testi gerekiyorsa sadece kontrollu turda: `SMOKE_ENABLE_EMAIL_FLOWS=true node scripts/full-flow-smoke.mjs`.
 
 ## 7) Gozlemleme ve Hata Takibi
 
