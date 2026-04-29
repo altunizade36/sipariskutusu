@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,8 @@ import { buildMessagesInboxRoute } from '../../src/utils/messageRouting';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
+const SUPPORT_EMAIL = 'iletisim@sipariskutusu.com';
+
 const sections: { title: string; items: { icon: IoniconName; label: string; badge?: string; color?: string }[] }[] = [
   {
     title: 'Hesabım',
@@ -29,6 +31,7 @@ const sections: { title: string; items: { icon: IoniconName; label: string; badg
     items: [
       { icon: 'chatbubbles-outline', label: 'Canlı Destek' },
       { icon: 'help-circle-outline', label: 'Yardım Merkezi' },
+      { icon: 'mail-outline', label: 'İletişim E-postası' },
       { icon: 'document-text-outline', label: 'Şartlar & Gizlilik' },
       { icon: 'language-outline', label: 'Dil & Bölge', badge: 'TR' },
     ],
@@ -215,6 +218,16 @@ export default function AccountScreen() {
   async function handleSectionItem(label: string) {
     if (label === 'Canlı Destek')      { router.push(buildMessagesInboxRoute()); return; }
     if (label === 'Yardım Merkezi')    { router.push(buildMessagesInboxRoute()); return; }
+    if (label === 'İletişim E-postası') {
+      const mailto = `mailto:${SUPPORT_EMAIL}?subject=Siparis%20Kutusu%20Destek`;
+      const canOpen = await Linking.canOpenURL(mailto);
+      if (canOpen) {
+        await Linking.openURL(mailto);
+      } else {
+        showToast(`Iletisim: ${SUPPORT_EMAIL}`);
+      }
+      return;
+    }
     if (label === 'Kişisel Bilgiler') {
       if (!requireAuthForAction('Kişisel bilgiler için giriş yapman gerekiyor.')) return;
       router.push('/profile-edit');

@@ -22,6 +22,8 @@ type LegalDoc = {
   lastUpdated: string;
 };
 
+const SUPPORT_EMAIL = 'iletisim@sipariskutusu.com';
+
 const LEGAL_DOCS: Record<LegalDocKey, LegalDoc> = {
   'terms-of-use': {
     title: 'Kullanım Şartları',
@@ -75,6 +77,10 @@ const LEGAL_DOCS: Record<LegalDocKey, LegalDoc> = {
         heading: 'Kullanıcı Hakları',
         content:
           'KVKK kapsamında erişim, düzeltme, silme ve itiraz haklarına sahipsiniz. Taleplerinizi platform iletişim kanalları üzerinden iletebilirsiniz.',
+      },
+      {
+        heading: 'İletişim',
+        content: `KVKK ve gizlilik talepleriniz için: ${SUPPORT_EMAIL}`,
       },
     ],
     lastUpdated: '24.04.2026',
