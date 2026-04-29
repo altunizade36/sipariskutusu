@@ -19,6 +19,7 @@ import { submitReport, type ReportTargetType } from '../../src/services/reportSe
 import { getOrCreateConversationForListing } from '../../src/services/chatLinkageService';
 import { buildConversationMessagesRoute, buildMessagesInboxRoute, buildSellerMessagesRoute } from '../../src/utils/messageRouting';
 import { InfoBanner } from '../../src/components/InfoBanner';
+import { useRecentlyViewed } from '../../src/hooks/useRecentlyViewed';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -159,6 +160,17 @@ export default function ProductDetailScreen() {
       if (!id || !user) return;
       checkFavorited(id).then(setFavorited);
     }, [id, user?.id, checkFavorited]);
+
+    useEffect(() => {
+      // Track product view
+      const recently = useRecentlyViewed();
+      recently.add({
+        id: product.id,
+        title: product.title,
+        imageUri: resolveMediaCover(product),
+        price: product.price,
+      });
+    }, [id, product.id, product.title, product.price]);
 
     useEffect(() => {
       loadComments();
