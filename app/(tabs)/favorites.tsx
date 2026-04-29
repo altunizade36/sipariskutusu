@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { colors, fonts } from '../../src/constants/theme';
 import { ProductCard } from '../../src/components/ProductCard';
 import SkeletonCard from '../../src/components/SkeletonCard';
+import { EmptyState } from '../../src/components/EmptyState';
 import { ProfileButton } from '../../src/components/ProfileButton';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { useAuth } from '../../src/context/AuthContext';

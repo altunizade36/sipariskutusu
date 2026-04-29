@@ -9,30 +9,46 @@ import { MARKETPLACE_CATEGORIES } from '../src/constants/marketplaceCategories';
 import SkeletonCard from '../src/components/SkeletonCard';
 import { useListings } from '../src/context/ListingsContext';
 import { useProducts } from '../src/hooks/useProducts';
+import { useSearchHistory } from '../src/hooks/useSearchHistory';
 import { isSupabaseConfigured } from '../src/services/supabase';
 
 export default function SearchScreen() {
   const router = useRouter();
   const { allProducts } = useListings();
+  const searchHistory = useSearchHistory();
   const mainScrollRef = useRef<ScrollView | null>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [recentSearches, setRecentSearches] = useState(['koşu ayakkabısı', 'iphone kılıfı', 'nevresim takımı', 'blender']);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [visualSearchActive, setVisualSearchActive] = useState(false);
   const [visualSearchUri, setVisualSearchUri] = useState<string | null>(null);
   const [visualSearchLoading, setVisualSearchLoading] = useState(false);
 
+  // Load search history on mount
+  useEffect(() => {
+    searchHistory.get().then(setRecentSearches).catch(() => setRecentSearches([]));
+  }, []);
+
   // Debounce: query değiştikten 400ms sonra debouncedQuery'yi güncelle
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQuery(query.trim()), 400);
+    debounceRef.current = setTimeout(() => {
+      const trimmed = query.trim();
+      setDebouncedQuery(trimmed);
+      // Save to search history when user searches
+      if (trimmed.length >= 2) {
+        searchHistory.add(trimmed).then(() => {
+          searchHistory.get().then(setRecentSearches).catch(() => {});
+        });
+      }
+    }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, searchHistory]);
 
   // Sunucu tarafi arama (Supabase varsa)
   const { products: serverResults, loading: serverLoading, refresh: serverRefresh } = useProducts({
