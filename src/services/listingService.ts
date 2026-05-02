@@ -629,7 +629,7 @@ export async function fetchListings(
       profiles!listings_seller_id_fkey(id, full_name, username, avatar_url)
       `,
     )
-    .in('status', ['active', 'published']);
+    .eq('status', 'active');
 
   // If onlyOwned, filter by current user
   if (filters?.onlyOwned && userId) {

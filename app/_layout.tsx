@@ -3,8 +3,9 @@ import { Stack, usePathname, useGlobalSearchParams } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
+import { Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
 import { Cairo_600SemiBold, Cairo_700Bold } from '@expo-google-fonts/cairo';
+import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { LogBox, Platform } from 'react-native';
@@ -40,59 +41,48 @@ function RootLayout() {
   const params = useGlobalSearchParams();
   const previousPathname = useRef<string | undefined>(undefined);
 
-  // Webde fontfaceobserver timeout hatasını önlemek için font yüklemeyi atla
-  const [fontsLoaded, fontError] = useFonts(
-    Platform.OS === 'web'
-      ? {}
-      : {
+  const [fontsLoaded, setFontsLoaded] = useState(Platform.OS === 'web');
+
+  useEffect(() => {
+    // Web'de font yükleme atlıyoruz — system fontlar yeterli
+    if (Platform.OS === 'web') {
+      setFontsLoaded(true);
+      return;
+    }
+
+    // try/catch ile sardığımız için fontfaceobserver promise'ı
+    // hiçbir zaman "unhandled rejection" olmaz
+    let cancelled = false;
+    const load = async () => {
+      try {
+        await Font.loadAsync({
           Roboto_400Regular,
           Roboto_500Medium,
           Roboto_700Bold,
           Cairo_600SemiBold,
           Cairo_700Bold,
-        }
-  );
+        });
+      } catch {
+        // Font yükleme başarısız — system fontlarla devam et
+      }
+      if (!cancelled) setFontsLoaded(true);
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setFontLoadTimedOut(true);
     }, 1500);
-
-    return () => {
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const EU = (global as any).ErrorUtils as
-      | { getGlobalHandler: () => ((e: Error, fatal?: boolean) => void) | null; setGlobalHandler: (h: (e: Error, fatal?: boolean) => void) => void }
-      | undefined;
-    if (!EU) return;
-    const prev = EU.getGlobalHandler();
-    if (!prev) return;
-    EU.setGlobalHandler((error: Error, isFatal?: boolean) => {
-      const msg = error?.message ?? '';
-      if (
-        msg.includes('timeout exceeded') ||
-        msg.includes('fontfaceobserver') ||
-        msg.includes('6000')
-      ) {
-        return;
-      }
-      prev(error, isFatal);
-    });
-    return () => {
-      EU.setGlobalHandler(prev);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (fontsLoaded || fontError || fontLoadTimedOut) {
+    if (fontsLoaded || fontLoadTimedOut) {
       SplashScreen.hideAsync().catch(() => undefined);
     }
-  }, [fontError, fontLoadTimedOut, fontsLoaded]);
+  }, [fontLoadTimedOut, fontsLoaded]);
 
   // Manual screen tracking for expo-router
   useEffect(() => {
@@ -105,7 +95,7 @@ function RootLayout() {
     }
   }, [pathname, params]);
 
-  if (!fontsLoaded && !fontError && !fontLoadTimedOut) return null;
+  if (!fontsLoaded && !fontLoadTimedOut) return null;
 
   const posthogClient = getPostHogClient();
 
