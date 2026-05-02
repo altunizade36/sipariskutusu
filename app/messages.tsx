@@ -549,7 +549,14 @@ function OrderStatusBubble({
 // ─── Tepki Seçici ────────────────────────────────────────────
  
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
-const QUICK_REPLIES = ['Tamam 👍', 'Anladım', 'Hâlâ satılık mı?', 'Fiyat nedir?', 'Teslimat nasil?', 'Teşekkürler 🙏'];
+const QUICK_REPLIES = [
+  'Merhaba, ürün hâlâ mevcut 👋',
+  'Son fiyat budur.',
+  'Hangi şehir/ilçedesiniz?',
+  'Instagram hesabımdan da bakabilirsiniz.',
+  'Detaylı ölçü/fotoğraf atabilirim.',
+  'Teslimat/kargo için mesajlaşabiliriz.',
+];
 const REMOTE_CONVERSATIONS_CACHE_PREFIX = 'messages:remote:conversations:v1';
 const REMOTE_THREAD_CACHE_PREFIX = 'messages:remote:thread:v1';
 const RECENT_DM_CACHE_PREFIX = 'messages:recent-dm:v1';
@@ -1133,7 +1140,12 @@ export default function MessagesScreen() {
 
     return base.filter((item) => {
       const lastText = item.messages[item.messages.length - 1]?.text ?? item.lastMessage ?? '';
-      return item.title.toLocaleLowerCase('tr-TR').includes(query) || lastText.toLocaleLowerCase('tr-TR').includes(query);
+      const listingTitle = item.listing?.title ?? '';
+      return (
+        item.title.toLocaleLowerCase('tr-TR').includes(query) ||
+        lastText.toLocaleLowerCase('tr-TR').includes(query) ||
+        listingTitle.toLocaleLowerCase('tr-TR').includes(query)
+      );
     });
   }, [conversations, listFilter, searchText]);
  
@@ -1416,6 +1428,8 @@ export default function MessagesScreen() {
  
   useEffect(() => {
     if (!conversation || !initialMessageText || initialMessageSentRef.current || isSending) return;
+    // Zaten mesaj varsa ilk mesajı tekrar gönderme
+    if (conversation.messages.length > 0) { initialMessageSentRef.current = true; return; }
     initialMessageSentRef.current = true;
     if (!isRemoteMode) { sendFallbackMessage(conversation.id, initialMessageText); return; }
     setIsSending(true);
@@ -2047,10 +2061,16 @@ export default function MessagesScreen() {
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{activeProductCard.title}</Text>
                       {activeProductCard.priceLabel ? <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.primary, marginTop: 2 }}>{activeProductCard.priceLabel}</Text> : null}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
-                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginRight: 5 }} />
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}>{activeProductCard.status}</Text>
-                      </View>
+                      {activeProductCard.status === 'Aktif' ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginRight: 5 }} />
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}>Aktif</Text>
+                        </View>
+                      ) : (
+                        <View style={{ marginTop: 4, backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, alignSelf: 'flex-start' }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#92400E' }}>Bu ilan artık yayında değil</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={{ gap: 6, alignItems: 'flex-end' }}>
                       {activeProductCard.id ? (

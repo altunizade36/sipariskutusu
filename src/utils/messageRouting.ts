@@ -21,13 +21,17 @@ export function buildMessagesInboxRoute(): Href {
   return '/messages';
 }
 
-export function buildConversationMessagesRoute(conversationId: string): Href {
+export function buildConversationMessagesRoute(conversationId: string, initialMessage?: string): Href {
   const clean = conversationId.trim();
   if (!clean) {
     return buildMessagesInboxRoute();
   }
 
-  return `/messages?conversation=${encodeURIComponent(clean)}` as Href;
+  const base = `/messages?conversation=${encodeURIComponent(clean)}`;
+  if (initialMessage?.trim()) {
+    return `${base}&initialMessage=${encodeURIComponent(initialMessage.trim())}` as Href;
+  }
+  return base as Href;
 }
 
 export function buildSellerMessagesRoute(input: SellerMessageRouteInput): Href {

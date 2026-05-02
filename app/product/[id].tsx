@@ -308,10 +308,18 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    if (user.id === product.sellerId) {
+      Alert.alert('Bilgi', 'Kendi ilanınıza mesaj gönderemezsiniz.');
+      return;
+    }
+
+    const autoMessage = `Merhaba, bu ürün hakkında bilgi almak istiyorum: ${product.title}`;
+
     if (isSupabaseConfigured && !user.id.startsWith('demo-')) {
       try {
         const conversation = await getOrCreateConversationForListing(user.id, product.sellerId, product.id);
-        router.push(buildConversationMessagesRoute(conversation.id));
+        const isNew = !conversation.updated_at || conversation.created_at === conversation.updated_at;
+        router.push(buildConversationMessagesRoute(conversation.id, isNew ? autoMessage : undefined));
         return;
       } catch (error) {
         Alert.alert('Mesaj başlatılamadı', error instanceof Error ? error.message : 'Lütfen tekrar dene.');
@@ -324,6 +332,7 @@ export default function ProductDetailScreen() {
       productId: product.id,
       productTitle: product.title,
       whatsapp: contactWhatsapp,
+      initialMessage: autoMessage,
     }));
   }
 
