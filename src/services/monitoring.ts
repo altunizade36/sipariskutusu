@@ -26,10 +26,21 @@ export function initSentry(): void {
     sampleRate: 1.0,
     // Performans örnekleme: %20 işlem
     tracesSampleRate: __DEV__ ? 0 : 0.2,
+    // Font yükleme timeout hatalarını yok say
+    ignoreErrors: [
+      'timeout exceeded',
+      'fontfaceobserver',
+      /\d+ms timeout exceeded/,
+    ],
     // Kişisel veriyi maskele
     beforeSend(event) {
       if (event.user) {
         delete event.user.ip_address;
+      }
+      // Font timeout hatalarını filtrele
+      const msg = event.exception?.values?.[0]?.value ?? '';
+      if (typeof msg === 'string' && msg.includes('timeout exceeded')) {
+        return null;
       }
       return event;
     },

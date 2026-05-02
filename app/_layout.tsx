@@ -7,6 +7,7 @@ import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@
 import { Cairo_600SemiBold, Cairo_700Bold } from '@expo-google-fonts/cairo';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { PostHogProvider } from 'posthog-react-native';
 import { ListingsProvider } from '../src/context/ListingsContext';
@@ -36,13 +37,18 @@ function RootLayout() {
   const params = useGlobalSearchParams();
   const previousPathname = useRef<string | undefined>(undefined);
 
-  const [fontsLoaded, fontError] = useFonts({
-    Roboto_400Regular,
-    Roboto_500Medium,
-    Roboto_700Bold,
-    Cairo_600SemiBold,
-    Cairo_700Bold,
-  });
+  // Webde fontfaceobserver timeout hatasını önlemek için font yüklemeyi atla
+  const [fontsLoaded, fontError] = useFonts(
+    Platform.OS === 'web'
+      ? {}
+      : {
+          Roboto_400Regular,
+          Roboto_500Medium,
+          Roboto_700Bold,
+          Cairo_600SemiBold,
+          Cairo_700Bold,
+        }
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
