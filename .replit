@@ -57,3 +57,16 @@ externalPort = 8081
 deploymentTarget = "static"
 build = ["bash", "-c", "cd web-admin && npm run build"]
 publicDir = "web-admin/dist"
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_EMAIL_OTP_LENGTH = "8"
+EXPO_PUBLIC_MEDIA_STORAGE_MODE = "supabase"
+EXPO_PUBLIC_IMAGE_UPLOAD_TIMEOUT_MS = "20000"
+EXPO_PUBLIC_MAX_IMAGE_BYTES = "8388608"
+EXPO_PUBLIC_IMAGE_UPLOAD_CONCURRENCY = "2"
+EXPO_PUBLIC_NOTIFICATION_DISPATCH_TIMEOUT_MS = "10000"
+EXPO_PUBLIC_BACKEND_STRICT_MODE = "false"
+EXPO_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.com"
+EXPO_PUBLIC_BACKEND_API_URL = ""

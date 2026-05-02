@@ -1,0 +1,76 @@
+# ============================================================
+# SİPARİŞKUTUSU — Ortam Değişkenleri
+# Bu dosyayı kopyalayın: cp .env.example .env
+# .env dosyasını asla git'e eklemeyin!
+# ============================================================
+
+# ─── Supabase (ZORUNLU) ─────────────────────────────────────
+# https://supabase.com → Proje Ayarları → API
+EXPO_PUBLIC_SUPABASE_URL=https://jvcncrdwikbvvehkimet.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2Y25jcmR3aWtidnZlaGtpbWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Njg0NDQsImV4cCI6MjA5MjQ0NDQ0NH0.zi4N0VhFTj7tGf_gDfDA9MDs2I-EVDxihto2w9o20hU
+
+# PostgreSQL baglanti URL'i (SQL editor / migration araclari icin)
+DATABASE_URL=postgresql://postgres:[Fatih.36363]@db.jvcncrdwikbvvehkimet.supabase.co:5432/postgres
+
+# ─── Supabase Auth (uygulama ayarı) ─────────────────────────
+EXPO_PUBLIC_EMAIL_OTP_LENGTH=8
+
+# ─── Medya depolama (opsiyonel) ──────────────────────────────
+# supabase: mevcut Supabase storage akisi
+# external: backend uzerinden presigned URL ile S3/GCS gibi depolama
+EXPO_PUBLIC_MEDIA_STORAGE_MODE=supabase
+# Gorsel upload timeout (milisaniye)
+EXPO_PUBLIC_IMAGE_UPLOAD_TIMEOUT_MS=20000
+# Tek gorsel icin maksimum boyut (byte)
+EXPO_PUBLIC_MAX_IMAGE_BYTES=8388608
+# Eszamanli gorsel yukleme sayisi (1-8 arasi onerilir)
+EXPO_PUBLIC_IMAGE_UPLOAD_CONCURRENCY=2
+
+# ─── Bildirim kanallari (opsiyonel) ─────────────────────────
+# Uygulama backend API kullanirken tum kanallar /v1/notifications/dispatch uzerinden gider.
+EXPO_PUBLIC_NOTIFICATION_DISPATCH_TIMEOUT_MS=10000
+
+# Edge Function / backend server secretleri (git'e eklemeyin)
+# Firebase Cloud Messaging (legacy server key)
+FCM_SERVER_KEY=
+# SMS API (ornek: netgsm, twilio proxy, yerel SMS gateway)
+SMS_API_URL=
+SMS_API_KEY=
+SMS_SENDER_ID=
+# Email provider (SendGrid vb.)
+SENDGRID_API_KEY=
+EMAIL_FROM_ADDRESS=no-reply@sipariskutusu.com
+EMAIL_FROM_NAME=Sipariskutusu
+
+# ─── Sentry — Hata Takibi (isteğe bağlı) ────────────────────
+# Kurulum: https://sentry.io → Proje seç → Settings → Client Keys (DSN) → Kopyala
+# Yapması gereken: DSN'i kopyalayıp aşağıdaki = işaretinden sonra yapıştır
+# Örnek: https://xxxxxxxx@oxxxxx.ingest.sentry.io/123456
+EXPO_PUBLIC_SENTRY_DSN=https://117f4f7a0be5f2c0001513fc81637533@o4511310164459520.ingest.de.sentry.io/4511310198734928
+
+# ─── PostHog — Analitik (isteğe bağlı) ──────────────────────
+# Kurulum: https://app.posthog.com → Project → Settings → Project API Key → Kopyala
+# Yapması gereken: API Key'i kopyalayıp aşağıdaki = işaretinden sonra yapıştır
+# Örnek: phc_1a2b3c4d5e6f7g8h9i0j
+EXPO_PUBLIC_POSTHOG_API_KEY=phc_oMCS2c7Te8zaao48aSRatnvz4sqFAcYPRC5ZpaiT2AmL
+
+# ─── Sunucu Secret'ları (otomasyon için önerilen) ───────────
+# SUPABASE_SERVICE_ROLE_KEY: Supabase admin işlemleri için (git'e GÖNDERME!)
+# Bulunacak yer: https://app.supabase.com → Proje → Settings → API → Service role secret
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2Y25jcmR3aWtidnZlaGtpbWV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Njg2ODQ0NCwiZXhwIjoyMDkyNDQ0NDQ0fQ.QLV70ZGy1tfX73LTdUU9BfwGJvMBEskDJfYWDUwdrz0
+META_APP_SECRET=xxxxxxxxxxxxxxxx
+META_APP_ID=123456789
+
+# ─── Backend API (opsiyonel) ────────────────────────────────
+# Eğer backend API'niz varsa şuraya yazın (örn: https://api.sipariskutusu.com)
+# Boş bırakırsanız tamamen Supabase üzerinden çalışır
+EXPO_PUBLIC_BACKEND_API_URL=
+# Backend strict mode: true = backend zorunlu, false = optional
+EXPO_PUBLIC_BACKEND_STRICT_MODE=false
+
+# ─── Smoke Test (opsiyonel) ────────────────────────────────
+# Email login kapalıysa test için aktif kullanıcının JWT token'ı
+# Yapması gereken: Smoke test çalıştıracaksan authorization token'ını yapıştır
+SMOKE_ACCESS_TOKEN=
+
+EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
