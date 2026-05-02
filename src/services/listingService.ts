@@ -298,6 +298,14 @@ export async function createListing(
     ({ data, error } = await supabase.from('listings').insert(payloadWithoutNeighborhood).select().single());
   }
 
+  // If sub_category_id / custom_sub_category columns don't exist yet, retry without them
+  if (error && (error as { code?: string }).code === '42703' &&
+    ('sub_category_id' in basePayload || 'custom_sub_category' in basePayload)) {
+    const { sub_category_id: _sc, custom_sub_category: _csc, neighborhood: _n2, source_type: _st3, ...minimalPayload } =
+      basePayload as typeof basePayload & { sub_category_id?: string | null; custom_sub_category?: string | null; neighborhood?: string; source_type?: string };
+    ({ data, error } = await supabase.from('listings').insert(minimalPayload).select().single());
+  }
+
   if (error) {
     throw new Error(`İlan oluşturulamadı: ${error.message}`);
   }
@@ -643,10 +651,7 @@ export async function fetchListings(
     query = query.eq('category_id', categoryFilter);
   }
 
-  const subCategoryFilter = filters?.subCategoryId ?? filters?.sub_category_id;
-  if (subCategoryFilter) {
-    query = query.eq('sub_category_id', subCategoryFilter);
-  }
+  // sub_category_id column may not exist in all deployments — filtering done client-side only
 
   if (filters?.minPrice) {
     query = query.gte('price', filters.minPrice);

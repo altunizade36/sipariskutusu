@@ -30,6 +30,7 @@ import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome
 import { fetchListings, type Listing, type SearchFilters } from '../../src/services/listingService';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { useAuth } from '../../src/context/AuthContext';
+import { useListings } from '../../src/context/ListingsContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LEFT_WIDTH = 88;
@@ -77,6 +78,7 @@ export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
   useAndroidTabBackToHome();
   const { user } = useAuth();
+  const { hasStore } = useListings();
   const { favorites, toggle: toggleFav } = useFavorites();
 
   // Set of listing IDs the user has favorited (from server)
@@ -113,6 +115,7 @@ export default function CategoriesScreen() {
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const fetchRef = useRef(0);
   const inputRef = useRef<TextInput>(null);
@@ -125,6 +128,7 @@ export default function CategoriesScreen() {
   const loadProducts = useCallback(
     async (pageNum: number, reset: boolean) => {
       setIsLoading(true);
+      setHasError(false);
       const callId = ++fetchRef.current;
 
       const trimmed = searchQuery.trim();
@@ -137,9 +141,7 @@ export default function CategoriesScreen() {
         pageSize: PAGE_SIZE,
       };
 
-      if (selectedSubCategoryId === OTHER_SUBCATEGORY_ID) {
-        filters.subCategoryId = OTHER_SUBCATEGORY_ID;
-      }
+      // sub_category_id column may not exist — all subcategory filtering is client-side
 
       if (appliedFilters.sort !== 'newest') filters.sort = appliedFilters.sort;
       if (appliedFilters.minPrice) filters.minPrice = parseFloat(appliedFilters.minPrice);
@@ -148,46 +150,58 @@ export default function CategoriesScreen() {
       if (appliedFilters.district) filters.district = appliedFilters.district;
       if (keyword && !isStoreSearch) filters.query = keyword;
 
-      const data = await fetchListings(filters);
-      if (callId !== fetchRef.current) return;
+      try {
+        const data = await fetchListings(filters);
+        if (callId !== fetchRef.current) return;
 
-      let filtered = data;
+        let filtered = data;
 
-      // Subcategory filter (DB-backed for "other", keyword-backed for known chips)
-      if (selectedSubCategoryId !== ALL_SUBCATEGORY_ID) {
-        if (selectedSubCategoryId === OTHER_SUBCATEGORY_ID) {
-          filtered = filtered.filter((item) => item.sub_category_id === OTHER_SUBCATEGORY_ID);
+        // Client-side sub-category refinement:
+        // Match by sub_category_id (DB) OR by keywords (for older listings without sub_category_id)
+        if (selectedSubCategoryId !== ALL_SUBCATEGORY_ID) {
+          if (selectedSubCategoryId === OTHER_SUBCATEGORY_ID) {
+            filtered = filtered.filter((item) => item.sub_category_id === OTHER_SUBCATEGORY_ID);
+          } else {
+            const sub = selectedCat?.subcategories.find((s) => s.id === selectedSubCategoryId);
+            if (sub) {
+              filtered = filtered.filter((item) => {
+                if (item.sub_category_id === selectedSubCategoryId) return true;
+                if (sub.keywords.length === 0) return true;
+                const haystack = `${item.title ?? ''} ${item.description ?? ''}`.toLocaleLowerCase('tr-TR');
+                return sub.keywords.some((kw) => haystack.includes(kw.toLocaleLowerCase('tr-TR')));
+              });
+            }
+          }
         }
 
-        const sub = selectedCat?.subcategories.find((s) => s.id === selectedSubCategoryId);
-        if (selectedSubCategoryId !== OTHER_SUBCATEGORY_ID && sub && sub.keywords.length > 0) {
+        // Condition filter (client-side)
+        if (appliedFilters.condition !== 'all') {
+          filtered = filtered.filter((item) =>
+            appliedFilters.condition === 'new' ? item.condition === 'new' : item.condition !== 'new',
+          );
+        }
+
+        // @mağaza araması — satıcı adında filtrele
+        if (isStoreSearch && keyword) {
+          const kw = keyword.toLocaleLowerCase('tr-TR');
           filtered = filtered.filter((item) => {
-            const haystack = `${item.title ?? ''} ${item.description ?? ''}`.toLocaleLowerCase('tr-TR');
-            return sub.keywords.some((kw) => haystack.includes(kw.toLocaleLowerCase('tr-TR')));
+            const uname = (item.profiles?.username ?? '').toLocaleLowerCase('tr-TR');
+            const fname = (item.profiles?.full_name ?? '').toLocaleLowerCase('tr-TR');
+            return uname.includes(kw) || fname.includes(kw);
           });
         }
-      }
 
-      // Condition filter (client-side)
-      if (appliedFilters.condition !== 'all') {
-        filtered = filtered.filter((item) =>
-          appliedFilters.condition === 'new' ? item.condition === 'new' : item.condition !== 'new',
-        );
+        setProducts((prev) => (reset ? filtered : [...prev, ...filtered]));
+        setHasMore(data.length === PAGE_SIZE);
+      } catch {
+        if (callId !== fetchRef.current) return;
+        setHasError(true);
+        if (reset) setProducts([]);
+      } finally {
+        if (callId === fetchRef.current) {
+          setIsLoading(false);
+        }
       }
-
-      // @mağaza araması — satıcı adında filtrele
-      if (isStoreSearch && keyword) {
-        const kw = keyword.toLocaleLowerCase('tr-TR');
-        filtered = filtered.filter((item) => {
-          const uname = (item.profiles?.username ?? '').toLocaleLowerCase('tr-TR');
-          const fname = (item.profiles?.full_name ?? '').toLocaleLowerCase('tr-TR');
-          return uname.includes(kw) || fname.includes(kw);
-        });
-      }
-
-      setProducts((prev) => (reset ? filtered : [...prev, ...filtered]));
-      setHasMore(data.length === PAGE_SIZE);
-      setIsLoading(false);
     },
     [selectedCategoryId, selectedSubCategoryId, searchQuery, appliedFilters, selectedCat],
   );
@@ -293,6 +307,7 @@ export default function CategoriesScreen() {
       (item as Listing & { listing_images?: { url: string }[] }).listing_images?.[0]?.url ?? null;
     const sellerName = item.profiles?.full_name ?? item.profiles?.username ?? 'Mağaza';
     const isNew = item.condition === 'new';
+    const cityText = item.city ?? '';
 
     return (
       <Pressable
@@ -330,9 +345,17 @@ export default function CategoriesScreen() {
         <View style={styles.cardInfo}>
           <Text numberOfLines={2} style={styles.cardTitle}>{item.title}</Text>
           <Text style={styles.cardPrice}>
-            {item.price > 0 ? `₺${item.price.toFixed(0)}` : 'Fiyat Sor'}
+            {item.price > 0 ? `₺${item.price.toLocaleString('tr-TR')}` : 'Fiyat Sor'}
           </Text>
-          <Text numberOfLines={1} style={styles.cardSeller}>{sellerName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+            <Text numberOfLines={1} style={styles.cardSeller}>{sellerName}</Text>
+          </View>
+          {cityText ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 1 }}>
+              <Ionicons name="location-outline" size={8} color={colors.textMuted} />
+              <Text numberOfLines={1} style={styles.cardCity}>{cityText}</Text>
+            </View>
+          ) : null}
         </View>
       </Pressable>
     );
@@ -354,15 +377,42 @@ export default function CategoriesScreen() {
     </View>
   ) : null;
 
-  const ListEmpty = !isLoading ? (
+  const ListEmpty = !isLoading && !hasError ? (
     <View style={styles.emptyState}>
-      <Ionicons name="cube-outline" size={30} color={colors.textMuted} />
-      <Text style={styles.emptyText}>Bu kategoride ürün bulunamadı</Text>
-      {(searchQuery.trim() || selectedSubCategoryId !== ALL_SUBCATEGORY_ID) && (
-        <Pressable onPress={() => { setSearchQuery(''); setSelectedSubCategoryId(ALL_SUBCATEGORY_ID); }}>
+      <Text style={{ fontSize: 34, marginBottom: 4 }}>{selectedCat?.icon ?? '📦'}</Text>
+      <Text style={styles.emptyText}>Bu kategoride henüz ürün yok</Text>
+      <Text style={styles.emptySubText}>İlk ilanı sen yayınlayabilirsin!</Text>
+      {(searchQuery.trim() || selectedSubCategoryId !== ALL_SUBCATEGORY_ID) ? (
+        <Pressable
+          onPress={() => { setSearchQuery(''); setSelectedSubCategoryId(ALL_SUBCATEGORY_ID); }}
+          style={styles.emptyResetBtn}
+        >
           <Text style={styles.emptyReset}>Filtreleri temizle</Text>
         </Pressable>
+      ) : (
+        <Pressable
+          onPress={() => router.push(hasStore ? '/create-listing' : '/store-setup')}
+          style={styles.emptyActionBtn}
+        >
+          <Ionicons name="add-circle-outline" size={16} color="#fff" />
+          <Text style={styles.emptyActionText}>İlan Ver</Text>
+        </Pressable>
       )}
+    </View>
+  ) : null;
+
+  const ListError = hasError ? (
+    <View style={styles.emptyState}>
+      <Ionicons name="cloud-offline-outline" size={32} color={colors.textMuted} />
+      <Text style={styles.emptyText}>Ürünler yüklenemedi</Text>
+      <Text style={styles.emptySubText}>İnternet bağlantını kontrol et</Text>
+      <Pressable
+        onPress={() => { setPage(0); setHasMore(true); void loadProducts(0, true); }}
+        style={styles.emptyActionBtn}
+      >
+        <Ionicons name="refresh-outline" size={16} color="#fff" />
+        <Text style={styles.emptyActionText}>Yenile</Text>
+      </Pressable>
     </View>
   ) : null;
 
@@ -456,7 +506,7 @@ export default function CategoriesScreen() {
             columnWrapperStyle={styles.columnWrapper}
             ListHeaderComponent={ListHeader}
             ListFooterComponent={ListFooter}
-            ListEmptyComponent={ListEmpty}
+            ListEmptyComponent={ListError ?? ListEmpty}
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
             showsVerticalScrollIndicator={false}
@@ -772,17 +822,32 @@ const styles = StyleSheet.create({
     minHeight: 28,
   },
   cardPrice: { fontFamily: fonts.bold, fontSize: 13, color: colors.primary, marginTop: 4 },
-  cardSeller: { fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted, marginTop: 2 },
+  cardSeller: { fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted },
+  cardCity: { fontFamily: fonts.regular, fontSize: 8, color: colors.textMuted },
 
   loader: { paddingVertical: 16, alignItems: 'center' },
   emptyState: {
     marginHorizontal: CARD_H_PAD,
     marginTop: 20,
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 32,
+    gap: 6,
   },
-  emptyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginTop: 10 },
-  emptyReset: { fontFamily: fonts.regular, fontSize: 12, color: colors.primary, marginTop: 8 },
+  emptyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginTop: 6 },
+  emptySubText: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
+  emptyResetBtn: { marginTop: 10 },
+  emptyReset: { fontFamily: fonts.regular, fontSize: 12, color: colors.primary },
+  emptyActionBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  emptyActionText: { fontFamily: fonts.bold, fontSize: 13, color: '#fff' },
 
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },

@@ -94,3 +94,11 @@ Configured as a static site deployment:
 - `app/instagram-quick-publish.tsx` — Auto-parsed product draft display with EKSİK badges for missing fields, category quick-picker, direct publish via `submitListingToSupabase`, "Detaylı Düzenle" → create-listing with prefilled params
 - `app/(tabs)/account.tsx` — Instagram integration card for sellers (connected status + follower count or CTA to connect)
 - `app/(tabs)/store.tsx` — Instagram analytics panel in the About tab for store owners
+
+### Kategori Sistemi (Categories)
+- `src/constants/marketplaceCategories.ts` — Single source of truth for all 13 categories + subcategories (with keywords for client-side matching)
+- `app/(tabs)/categories.tsx` — Full rewrite of empty state: category emoji icon, "Bu kategoride henüz ürün yok", "İlk ilanı sen yayınlayabilirsin!", "İlan Ver" action button (→ /create-listing or /store-setup based on hasStore), error state with retry button, city display on product cards
+- `src/services/listingService.ts` — `sub_category_id` removed from SELECT and WHERE clauses (column does not exist in current DB schema); INSERT has chained retry logic to strip `sub_category_id`/`custom_sub_category` columns if DB returns error 42703. All subcategory filtering is client-side only (keyword match OR sub_category_id property access on returned JS objects).
+
+### İlan Ver (Create Listing) Preview
+- `app/create-listing.tsx` — Preview section fully redesigned: full-width 4:3 image carousel with dots, photo count badge, YAYINA HAZIR/TASLAK status badge, large price display, bargaining/condition tags, seller info row with action buttons, description box with character count, 3-column completion tracker grid
