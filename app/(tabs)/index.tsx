@@ -17,28 +17,15 @@ import { fetchUnreadNotificationCount, subscribeToMyNotifications } from '../../
 import { getTopDailyPerformers, getRankBadge } from '../../src/services/leaderboardService';
 import { getRecentlyViewed, clearRecentlyViewed, type RecentlyViewedItem } from '../../src/hooks/useRecentlyViewed';
 import BoxMascot from '../../src/components/BoxMascot';
+import { t } from '../../src/i18n';
+import { isSmallDevice, calcCardWidth } from '../../src/utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = (SCREEN_WIDTH - 24) / 2;
+const CARD_WIDTH = calcCardWidth(2, 0, 24);
 const LOAD_MORE_SCROLL_THROTTLE_MS = 350;
 
 type ProductTabId = 'all' | 'new' | 'flash' | 'discount' | 'freeShipping';
 type ProductSortId = 'newest' | 'priceAsc' | 'priceDesc' | 'topRated';
-
-const productTabs: { id: ProductTabId; label: string }[] = [
-  { id: 'all', label: 'Tümü' },
-  { id: 'new', label: 'Yeni İlanlar' },
-  { id: 'flash', label: 'Flash' },
-  { id: 'discount', label: 'İndirimli' },
-  { id: 'freeShipping', label: 'Ücretsiz Kargo' },
-];
-
-const productSortOptions: { id: ProductSortId; label: string }[] = [
-  { id: 'newest', label: 'En Yeni' },
-  { id: 'topRated', label: 'Puanı Yüksek' },
-  { id: 'priceAsc', label: 'Fiyat Artan' },
-  { id: 'priceDesc', label: 'Fiyat Azalan' },
-];
 
 const heroBanners = [
   {
@@ -64,6 +51,21 @@ const discountTiers = [
   { id: 'd2', label: '%20+', color: '#ECFDF5', textColor: '#047857' },
   { id: 'd3', label: '%30+', color: '#FEF2F2', textColor: '#B91C1C' },
 ] as const;
+
+const productTabs: { id: ProductTabId; label: string }[] = [
+  { id: 'all', label: t.home.tabAll },
+  { id: 'new', label: t.home.tabNew },
+  { id: 'flash', label: t.home.tabFlash },
+  { id: 'discount', label: t.home.tabDiscount },
+  { id: 'freeShipping', label: t.home.tabFreeShipping },
+];
+
+const productSortOptions: { id: ProductSortId; label: string }[] = [
+  { id: 'newest', label: t.home.sortNewest },
+  { id: 'topRated', label: t.home.sortTopRated },
+  { id: 'priceAsc', label: t.home.sortPriceAsc },
+  { id: 'priceDesc', label: t.home.sortPriceDesc },
+];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -344,7 +346,7 @@ export default function HomeScreen() {
                 <Text style={{ color: colors.primary }}>Kutusu</Text>
               </Text>
               <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: '#94A3B8', letterSpacing: 0.2, marginTop: 1 }}>
-                alışveriş artık kolay
+                {t.home.subtitle}
               </Text>
             </View>
           </View>
@@ -387,7 +389,7 @@ export default function HomeScreen() {
             style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted }}
             className="ml-2 flex-1"
           >
-            Ürün, marka veya kategori ara
+            {t.home.searchPlaceholder}
           </Text>
           <Ionicons name="camera-outline" size={20} color={colors.primary} />
         </Pressable>
@@ -427,11 +429,11 @@ export default function HomeScreen() {
         <View className="bg-white pt-1">
           <View className="px-4 flex-row items-center justify-between mb-2">
             <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
-              Kategoriler
+              {t.home.categories}
             </Text>
             <Pressable onPress={() => router.push('/(tabs)/categories')}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
-                Tümünü gör
+                {t.home.seeAll}
               </Text>
             </Pressable>
           </View>
@@ -537,14 +539,14 @@ export default function HomeScreen() {
           <View className="px-4 mb-2 flex-row items-center justify-between">
             <View className="flex-1 pr-3">
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
-                Ürün Hikayeleri
+                {t.home.stories}
               </Text>
               <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                Kullanıcıların paylaştığı ürünler, fiyatlar ve yeni vitrinler
+                {t.home.storiesSub}
               </Text>
             </View>
             <Pressable onPress={() => router.push('/share-story')} className="flex-row items-center">
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>Hikaye ekle</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>{t.home.addStory}</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
@@ -566,10 +568,10 @@ export default function HomeScreen() {
               </View>
               <View className="flex-1 pr-2">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>
-                  İlk ürün hikayeni paylaş
+                  {t.home.addFirstStory}
                 </Text>
                 <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  Ürün görseli, fiyatı ve mağaza bilgisi ana akışta görünür.
+                  {t.home.addFirstStorySub}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.primary} />
@@ -579,11 +581,11 @@ export default function HomeScreen() {
               <View className="flex-row items-center flex-1 pr-2">
                 <Ionicons name="refresh-outline" size={14} color={colors.textSecondary} />
                 <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginLeft: 6 }}>
-                  Hikayeler yenilemede ve belirli aralıklarla güncellenir
+                  {t.home.storiesUpdated}
                 </Text>
               </View>
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>
-                {visibleHomeStoryCount} aktif
+                {visibleHomeStoryCount} {t.home.active}
               </Text>
             </View>
           )}
@@ -594,11 +596,11 @@ export default function HomeScreen() {
           <View className="bg-white mt-1 px-3 py-3 border-b border-[#33333315]">
             <View className="flex-row items-center justify-between mb-2.5">
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
-                Son Gördüklerin
+                {t.home.recentlyViewed}
               </Text>
               <Pressable onPress={() => { clearRecentlyViewed(); setRecentlyViewedItems([]); }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}>
-                  Temizle
+                  {t.common.clear}
                 </Text>
               </Pressable>
             </View>
@@ -645,7 +647,7 @@ export default function HomeScreen() {
             style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}
             className="mb-2.5 ml-1"
           >
-            İndirime Göre Alışveriş
+            {t.home.discountShopping}
           </Text>
           <View className="flex-row gap-2">
             {discountTiers.map((d) => (
@@ -659,7 +661,7 @@ export default function HomeScreen() {
                   {d.label}
                 </Text>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 9, color: d.textColor, opacity: 0.9 }}>
-                  İNDİRİM
+                  {t.home.discount}
                 </Text>
               </Pressable>
             ))}
@@ -673,7 +675,7 @@ export default function HomeScreen() {
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name="star" size={15} color="#F59E0B" />
                 <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
-                  Günün Yıldızları
+                  {t.home.topPerformers}
                 </Text>
               </View>
               <Pressable onPress={() => router.push('/seller-leaderboard')}>
@@ -725,19 +727,19 @@ export default function HomeScreen() {
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name="flash" size={16} color={colors.primary} />
                 <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.primary }}>
-                  Flash İndirim
+                  {t.home.flashSale}
                 </Text>
               </View>
               <Text
                 style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}
                 className="mt-0.5"
               >
-                {flashCountdown ? `Bitmesine ${flashCountdown}` : 'Flash İndirim'}
+                {flashCountdown ? `${t.home.flashSaleEnding} ${flashCountdown}` : t.home.flashSale}
               </Text>
             </View>
             <Pressable onPress={() => focusProductTab('flash')} className="flex-row items-center">
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
-                Tümünü gör
+                {t.home.seeAll}
               </Text>
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
@@ -754,18 +756,18 @@ export default function HomeScreen() {
           <View className="flex-row items-center justify-between">
             <View className="pr-3 flex-1">
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary }}>
-                Ürünler
+                {t.home.products}
               </Text>
               <Text
                 style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}
                 className="mt-1"
               >
-                {filteredProducts.length} ürün gösteriliyor • {activeProductTabLabel}
+                {t.home.productsShown(filteredProducts.length, activeProductTabLabel)}
               </Text>
             </View>
             <View style={{ backgroundColor: '#EFF6FF' }} className="px-3 py-1.5 rounded-full">
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>
-                {homeProducts.length > 0 ? `${homeProducts.length} ürün akışı` : 'Canlı akış'}
+                {homeProducts.length > 0 ? t.home.productsLoaded(homeProducts.length) : t.home.liveStream}
               </Text>
             </View>
           </View>
@@ -774,7 +776,7 @@ export default function HomeScreen() {
         {/* Products filters and sort */}
         <View className="bg-white px-3 py-3 border-b border-[#33333312]">
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>
-            Filtrele:
+            {t.home.filterBy}
           </Text>
           <ScrollView
             horizontal
@@ -817,7 +819,7 @@ export default function HomeScreen() {
           </ScrollView>
 
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: 10, marginBottom: 8 }}>
-            Sırala:
+            {t.home.sortBy}
           </Text>
           <ScrollView
             horizontal
@@ -861,10 +863,10 @@ export default function HomeScreen() {
                 <Ionicons name="search-outline" size={28} color={colors.primary} />
               </View>
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
-                Eşleşen ürün yok
+                {t.home.noProducts}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
-                "{activeProductTabLabel}" kategorisinde {activeProductSort === 'newest' ? 'hiç ürün yok' : 'sonuç bulunamadı'}.{'\n'}Filtreleri değiştirmeyi dene.
+                {t.home.noProductsSub(activeProductTabLabel, activeProductSort)}
               </Text>
               <Pressable 
                 onPress={() => {
@@ -874,7 +876,7 @@ export default function HomeScreen() {
                 className="mt-4 px-4 py-2 rounded-full" 
                 style={{ backgroundColor: colors.primary }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>Filtreleri Sıfırla</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t.common.resetFilters}</Text>
               </Pressable>
             </View>
           ) : (
@@ -905,7 +907,7 @@ export default function HomeScreen() {
             <View className="items-center justify-center py-4">
               <ActivityIndicator color={colors.primary} />
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 6 }}>
-                Daha fazla ilan yükleniyor...
+                {t.home.loadingMore}
               </Text>
             </View>
           ) : null}
@@ -913,7 +915,7 @@ export default function HomeScreen() {
           {!homeHasMore ? (
             <View className="items-center justify-center py-4">
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted }}>
-                Tüm ilanlar yüklendi.
+                {t.home.allLoaded}
               </Text>
             </View>
           ) : null}

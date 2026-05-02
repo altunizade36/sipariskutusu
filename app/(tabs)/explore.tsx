@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { colors, fonts } from '../../src/constants/theme';
 import { discoverSellers } from '../../src/data/storeData';
+import { t } from '../../src/i18n';
 import { fetchDiscoverStores, type DiscoverStore } from '../../src/services/storeService';
 import { fetchFollowedStoreIds } from '../../src/services/storeFollowService';
 import { isSupabaseConfigured } from '../../src/services/supabase';
@@ -41,11 +42,11 @@ type PopularSellerItem = {
 };
 
 const filterChips: { id: FilterId; label: string; icon: string }[] = [
-  { id: 'all', label: 'Tümü', icon: 'grid-outline' },
-  { id: 'featured', label: 'Öne Çıkanlar', icon: 'flame-outline' },
-  { id: 'topRated', label: 'En Yüksek Puan', icon: 'star-outline' },
-  { id: 'new', label: 'Yeni Mağazalar', icon: 'sparkles-outline' },
-  { id: 'live', label: 'Canlı Yayın', icon: 'radio-outline' },
+  { id: 'all', label: t.explore.filterAll, icon: 'grid-outline' },
+  { id: 'featured', label: t.explore.filterFeatured, icon: 'flame-outline' },
+  { id: 'topRated', label: t.explore.filterTopRated, icon: 'star-outline' },
+  { id: 'new', label: t.explore.filterNew, icon: 'sparkles-outline' },
+  { id: 'live', label: t.explore.filterLive, icon: 'radio-outline' },
 ];
 
 // Skeleton loader component for seller cards
@@ -230,12 +231,12 @@ export default function ExploreScreen() {
         sellerKey: seller.sellerId,
         storeName: seller.storeName || seller.sellerName,
         image: seller.sellerAvatar || sellerSource.find((item) => item.id === seller.sellerId)?.avatar || DEFAULT_SELLER_AVATAR,
-        badge: index < 3 ? `#${index + 1}` : seller.sales > 0 ? 'Satış' : seller.rating >= 4.8 ? 'Yıldız' : seller.follows > 0 ? 'Takip' : 'Popüler',
+        badge: index < 3 ? `#${index + 1}` : seller.sales > 0 ? t.explore.badgeSale : seller.rating >= 4.8 ? t.explore.badgeStar : seller.follows > 0 ? t.explore.badgeFollow : t.explore.badgePopular,
         metricLabel: seller.sales > 0
-          ? `${Math.round(seller.sales)} satış`
+          ? t.explore.metricSales(Math.round(seller.sales))
           : seller.follows > 0
-            ? `${Math.round(seller.follows)} takipçi`
-            : `${Math.round(seller.score)} puan`,
+            ? t.explore.metricFollowers(Math.round(seller.follows))
+            : t.explore.metricScore(Math.round(seller.score)),
       }));
     }
 
@@ -260,8 +261,8 @@ export default function ExploreScreen() {
             sellerKey: item.sellerId,
             storeName: seller?.name || item.sellerName,
             image: seller?.avatar || item.sellerAvatar || DEFAULT_SELLER_AVATAR,
-            badge: index < 3 ? `#${index + 1}` : item.isLive ? 'Canli' : 'Popüler',
-            metricLabel: seller ? `${seller.rating.toFixed(1)} yıldız` : 'öne çıkıyor',
+            badge: index < 3 ? `#${index + 1}` : item.isLive ? t.explore.live : t.explore.badgePopular,
+            metricLabel: seller ? t.explore.metricRating(seller.rating) : t.explore.featuring,
           };
         });
     }
@@ -285,17 +286,17 @@ export default function ExploreScreen() {
       sellerKey: seller.id,
       storeName: seller.name,
       image: seller.avatar,
-      badge: index < 3 ? `#${index + 1}` : seller.rating >= 4.8 ? 'Yıldız' : seller.featured ? 'Popüler' : 'Takip',
-      metricLabel: seller.rating >= 4.8 ? `${seller.rating.toFixed(1)} yıldız` : `${seller.followers} takipçi`,
+      badge: index < 3 ? `#${index + 1}` : seller.rating >= 4.8 ? t.explore.badgeStar : seller.featured ? t.explore.badgePopular : t.explore.badgeFollow,
+      metricLabel: seller.rating >= 4.8 ? t.explore.metricRating(seller.rating) : t.explore.metricFollowersText(seller.followers),
     }));
   }, [featuredStories, leaderboardEntries, sellerSource]);
   const exploreStorySourceLabel = featuredStories.length > 0
-    ? 'Profil fotoğraflarıyla öne çıkan satıcılar'
+    ? t.explore.sourceLabel
     : leaderboardEntries.length > 0
-      ? 'Satış, puan, takip ve etkileşime göre sıralanır'
+      ? t.explore.sourceLabelRanked
       : canUseBackend
-        ? 'Popüler satıcılar hazırlanıyor'
-        : 'Profil fotoğraflarıyla öne çıkan satıcılar';
+        ? t.explore.sourceLabelLoading
+        : t.explore.sourceLabel;
 
   function toggleFollow(id: string) {
     toggleSellerFollow(id);
@@ -370,10 +371,10 @@ export default function ExploreScreen() {
         <View className="flex-row items-center justify-between mb-3">
           <View>
             <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: colors.textPrimary }}>
-              Keşfet
+              {t.explore.title}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
-              Satıcıları keşfet, takip et, vitrinlerini yakından izle.
+              {t.explore.subtitle}
             </Text>
           </View>
           <View className="flex-row items-center gap-3">
@@ -424,10 +425,10 @@ export default function ExploreScreen() {
           <View className="flex-row items-center justify-between px-4 mb-2">
             <View className="flex-1 pr-3">
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
-                Popüler Satıcılar
+                {t.explore.popularSellers}
               </Text>
               <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                {isLeaderboardLoading ? 'Yükleniyor…' : exploreStorySourceLabel}
+                {isLeaderboardLoading ? t.common.loading : exploreStorySourceLabel}
               </Text>
             </View>
             <Pressable
@@ -436,7 +437,7 @@ export default function ExploreScreen() {
               }}
               className="flex-row items-center"
             >
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>Tümünü gör</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>{t.explore.seeAll}</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
@@ -446,11 +447,11 @@ export default function ExploreScreen() {
             contentContainerStyle={{ paddingHorizontal: 14, gap: 6, paddingBottom: 8 }}
           >
             {([
-              { id: 'daily' as LeaderboardPeriod, label: 'Günlük' },
-              { id: 'weekly' as LeaderboardPeriod, label: 'Haftalık' },
-              { id: 'monthly' as LeaderboardPeriod, label: 'Aylık' },
-              { id: 'yearly' as LeaderboardPeriod, label: 'Yıllık' },
-              { id: 'all' as LeaderboardPeriod, label: 'Tüm Zamanlar' },
+              { id: 'daily' as LeaderboardPeriod, label: t.explore.periodDaily },
+              { id: 'weekly' as LeaderboardPeriod, label: t.explore.periodWeekly },
+              { id: 'monthly' as LeaderboardPeriod, label: t.explore.periodMonthly },
+              { id: 'yearly' as LeaderboardPeriod, label: t.explore.periodYearly },
+              { id: 'all' as LeaderboardPeriod, label: t.explore.periodAll },
             ]).map((p) => {
               const active = popularPeriod === p.id;
               return (
@@ -542,14 +543,14 @@ export default function ExploreScreen() {
               <View style={{ flex: 1, paddingRight: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                   <View style={{ backgroundColor: colors.primary, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff', letterSpacing: 0.9 }}>ADMİN SEÇKİSİ</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff', letterSpacing: 0.9 }}>{t.explore.adminPick}</Text>
                   </View>
                   <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#22C55E' }} />
                   <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: '#22C55E' }}>Canlı</Text>
                 </View>
-                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>Editörün Seçimi</Text>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>{t.explore.editorsPick}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                  Ekibimizin özenle seçtiği hikayeler
+                  {t.explore.editorsPickSub}
                 </Text>
               </View>
             </View>
@@ -564,9 +565,9 @@ export default function ExploreScreen() {
                   : story.featuredType === 'weekly' ? '#F59E0B'
                   : colors.primary;
                 const badgeLabel =
-                  story.featuredType === 'trending' ? 'TREND'
-                  : story.featuredType === 'weekly' ? 'HAFTANIN'
-                  : 'ÖNCÜ';
+                  story.featuredType === 'trending' ? t.explore.badgeTrending
+                  : story.featuredType === 'weekly' ? t.explore.badgeWeekly
+                  : t.explore.badgePioneer;
                 return (
                   <Pressable
                     key={story.id}
@@ -688,27 +689,27 @@ export default function ExploreScreen() {
         >
           <View className="flex-row items-center gap-2 mb-2">
             <PulsingDot color={colors.danger} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.danger }}>CANLI</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#94A3B8' }}>· {filterChipCounts.live} mağaza aktif</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.danger }}>{t.explore.live}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#94A3B8' }}>· {t.explore.liveActive(filterChipCounts.live)}</Text>
           </View>
           <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: '#fff' }}>
-            Haftanın Yükselen Satıcıları
+            {t.explore.risingThisWeek}
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: '#CBD5E1' }} className="mt-1.5">
-            Takip et, yeni drop ve kampanyaları akışına düşmeden önce yakala.
+            {t.explore.risingThisWeekSub}
           </Text>
           <View className="flex-row gap-2 mt-4 items-center">
             <View className="bg-white/10 rounded-full px-3 py-1.5">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{sellerSource.length}+ vitrin</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{t.explore.showcases(sellerSource.length)}</Text>
             </View>
             <View className="bg-white/10 rounded-full px-3 py-1.5">
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>
-                {Object.values(followedSellers).filter(Boolean).length} takip ediliyor
+                {t.explore.followCount(Object.values(followedSellers).filter(Boolean).length)}
               </Text>
             </View>
             <View style={{ flex: 1 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>Liderboard</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>{t.explore.leaderboard}</Text>
               <Ionicons name="chevron-forward" size={13} color={colors.primary} />
             </View>
           </View>
@@ -726,9 +727,9 @@ export default function ExploreScreen() {
               style={{ backgroundColor: '#fff', marginHorizontal: 16, marginTop: 12, borderRadius: 20, borderWidth: 1, borderColor: '#33333315', padding: 12 }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>Takip Ettiklerim</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t.explore.following}</Text>
                 <View style={{ backgroundColor: '#EFF6FF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary }}>{followedSellersData.length} mağaza</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary }}>{t.explore.followingCount(followedSellersData.length)}</Text>
                 </View>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
@@ -769,10 +770,10 @@ export default function ExploreScreen() {
             <View className="px-4 mt-5 mb-3 flex-row items-center justify-between">
               <View>
                 <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>
-                  Öne Çıkan Mağazalar
+                  {t.explore.featuredStores}
                 </Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} className="mt-0.5">
-                  Vitrin gücü yüksek, hızlı teslimat yapan satıcılar.
+                  {t.explore.featuredStoresSub}
                 </Text>
               </View>
             </View>
@@ -825,7 +826,7 @@ export default function ExploreScreen() {
                             {displayFollowers}
                           </Text>
                           <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>
-                            Takipçi
+                            {t.store.followers}
                           </Text>
                         </View>
                         <View className="flex-row items-center gap-0.5">
@@ -869,10 +870,10 @@ export default function ExploreScreen() {
         <View className="px-4 mt-5 mb-3 flex-row items-center justify-between">
           <View>
             <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>
-              Mağaza Akışı
+              {t.explore.storeFlow}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} className="mt-0.5">
-              {displayedSellers.length} satıcı · yeni vitrin ve kampanyalar
+              {t.explore.storeFlowSub(displayedSellers.length)}
             </Text>
           </View>
           <Pressable
@@ -909,12 +910,12 @@ export default function ExploreScreen() {
               }}
             >
               {gridSort === 'default'
-                ? 'Sırala'
+                ? t.explore.sort
                 : gridSort === 'rating'
-                ? 'Puan ↓'
+                ? t.explore.sortRating
                 : gridSort === 'followers'
-                ? 'Takipçi ↓'
-                : 'A-Z'}
+                ? t.explore.sortFollowers
+                : t.explore.sortAZ}
             </Text>
           </Pressable>
         </View>
@@ -929,15 +930,15 @@ export default function ExploreScreen() {
           ) : filteredSellers.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 48 }}>
               <Ionicons name="storefront-outline" size={48} color="#D1D5DB" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginTop: 14 }}>Mağaza bulunamadı</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginTop: 14 }}>{t.explore.noStore}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6, textAlign: 'center' }}>
-                Bu filtre için henüz satıcı yok.{'\n'}Başka bir kategori dene.
+                {t.explore.noStoreSub}
               </Text>
               <Pressable
                 onPress={() => setActiveFilter('all')}
                 style={{ backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10, marginTop: 18 }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>Tümünü Göster</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t.explore.showAll}</Text>
               </Pressable>
             </View>
           ) : (
@@ -968,7 +969,7 @@ export default function ExploreScreen() {
                         className="absolute top-2 left-2 flex-row items-center px-2 py-[3px] rounded-full gap-1"
                       >
                         <PulsingDot color="#fff" />
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>CANLI</Text>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{t.explore.live}</Text>
                       </View>
                     ) : null}
                     {/* Category pill */}

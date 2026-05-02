@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 import BoxMascot from '../src/components/BoxMascot';
+import { t } from '../src/i18n';
 import {
   fetchMyNotifications,
   markAllNotificationsRead,
@@ -124,7 +125,7 @@ export default function NotificationsScreen() {
           <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </Pressable>
         <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary }} className="flex-1 ml-2">
-          Bildirimler
+          {t.notifications.title}
         </Text>
         {unreadCount > 0 ? (
           <View style={{ backgroundColor: colors.primary, borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginRight: 8 }}>
@@ -137,7 +138,7 @@ export default function NotificationsScreen() {
           style={{ opacity: unreadCount === 0 ? 0.45 : 1 }}
         >
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary }}>
-            Tümünü Oku
+            {t.notifications.markAllRead}
           </Text>
         </Pressable>
       </View>
@@ -147,7 +148,7 @@ export default function NotificationsScreen() {
           <View className="items-center justify-center mt-10">
             <BoxMascot variant="loading" size={90} animated />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 8 }}>
-              Bildirimler yükleniyor...
+              {t.notifications.loading}
             </Text>
           </View>
         ) : items.length === 0 ? (
@@ -156,10 +157,10 @@ export default function NotificationsScreen() {
               <Ionicons name="notifications-off-outline" size={26} color={colors.primary} />
             </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-              Bildirim Yok
+              {t.notifications.noNotifications}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>
-              Henüz bir bildirim almadın.
+              {t.notifications.noNotificationsSub}
             </Text>
           </View>
         ) : (

@@ -13,42 +13,48 @@ import { fetchMyReports, fetchPendingReportsAdmin, reviewReportAdmin, type Repor
 import { fetchUnreadNotificationCount, subscribeToMyNotifications } from '../../src/services/inAppNotificationService';
 import { buildMessagesInboxRoute } from '../../src/utils/messageRouting';
 import { useUserPreferences } from '../../src/hooks/useUserPreferences';
+import { t } from '../../src/i18n';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const SUPPORT_EMAIL = 'iletisim@sipariskutusu.com';
 
-const sections: { title: string; items: { icon: IoniconName; label: string; badge?: string; color?: string }[] }[] = [
-  {
-    title: 'Hesabım',
-    items: [
-      { icon: 'person-outline', label: 'Kişisel Bilgiler' },
-      { icon: 'storefront-outline', label: 'Mağaza Profili' },
-      { icon: 'location-outline', label: 'Adreslerim' },
-      { icon: 'card-outline', label: 'Ödeme Tercihlerim' },
-      { icon: 'bag-handle-outline', label: 'Görüşme Geçmişim' },
-      { icon: 'shield-checkmark-outline', label: 'Güvenlik' },
-    ],
-  },
-  {
-    title: 'Destek',
-    items: [
-      { icon: 'chatbubbles-outline', label: 'Canlı Destek' },
-      { icon: 'help-circle-outline', label: 'Yardım Merkezi' },
-      { icon: 'mail-outline', label: 'İletişim E-postası' },
-      { icon: 'document-text-outline', label: 'Şartlar & Gizlilik' },
-      { icon: 'language-outline', label: 'Dil & Bölge', badge: 'TR' },
-    ],
-  },
-  {
-    title: 'Uygulama',
-    items: [
-      { icon: 'notifications-outline', label: 'Bildirimler' },
-      { icon: 'moon-outline', label: 'Görünüm' },
-      { icon: 'log-out-outline', label: 'Çıkış Yap', color: colors.danger },
-    ],
-  },
-];
+type SectionItem = { icon: IoniconName; label: string; badge?: string; color?: string };
+type Section = { title: string; items: SectionItem[] };
+
+function buildSections(): Section[] {
+  return [
+    {
+      title: t.account.myAccount,
+      items: [
+        { icon: 'person-outline', label: t.account.personalInfo },
+        { icon: 'storefront-outline', label: t.account.storeProfile },
+        { icon: 'location-outline', label: t.account.addresses },
+        { icon: 'card-outline', label: t.account.paymentMethods },
+        { icon: 'bag-handle-outline', label: t.account.conversationHistory },
+        { icon: 'shield-checkmark-outline', label: t.account.security },
+      ],
+    },
+    {
+      title: t.account.support,
+      items: [
+        { icon: 'chatbubbles-outline', label: t.account.liveSupport },
+        { icon: 'help-circle-outline', label: t.account.helpCenter },
+        { icon: 'mail-outline', label: t.account.contactEmail },
+        { icon: 'document-text-outline', label: t.account.termsPrivacy },
+        { icon: 'language-outline', label: t.account.languageRegion, badge: 'TR' },
+      ],
+    },
+    {
+      title: t.account.app,
+      items: [
+        { icon: 'notifications-outline', label: t.account.notifications },
+        { icon: 'moon-outline', label: t.account.appearance },
+        { icon: 'log-out-outline', label: t.account.signOut, color: colors.danger },
+      ],
+    },
+  ];
+}
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -223,9 +229,9 @@ export default function AccountScreen() {
   }
 
   async function handleSectionItem(label: string) {
-    if (label === 'Canlı Destek')      { router.push(buildMessagesInboxRoute()); return; }
-    if (label === 'Yardım Merkezi')    { router.push(buildMessagesInboxRoute()); return; }
-    if (label === 'İletişim E-postası') {
+    if (label === t.account.liveSupport)          { router.push(buildMessagesInboxRoute()); return; }
+    if (label === t.account.helpCenter)           { router.push(buildMessagesInboxRoute()); return; }
+    if (label === t.account.contactEmail) {
       const mailto = `mailto:${SUPPORT_EMAIL}?subject=Siparis%20Kutusu%20Destek`;
       const canOpen = await Linking.canOpenURL(mailto);
       if (canOpen) {
@@ -235,41 +241,41 @@ export default function AccountScreen() {
       }
       return;
     }
-    if (label === 'Kişisel Bilgiler') {
+    if (label === t.account.personalInfo) {
       if (!requireAuthForAction('Kişisel bilgiler için giriş yapman gerekiyor.')) return;
       router.push('/profile-edit');
       return;
     }
-    if (label === 'Mağaza Profili') {
+    if (label === t.account.storeProfile) {
       if (!requireAuthForAction('Mağaza profili için giriş yapman gerekiyor.')) return;
       router.push(hasStore ? '/store-settings' : '/store-setup');
       return;
     }
-    if (label === 'Adreslerim') {
+    if (label === t.account.addresses) {
       if (!requireAuthForAction('Adresler için giriş yapman gerekiyor.')) return;
       router.push('/addresses');
       return;
     }
-    if (label === 'Ödeme Tercihlerim') {
+    if (label === t.account.paymentMethods) {
       if (!requireAuthForAction('Ödeme yöntemleri için giriş yapman gerekiyor.')) return;
       router.push('/payment-methods');
       return;
     }
-    if (label === 'Görüşme Geçmişim') {
+    if (label === t.account.conversationHistory) {
       if (!requireAuthForAction('Görüşme geçmişi için giriş yapman gerekiyor.')) return;
       router.push('/(tabs)/orders');
       return;
     }
-    if (label === 'Güvenlik') {
+    if (label === t.account.security) {
       if (!requireAuthForAction('Güvenlik ayarları için giriş yapman gerekiyor.')) return;
       router.push('/security');
       return;
     }
-    if (label === 'Şartlar & Gizlilik'){ router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }); return; }
-    if (label === 'Dil & Bölge')       { router.push('/preferences'); return; }
-    if (label === 'Bildirimler')       { router.push('/notifications'); return; }
-    if (label === 'Görünüm')           { router.push('/preferences'); return; }
-    if (label === 'Çıkış Yap') {
+    if (label === t.account.termsPrivacy) { router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }); return; }
+    if (label === t.account.languageRegion) { router.push('/preferences'); return; }
+    if (label === t.account.notifications)  { router.push('/notifications'); return; }
+    if (label === t.account.appearance)     { router.push('/preferences'); return; }
+    if (label === t.account.signOut) {
       if (!user) {
         router.push('/auth');
         return;
@@ -319,24 +325,24 @@ export default function AccountScreen() {
     textMuted: isDarkMode ? '#64748B' : colors.textMuted,
   };
 
-  const sectionList = sections.map((section) => ({
+  const sectionList = buildSections().map((section) => ({
     ...section,
     items: section.items.map((item) => {
-      if (item.label === 'Bildirimler') {
+      if (item.label === t.account.notifications) {
         return {
           ...item,
           badge: unreadNotificationCount > 0 ? String(Math.min(unreadNotificationCount, 99)) : undefined,
         };
       }
 
-      if (item.label === 'Dil & Bölge') {
+      if (item.label === t.account.languageRegion) {
         return {
           ...item,
           badge: languageBadge,
         };
       }
 
-      if (item.label === 'Görünüm') {
+      if (item.label === t.account.appearance) {
         return {
           ...item,
           badge: themeBadge,
@@ -352,7 +358,7 @@ export default function AccountScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.primary }} className="px-4 pt-4 pb-20">
           <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: '#fff' }}>
-            Hesabım
+            {t.account.title}
           </Text>
         </View>
 
