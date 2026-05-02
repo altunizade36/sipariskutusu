@@ -1,0 +1,135 @@
+İlan Ver sistemini mağaza, ürünler ve Instagram entegrasyonu ile tam bağlı hale getir. Mevcut tasarımı bozma, sadece çalışır akışı tamamla.
+
+ANA KURAL:
+Kullanıcı mağaza oluşturmadan ilan yayınlayamasın.
+Instagram bağlamak zorunlu olmasın.
+Kullanıcı isterse manuel ilan verebilsin, isterse Instagram’dan gelen içerikleri ürüne çevirebilsin.
+
+1. İLAN VER GİRİŞ KONTROLÜ
+- Kullanıcı giriş yapmamışsa ilan ver ekranına giremesin.
+- Kullanıcı mağaza oluşturmamışsa ilan ver ekranında form açılmasın.
+- Bunun yerine şu ekran gösterilsin:
+  “İlan yayınlamak için önce mağazanı oluşturmalısın.”
+  Buton: “Mağaza Oluştur”
+- Mağaza oluşturunca tekrar İlan Ver ekranına dönebilsin.
+
+2. INSTAGRAM ZORUNLU OLMASIN
+- Kullanıcı Instagram bağlamadan da manuel ilan verebilsin.
+- Instagram bağladıysa ayrıca Instagram içerikleri çekilsin.
+- Manuel ilan ile Instagram’dan gelen ürünler ayrı kaynak olarak kaydedilsin.
+
+sourceType:
+- manual
+- instagram_import
+
+3. MANUEL İLAN YAYINLAMA
+İlan Ver ekranından ürün yayınlanınca:
+- ürün Product listesine kaydedilsin
+- kullanıcının kendi mağazasına düşsün
+- ana sayfa ürün akışında görünsün
+- kategori sayfasında görünsün
+- arama/filtre sisteminde bulunsun
+- mağaza ürün sayısı artsın
+- ürün status: published olsun
+
+4. FORM ZORUNLU ALANLAR
+Yayınlamak için zorunlu:
+- en az 1 fotoğraf
+- başlık
+- açıklama
+- kategori
+- alt kategori
+- fiyat
+- şehir
+- ilçe
+- teslimat tipi
+- satıcı/mağaza bilgisi
+
+Eksik varsa yayınlama.
+Eksikleri net göster:
+“Eksik: Fotoğraf, Başlık, Fiyat, Şehir, İlçe”
+
+5. TASLAK SİSTEMİ
+- Kullanıcı yazarken otomatik taslak kaydedilsin.
+- “Taslağı Temizle” çalışsın.
+- Kullanıcı çıkıp girince taslak geri gelsin.
+- Yayınlayınca taslak temizlensin.
+
+6. CANLI ÖNİZLEME
+- Formdaki bilgiler anlık canlı önizlemeye düşsün.
+- Fotoğraf, başlık, fiyat, konum, kategori, teslimat bilgisi önizlemede görünsün.
+- Eksik alanlarda placeholder gösterilsin.
+- Önizleme ekranı taşmasın.
+
+7. MAĞAZA BAĞLANTISI
+- İlan yayınlanınca mağaza profilindeki Ürünler sekmesine düşsün.
+- Mağaza ürün sayısı güncellensin.
+- Ürüne tıklayınca ProductDetailScreen açılsın.
+- Satıcı kendi mağazasında ürünü düzenleyebilsin/pasife alabilsin/silebilsin.
+
+8. INSTAGRAM İÇERİKLERİ
+- Instagram bağlıysa gönderiler/reels/hikayeler arka planda güncellensin.
+- Instagram’dan gelen gönderiler direkt ürün olmasın.
+- “Instagram İçerikleri” alanına düşsün.
+- Satıcı “Ürüne Çevir” derse auto_draft oluşturulsun.
+- Caption açıklama olarak gelsin.
+- Fiyat/kategori/renk/beden otomatik tahmin edilsin.
+- Satıcı onaylayınca ürün yayınlansın.
+- Bu ürün sourceType: instagram_import olsun.
+
+9. ANLIK/GÜNCEL ÇEKME MANTIĞI
+- Instagram içerikleri uygulama açılınca ve mağaza ekranına girince kontrol edilsin.
+- Çok sık API çağrısı yapma; son kontrol zamanını tut.
+- Örnek:
+  lastInstagramSyncAt üzerinden 10-15 dakikada bir sync yap.
+- Yeni içerik varsa ekle.
+- Önceden çekilmiş içerikleri tekrar tekrar çoğaltma.
+- instagramMediaId unique olsun.
+
+10. ÜRÜN DURUMLARI
+Product status:
+- draft
+- published
+- pending_review
+- rejected
+- passive
+- deleted
+
+Yayınlananlar sadece published olanlar olsun.
+Pasif/silinmiş ürünler ana akışta görünmesin.
+
+11. MESAJ VE BİLDİRİM BAĞLANTISI
+- Yayınlanan üründe “Mesaj Gönder” çalışsın.
+- Mesaj satıcının Messages ekranına düşsün.
+- Ürün favorilenince/beğenilince satıcıya bildirim gitsin.
+- Ürün yayınlanınca kullanıcıya bildirim:
+  “İlanınız yayına alındı.”
+
+12. ADMIN KONTROLÜ
+Admin panelinde:
+- yeni yayınlanan ilanlar görünsün
+- manuel ilan / Instagram import ayrımı görünsün
+- ürünü onayla/reddet/pasife al/sil seçenekleri olsun
+- yasaklı ürün kontrolü olsun
+- şikayet edilen ürünler listelensin
+
+13. RESPONSIVE DÜZELTME
+- İlan Ver ekranında alt sabit yayınla butonu tab bar/home indicator üstünde kalsın.
+- Progress bar ve eksik alan yazısı taşmasın.
+- Küçük telefonlarda form düzgün scroll olsun.
+- Çentiğe taşma olmasın.
+- Fotoğraf alanı, kategori chipleri, teslimat seçenekleri taşmasın.
+
+14. TEST ET
+- Mağazası olmayan kullanıcı ilan verebiliyor mu? Hayır.
+- Mağazası olan kullanıcı Instagram bağlamadan ilan verebiliyor mu? Evet.
+- İlan yayınlanınca mağaza ürünlerine düşüyor mu? Evet.
+- Ana sayfa/kategori/arama içinde çıkıyor mu? Evet.
+- Eksik alan varsa yayın engelleniyor mu? Evet.
+- Taslak kaydetme/temizleme çalışıyor mu?
+- Instagram bağlıysa içerikler güncelleniyor mu?
+- Aynı Instagram gönderisi iki kez eklenmiyor mu?
+- Ürüne çevirme çalışıyor mu?
+- Mesaj/favori/bildirim bağlantıları çalışıyor mu?
+
+Mevcut çalışan tasarımı ve navigasyonu bozma. Eksik import, type/interface, state, route ve navigation hatalarını kendin çöz.

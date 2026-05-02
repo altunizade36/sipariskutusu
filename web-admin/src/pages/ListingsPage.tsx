@@ -7,6 +7,7 @@ interface Listing {
   title: string;
   price: number;
   status: string;
+  source_type: string | null;
   created_at: string;
   user_name: string;
   cover_url: string | null;
@@ -51,7 +52,7 @@ export default function ListingsPage() {
         const { data: other, error: otherErr } = await supabase
           .from('listings')
           .select(`
-            id, title, price, status, created_at,
+            id, title, price, status, source_type, created_at,
             profiles (full_name, username)
           `)
           .eq('status', filter)
@@ -70,6 +71,7 @@ export default function ListingsPage() {
             title: l.title,
             price: l.price,
             status: l.status,
+            source_type: l.source_type ?? null,
             created_at: l.created_at,
             user_name: l.profiles?.full_name ?? l.profiles?.username ?? 'Anonim',
             cover_url: null,
@@ -256,12 +258,13 @@ export default function ListingsPage() {
                 <th>Satici</th>
                 <th>Tarih</th>
                 <th>Durum</th>
+                <th>Kaynak</th>
                 <th>Islem</th>
               </tr>
             </thead>
             <tbody>
               {listings.length === 0 ? (
-                <tr className="empty-row"><td colSpan={filter === 'pending' ? 7 : 6}>Kayit yok</td></tr>
+                <tr className="empty-row"><td colSpan={filter === 'pending' ? 8 : 7}>Kayit yok</td></tr>
               ) : listings.map(l => (
                 <tr key={l.id} className={selectedIds.includes(l.id) ? 'row-selected' : ''}>
                   {filter === 'pending' && (
@@ -281,15 +284,28 @@ export default function ListingsPage() {
                     <span className={`badge badge-${l.status}`}>{l.status}</span>
                   </td>
                   <td>
+                    {l.source_type === 'instagram_import' ? (
+                      <span className="badge" style={{ backgroundColor: '#F3E8FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>📸 Instagram</span>
+                    ) : (
+                      <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>✏️ Manuel</span>
+                    )}
+                  </td>
+                  <td>
                     {filter === 'pending' ? (
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-success" disabled={acting} onClick={() => void approve(l.id)}>Onayla</button>
                         <button className="btn btn-danger" disabled={acting} onClick={() => { setRejectId(l.id); setRejectReason(''); }}>Reddet</button>
                       </div>
                     ) : filter === 'active' ? (
-                      <button className="btn btn-warn" disabled={acting} onClick={() => void updateListingStatus(l.id, 'paused')}>Pasife Al</button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-warn" disabled={acting} onClick={() => void updateListingStatus(l.id, 'paused')}>Pasife Al</button>
+                        <button className="btn btn-danger" disabled={acting} onClick={() => { setRejectId(l.id); setRejectReason(''); }}>Reddet</button>
+                      </div>
                     ) : filter === 'paused' ? (
-                      <button className="btn btn-success" disabled={acting} onClick={() => void updateListingStatus(l.id, 'active')}>Aktif Et</button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-success" disabled={acting} onClick={() => void updateListingStatus(l.id, 'active')}>Aktif Et</button>
+                        <button className="btn btn-danger" disabled={acting} onClick={() => { setRejectId(l.id); setRejectReason(''); }}>Reddet</button>
+                      </div>
                     ) : (
                       <span style={{ color: '#64748b', fontSize: 13 }}>-</span>
                     )}

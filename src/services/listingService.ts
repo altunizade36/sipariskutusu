@@ -47,7 +47,7 @@ function isVideoUri(uri: string): boolean {
 }
 
 export type ListingCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-export type ListingStatus = 'active' | 'sold' | 'paused' | 'deleted';
+export type ListingStatus = 'active' | 'published' | 'draft' | 'pending_review' | 'rejected' | 'passive' | 'sold' | 'paused' | 'deleted';
 export type DeliveryType = 'shipping' | 'hand_delivery' | 'both';
 
 export interface Listing {
@@ -69,6 +69,7 @@ export interface Listing {
   city?: string | null;
   district?: string | null;
   neighborhood?: string | null;
+  source_type?: 'manual' | 'instagram_import' | null;
   stock: number;
   view_count: number;
   favorite_count: number;
@@ -132,6 +133,7 @@ export type CreateListingInput = {
   imageUris?: string[];
   videoUri?: string;
   hashtags?: string[];
+  sourceType?: 'manual' | 'instagram_import';
 };
 
 type ListingUpdatePayload = {
@@ -275,6 +277,7 @@ export async function createListing(
     city: input.city,
     district: input.district,
     ...(input.neighborhood ? { neighborhood: input.neighborhood } : {}),
+    source_type: input.sourceType ?? 'manual',
     stock: input.stock ?? 1,
     is_negotiable: input.isNegotiable ?? false,
     currency: 'TRY',
@@ -283,9 +286,15 @@ export async function createListing(
 
   let { data, error } = await supabase.from('listings').insert(basePayload).select().single();
 
+  // If source_type column doesn't exist yet, retry without it
+  if (error && (error as { code?: string }).code === '42703' && 'source_type' in basePayload) {
+    const { source_type: _st, ...payloadWithoutSourceType } = basePayload as typeof basePayload & { source_type?: string };
+    ({ data, error } = await supabase.from('listings').insert(payloadWithoutSourceType).select().single());
+  }
+
   // If neighborhood column doesn't exist yet (migration 051 pending), retry without it
   if (error && (error as { code?: string }).code === '42703' && 'neighborhood' in basePayload) {
-    const { neighborhood: _n, ...payloadWithoutNeighborhood } = basePayload as typeof basePayload & { neighborhood?: string };
+    const { neighborhood: _n, source_type: _st2, ...payloadWithoutNeighborhood } = basePayload as typeof basePayload & { neighborhood?: string; source_type?: string };
     ({ data, error } = await supabase.from('listings').insert(payloadWithoutNeighborhood).select().single());
   }
 
@@ -315,6 +324,7 @@ export type SubmitListingInput = {
   coverIndex?: number;
   negotiable?: boolean;
   stock?: number;
+  sourceType?: 'manual' | 'instagram_import';
 };
 
 function mapQuickCondition(condition: SubmitListingInput['condition']): ListingCondition {
@@ -491,6 +501,7 @@ export async function submitListingToSupabase(input: SubmitListingInput): Promis
     neighborhood: input.neighborhood?.trim() ?? '',
     stock: input.stock ?? 1,
     isNegotiable: Boolean(input.negotiable),
+    sourceType: input.sourceType ?? 'manual',
   });
 
   const uploadedPaths: string[] = [];
@@ -618,7 +629,7 @@ export async function fetchListings(
       profiles!listings_seller_id_fkey(id, full_name, username, avatar_url)
       `,
     )
-    .eq('status', 'active');
+    .in('status', ['active', 'published']);
 
   // If onlyOwned, filter by current user
   if (filters?.onlyOwned && userId) {

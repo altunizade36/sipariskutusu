@@ -186,7 +186,7 @@ export interface ListingUpdateInput {
   title?: string;
   description?: string;
   price?: number;
-  status?: 'active' | 'sold' | 'paused' | 'deleted';
+  status?: 'active' | 'published' | 'draft' | 'pending_review' | 'rejected' | 'passive' | 'sold' | 'paused' | 'deleted';
   stock?: number;
   condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   is_negotiable?: boolean;
@@ -232,7 +232,7 @@ export function validateListingUpdateInput(input: ListingUpdateInput): {
   }
 
   if (input.status !== undefined) {
-    const validStatuses = ['active', 'sold', 'paused', 'deleted'];
+    const validStatuses = ['active', 'published', 'draft', 'pending_review', 'rejected', 'passive', 'sold', 'paused', 'deleted'];
     if (!validStatuses.includes(input.status)) {
       errors.push('Geçersiz durum');
     }

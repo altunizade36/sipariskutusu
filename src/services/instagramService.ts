@@ -335,6 +335,43 @@ const MOCK_STORIES: InstagramStory[] = [
   },
 ];
 
+const IG_LAST_SYNC_KEY = 'instagram_last_sync_v1';
+const IG_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 dakika
+
+export async function getLastInstagramSync(): Promise<Date | null> {
+  try {
+    const raw = await AsyncStorage.getItem(IG_LAST_SYNC_KEY);
+    if (raw) return new Date(raw);
+  } catch {}
+  return null;
+}
+
+export async function setLastInstagramSync(): Promise<void> {
+  await AsyncStorage.setItem(IG_LAST_SYNC_KEY, new Date().toISOString());
+}
+
+export async function shouldSyncInstagram(): Promise<boolean> {
+  const last = await getLastInstagramSync();
+  if (!last) return true;
+  return Date.now() - last.getTime() >= IG_SYNC_INTERVAL_MS;
+}
+
+export async function fetchInstagramContentThrottled(): Promise<{
+  posts: InstagramPost[];
+  reels: InstagramReel[];
+  stories: InstagramStory[];
+} | null> {
+  const doSync = await shouldSyncInstagram();
+  if (!doSync) return null;
+  const [posts, reels, stories] = await Promise.all([
+    fetchInstagramPosts(),
+    fetchInstagramReels(),
+    fetchInstagramStories(),
+  ]);
+  await setLastInstagramSync();
+  return { posts, reels, stories };
+}
+
 export async function getInstagramConnection(): Promise<InstagramConnection> {
   try {
     const raw = await AsyncStorage.getItem(IG_CONNECTION_KEY);

@@ -49,32 +49,35 @@ export default function InstagramQuickPublishScreen() {
     }
     setPublishing(true);
     try {
+      const descFull = [
+        description.trim(),
+        sizes.trim() ? `Beden: ${sizes.trim()}` : '',
+        colors_.trim() ? `Renk: ${colors_.trim()}` : '',
+      ].filter(Boolean).join('\n');
+
       await submitListingToSupabase({
-        userId: user?.id ?? '',
         title: title.trim(),
-        description: description.trim(),
+        description: descFull || description.trim(),
         price: Number(price),
         categoryId: draft.categoryId ?? '',
-        subCategoryId: draft.subCategoryId ?? '',
-        customSubCategory: '',
+        subCategoryId: draft.subCategoryId ?? undefined,
+        customSubCategory: undefined,
         condition: 'Yeni',
-        sizeVariants: sizes,
-        colorVariants: colors_,
-        city: city,
+        delivery: [draft.deliveryType ?? 'Kargo'],
+        city: city || 'İstanbul',
         district: '',
         neighborhood: '',
-        delivery: [draft.deliveryType ?? 'Kargo'],
-        freeShipping: false,
-        bargaining: false,
+        imageUris: [mediaUrl],
         coverIndex: 0,
-        photos: [mediaUrl],
-        source: 'instagram',
-      } as any);
+        negotiable: false,
+        stock: 1,
+        sourceType: 'instagram_import',
+      });
       Alert.alert('Yayınlandı! 🎉', 'İlan başarıyla yayınlandı.', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
-    } catch {
-      Alert.alert('Hata', 'İlan yayınlanamadı, lütfen tekrar dene.');
+    } catch (err: any) {
+      Alert.alert('Hata', err?.message ?? 'İlan yayınlanamadı, lütfen tekrar dene.');
     } finally {
       setPublishing(false);
     }

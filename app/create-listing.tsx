@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -30,6 +30,7 @@ import { useUploadProgress } from '../src/hooks/useUploadProgress';
 import { UploadProgressOverlay } from '../src/components/UploadProgressOverlay';
 import { trackEvent } from '../src/services/monitoring';
 import { TELEMETRY_EVENTS } from '../src/constants/telemetryEvents';
+import { createInAppNotification } from '../src/services/inAppNotificationService';
 
 type Condition = 'Yeni' | 'Az kullanılmış' | 'İkinci el' | 'Hasarlı';
 type Delivery = 'Kargo' | 'Elden' | 'Görüşülür';
@@ -108,8 +109,10 @@ function normalizeDraft(raw: unknown): CreateListingDraft | null {
 export default function CreateListingScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { addListing } = useListings();
+  const { addListing, hasStore, reloadProducts } = useListings();
   const uploadProgress = useUploadProgress();
+  const insets = useSafeAreaInsets();
+  const [storeCheckLoading, setStoreCheckLoading] = useState(true);
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [coverIndex, setCoverIndex] = useState(0);
@@ -165,6 +168,7 @@ export default function CreateListingScreen() {
 
   const priceNumber = Number(price.replace(',', '.'));
   const priceValid = Number.isFinite(priceNumber) && priceNumber > 0;
+  const descriptionValid = description.trim().length >= 20;
   const districtList = useMemo(() => (city ? TR_CITIES[city] ?? [] : []), [city]);
   const locationLabel = useMemo(
     () => [city, district, neighborhood.trim()].filter(Boolean).join(' / '),
@@ -174,6 +178,7 @@ export default function CreateListingScreen() {
     () => [
       { label: 'Fotoğraf', done: photos.length > 0 },
       { label: 'Başlık', done: Boolean(title.trim()) },
+      { label: 'Açıklama', done: descriptionValid },
       { label: 'Kategori', done: Boolean(categoryId) },
       {
         label: 'Alt kategori',
@@ -187,6 +192,7 @@ export default function CreateListingScreen() {
     [
       photos.length,
       title,
+      descriptionValid,
       categoryId,
       subCategoryId,
       customSubCategory,
@@ -219,6 +225,7 @@ export default function CreateListingScreen() {
   const missing: string[] = [];
   if (photos.length === 0) missing.push('Fotoğraf');
   if (!title.trim()) missing.push('Başlık');
+  if (!descriptionValid) missing.push('Açıklama (min. 20 karakter)');
   if (!categoryId) missing.push('Kategori');
   if (subCategoryId === OTHER_SUBCATEGORY_ID && !customSubCategory.trim()) {
     missing.push('Özel Alt Kategori');
@@ -231,6 +238,12 @@ export default function CreateListingScreen() {
   const canPublish = missing.length === 0 && !submitting;
 
   const coverUri = photos[coverIndex] ?? photos[0];
+
+  // Store check loading — wait briefly for ListingsContext to hydrate hasStore
+  useEffect(() => {
+    const timer = setTimeout(() => setStoreCheckLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -479,12 +492,26 @@ export default function CreateListingScreen() {
           coverIndex,
           negotiable: bargaining,
           stock: 1,
+          sourceType: 'manual',
         });
 
         uploadProgress.completeUpload();
         await AsyncStorage.removeItem(CREATE_LISTING_DRAFT_KEY).catch(() => undefined);
-        Alert.alert('Yayınlandı', 'İlanın Supabase\'e kaydedildi.', [
-          { text: 'Tamam', onPress: () => router.replace(`/product/${created.id}`) },
+
+        // Satıcıya "İlanınız yayına alındı" bildirimi gönder
+        createInAppNotification(
+          user.id,
+          'listing_approved',
+          'İlanınız yayına alındı 🎉',
+          `"${title.trim()}" başlıklı ilanınız başarıyla yayına alındı.`,
+          { listingId: created.id },
+        ).catch(() => undefined);
+
+        // Ana sayfayı yenile
+        reloadProducts();
+
+        Alert.alert('Yayınlandı! 🎉', 'İlanın yayına alındı. Mağazan ve akıştaki yerini almaya başlıyor.', [
+          { text: 'İlanı Gör', onPress: () => router.replace(`/product/${created.id}`) },
         ]);
       } else {
         // Fallback: use local context
@@ -528,6 +555,83 @@ export default function CreateListingScreen() {
       uploadProgress.resetProgress();
     }
   };
+
+  // --- Giriş yapılmamışsa ---
+  if (!user) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center px-8" edges={['top', 'bottom']}>
+        <Ionicons name="person-circle-outline" size={72} color={colors.textMuted} />
+        <Text style={{ fontFamily: fonts.headingBold, fontSize: 20, color: colors.textPrimary, marginTop: 16, textAlign: 'center' }}>
+          Giriş Yapmalısın
+        </Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 22 }}>
+          İlan yayınlamak için önce hesabına giriş yapmalısın.
+        </Text>
+        <Pressable
+          onPress={() => router.push({ pathname: '/auth', params: { redirect: '/create-listing' } })}
+          style={{ marginTop: 28, height: 52, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Giriş Yap</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  // --- Mağaza yüklenirken ---
+  if (storeCheckLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center" edges={['top', 'bottom']}>
+        <View className="items-center gap-4">
+          <Ionicons name="storefront-outline" size={56} color={colors.primary} />
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textMuted }}>Mağaza bilgisi kontrol ediliyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // --- Mağazası yoksa kapı göster ---
+  if (!hasStore) {
+    return (
+      <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
+        <View className="flex-row items-center px-4 h-12 border-b border-[#33333315]">
+          <Pressable onPress={() => router.replace('/(tabs)')} className="w-10 h-10 items-center justify-center -ml-2">
+            <Ionicons name="close" size={26} color={colors.textPrimary} />
+          </Pressable>
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary, marginLeft: 4 }}>İlan Ver</Text>
+        </View>
+        <View className="flex-1 items-center justify-center px-8">
+          <View style={{ width: 96, height: 96, borderRadius: 24, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            <Ionicons name="storefront-outline" size={48} color={colors.primary} />
+          </View>
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: colors.textPrimary, textAlign: 'center' }}>
+            Önce mağazanı oluştur
+          </Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
+            İlan yayınlamak için önce bir satıcı mağazası oluşturman gerekiyor. Mağazanı kurduktan sonra dilediğin kadar ilan verebilirsin.
+          </Text>
+          <View style={{ marginTop: 12, backgroundColor: '#F0FDF4', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#D1FAE5', width: '100%' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#065F46', marginBottom: 6 }}>Mağaza açınca şunları yapabilirsin:</Text>
+            {['Manuel ilan yayınla', 'Instagram içeriklerini ürüne çevir', 'Mağaza profili oluştur', 'Sipariş ve mesajları yönet'].map((item) => (
+              <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#047857' }}>{item}</Text>
+              </View>
+            ))}
+          </View>
+          <Pressable
+            onPress={() => router.push('/store-setup')}
+            style={{ marginTop: 28, height: 54, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', width: '100%', flexDirection: 'row', gap: 8 }}
+          >
+            <Ionicons name="storefront" size={20} color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>Mağaza Oluştur</Text>
+          </Pressable>
+          <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: 14, height: 44, borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>Şimdi Değil</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <>
@@ -1022,7 +1126,7 @@ export default function CreateListingScreen() {
             borderTopColor: '#E2E8F0',
             paddingHorizontal: 16,
             paddingTop: 10,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+            paddingBottom: Math.max(insets.bottom, 14),
           }}
         >
           <View style={{ marginBottom: 8 }}>
