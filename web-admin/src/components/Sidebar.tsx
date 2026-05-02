@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 const links = [
   { to: '/', label: 'Dashboard' },
   { to: '/analytics', label: 'Analitik' },
+  { to: '/discover', label: 'Keşfet Yönetimi' },
   { to: '/listings', label: 'İlanlar' },
   { to: '/reports', label: 'Şikayetler' },
   { to: '/comments', label: 'Yorumlar' },

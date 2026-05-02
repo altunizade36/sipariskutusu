@@ -12,6 +12,7 @@ import AuditLogPage from './pages/AuditLogPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import StoresPage from './pages/StoresPage';
 import SettingsPage from './pages/SettingsPage';
+import DiscoverPage from './pages/DiscoverPage';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/stores"    element={<StoresPage />} />
               <Route path="/settings"  element={<SettingsPage />} />
+              <Route path="/discover"  element={<DiscoverPage />} />
             </Routes>
           </main>
         </div>

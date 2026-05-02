@@ -1,6 +1,6 @@
 import { getSupabaseClient } from './supabase';
 
-export type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all';
 
 export interface ExploreFeaturedStory {
   id: string;
@@ -57,6 +57,10 @@ function periodStartIso(period: LeaderboardPeriod): string {
     now.setDate(1);
     now.setHours(0, 0, 0, 0);
     return now.toISOString();
+  }
+
+  if (period === 'all') {
+    return new Date('2000-01-01').toISOString();
   }
 
   now.setMonth(0, 1);
@@ -151,7 +155,7 @@ export async function fetchSellerPeriodLeaderboard(
 ): Promise<SellerPeriodLeaderboardEntry[]> {
   const supabase = getSupabaseClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('seller_leaderboard')
     .select(`
       seller_id,
@@ -162,10 +166,18 @@ export async function fetchSellerPeriodLeaderboard(
       profiles(full_name, avatar_url),
       stores(name)
     `)
-    .eq('leaderboard_type', period)
-    .gte('period_start', periodStartIso(period))
     .order('rank', { ascending: true })
     .limit(limit);
+
+  if (period === 'all') {
+    query = query.order('score', { ascending: false });
+  } else {
+    query = query
+      .eq('leaderboard_type', period)
+      .gte('period_start', periodStartIso(period));
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;

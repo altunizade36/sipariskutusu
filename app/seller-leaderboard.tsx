@@ -1,4 +1,4 @@
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -23,6 +23,7 @@ const periods: { id: LeaderboardPeriod; label: string }[] = [
   { id: 'weekly', label: 'Haftalık' },
   { id: 'monthly', label: 'Aylık' },
   { id: 'yearly', label: 'Yıllık' },
+  { id: 'all', label: 'Tüm Zamanlar' },
 ];
 
 const fallbackImages = [
@@ -62,6 +63,29 @@ function metricFallback(seller: DiscoverStore, index: number): SellerPeriodLeade
     rating: seller.rating,
     activity: seller.featured ? 90 - index * 4 : 65 - index * 3,
   };
+}
+
+function MedalBadge({ rank }: { rank: number }) {
+  if (rank === 1) return (
+    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 14 }}>🥇</Text>
+    </View>
+  );
+  if (rank === 2) return (
+    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 14 }}>🥈</Text>
+    </View>
+  );
+  if (rank === 3) return (
+    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 14 }}>🥉</Text>
+    </View>
+  );
+  return (
+    <View style={{ width: 28, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>#{rank}</Text>
+    </View>
+  );
 }
 
 export default function SellerLeaderboardScreen() {
@@ -158,16 +182,16 @@ export default function SellerLeaderboardScreen() {
       <Pressable
         key={`${item.sellerId}-${valueLabel}-${index}`}
         onPress={() => openSellerStore(item)}
-        className="flex-row items-center justify-between py-3"
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
       >
-        <View className="flex-row items-center flex-1 pr-2">
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary, width: 30 }}>#{index + 1}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+          <MedalBadge rank={index + 1} />
           <Image
             source={{ uri: item.sellerAvatar || fallbackImages[index % fallbackImages.length] }}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F1F5F9' }}
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F1F5F9', marginLeft: 6 }}
             resizeMode="cover"
           />
-          <View className="flex-1 ml-2">
+          <View style={{ flex: 1, marginLeft: 8 }}>
             <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>
               {item.storeName || item.sellerName}
             </Text>
@@ -176,9 +200,9 @@ export default function SellerLeaderboardScreen() {
             </Text>
           </View>
         </View>
-        <View className="items-end">
+        <View style={{ alignItems: 'flex-end' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>
-            {Math.round(value)}
+            {Math.round(value).toLocaleString('tr-TR')}
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted }}>{valueLabel}</Text>
           <Pressable
@@ -186,8 +210,7 @@ export default function SellerLeaderboardScreen() {
               event.stopPropagation();
               toggleSellerFollow(item.sellerId);
             }}
-            className="rounded-full px-2.5 py-1 mt-1"
-            style={{ backgroundColor: followed ? '#F1F5F9' : '#EFF6FF' }}
+            style={{ borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3, marginTop: 3, backgroundColor: followed ? '#F1F5F9' : '#EFF6FF' }}
           >
             <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: followed ? colors.textSecondary : colors.primary }}>
               {followed ? 'Takipte' : 'Takip Et'}
@@ -205,11 +228,12 @@ export default function SellerLeaderboardScreen() {
     valueForItem: (item: SellerPeriodLeaderboardEntry) => number,
     valueLabel: string,
   ) {
+    if (items.length === 0) return null;
     return (
-      <View className="bg-white rounded-2xl border border-[#33333315] p-3 mt-3">
-        <View className="flex-row items-center justify-between mb-1">
-          <View className="flex-row items-center flex-1 pr-2">
-            <View className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: '#EFF6FF' }}>
+      <View style={{ backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#33333315', padding: 14, marginTop: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+            <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 8, backgroundColor: '#EFF6FF' }}>
               <Ionicons name={icon as any} size={15} color={colors.primary} />
             </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{title}</Text>
@@ -221,14 +245,19 @@ export default function SellerLeaderboardScreen() {
     );
   }
 
+  const periodLabel = periods.find((p) => p.id === activePeriod)?.label ?? 'Haftalık';
+
   return (
-    <SafeAreaView className="flex-1 bg-[#F7F7F7]" edges={['top']}>
-      <View className="bg-white px-4 pt-3 pb-4 border-b border-[#33333315]">
-        <View className="flex-row items-center justify-between">
-          <Pressable onPress={() => router.back()} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#F7F7F7' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F7F7' }} edges={['top']}>
+      <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#33333315' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F7F7F7' }}
+          >
             <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
           </Pressable>
-          <View className="items-center flex-1 px-3">
+          <View style={{ alignItems: 'center', flex: 1, paddingHorizontal: 12 }}>
             <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary }}>
               Satıcı Liderlik Kupası
             </Text>
@@ -236,17 +265,18 @@ export default function SellerLeaderboardScreen() {
               Satıcıların canlı yarışlarını takip et
             </Text>
           </View>
-          <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#FFFBEB' }}>
+          <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFBEB' }}>
             <Ionicons name="trophy" size={21} color="#D97706" />
           </View>
         </View>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-        <View className="mx-4 mt-4 rounded-[24px] p-5" style={{ backgroundColor: '#0F172A' }}>
-          <View className="flex-row items-center gap-2 mb-2">
-            <View className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.danger }} />
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+        <View style={{ marginHorizontal: 16, marginTop: 16, borderRadius: 24, padding: 20, backgroundColor: '#0F172A' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.danger }}>CANLI YARIŞ</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#94A3B8' }}>· {periodLabel}</Text>
           </View>
           <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: '#fff' }}>
             Kupanın zirvesi her dönem yeniden yazılır
@@ -254,11 +284,11 @@ export default function SellerLeaderboardScreen() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: '#CBD5E1', marginTop: 6 }}>
             Beğeni, yorum, satış ve canlılık metriklerinde öne çıkan satıcıları takip et.
           </Text>
-          <View className="flex-row gap-2 mt-4">
-            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: '#ffffff1a' }}>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+            <View style={{ borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.1)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{displayEntries.length} satıcı</Text>
             </View>
-            <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: '#ffffff1a' }}>
+            <View style={{ borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.1)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>
                 {Object.values(followedSellers).filter(Boolean).length} takipte
               </Text>
@@ -266,15 +296,24 @@ export default function SellerLeaderboardScreen() {
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, marginTop: 14 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8, marginTop: 14 }}
+        >
           {periods.map((period) => {
             const selected = activePeriod === period.id;
             return (
               <Pressable
                 key={period.id}
                 onPress={() => setActivePeriod(period.id)}
-                className="h-10 px-4 rounded-full border items-center justify-center"
                 style={{
+                  height: 38,
+                  paddingHorizontal: 16,
+                  borderRadius: 19,
+                  borderWidth: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   backgroundColor: selected ? colors.primary : '#fff',
                   borderColor: selected ? colors.primary : colors.borderLight,
                 }}
@@ -287,19 +326,27 @@ export default function SellerLeaderboardScreen() {
           })}
         </ScrollView>
 
-        <View className="mx-4 mt-3 bg-white rounded-2xl border border-[#33333315] p-3">
-          <View className="flex-row items-center justify-between mb-1">
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>Kupanın İlk 5 Satıcısı</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.textMuted }}>{loading ? 'yükleniyor' : 'puan'}</Text>
+        <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#33333315', padding: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>Kupanın İlk 5 Satıcısı</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.textMuted }}>puan</Text>
+            )}
           </View>
           {displayEntries.slice(0, 5).map((item, index) => renderSellerRow(item, index, item.score, 'puan'))}
         </View>
 
-        <View className="mx-4">
-          {renderCompetitionSection('Haftalık Canlı Satıcılar', 'radio-outline', competitionLists.live, (item) => item.views + item.activity, 'canlılık')}
+        <View style={{ marginHorizontal: 16 }}>
+          {renderCompetitionSection('Haftanın Yükselen Satıcıları', 'trending-up-outline', competitionLists.rising, (item) => item.score, 'keşif puanı')}
+          {renderCompetitionSection('Canlı & Aktif Mağazalar', 'radio-outline', competitionLists.live, (item) => item.views + item.activity, 'canlılık')}
           {renderCompetitionSection('En Çok Beğeni Alanlar', 'heart-outline', competitionLists.liked, (item) => item.likes, 'beğeni')}
           {renderCompetitionSection('En Çok Yorum Alanlar', 'chatbubble-ellipses-outline', competitionLists.commented, (item) => item.comments, 'yorum')}
           {renderCompetitionSection('En Çok Satış Yapanlar', 'bag-check-outline', competitionLists.sales, (item) => item.sales, 'satış')}
+          {renderCompetitionSection('En Çok Mesaj Alanlar', 'mail-outline', competitionLists.messaged, (item) => item.messages, 'mesaj')}
+          {renderCompetitionSection('En Çok Takip Edilenler', 'people-outline', [...displayEntries].sort((a, b) => b.follows - a.follows).slice(0, 8), (item) => item.follows, 'takipçi')}
+          {renderCompetitionSection('En Yüksek Puanlılar', 'star-outline', [...displayEntries].sort((a, b) => b.rating - a.rating).slice(0, 8), (item) => item.rating, 'yıldız')}
         </View>
       </ScrollView>
     </SafeAreaView>

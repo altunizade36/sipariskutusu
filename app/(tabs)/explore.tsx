@@ -21,6 +21,7 @@ import { getAlgorithmicExploreSelection, logSellerClick, logSellerImpression } f
 import {
   fetchExploreFeaturedStories,
   fetchSellerPeriodLeaderboard,
+  type LeaderboardPeriod,
 } from '../../src/services/exploreStoryService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -82,6 +83,8 @@ export default function ExploreScreen() {
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [featuredStories, setFeaturedStories] = useState<any[]>([]);
   const [leaderboardEntries, setLeaderboardEntries] = useState<any[]>([]);
+  const [popularPeriod, setPopularPeriod] = useState<LeaderboardPeriod>('weekly');
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [gridSort, setGridSort] = useState<'default' | 'rating' | 'followers' | 'az'>('default');
@@ -172,35 +175,52 @@ export default function ExploreScreen() {
   useEffect(() => {
     if (!canUseBackend) {
       setFeaturedStories([]);
-      setLeaderboardEntries([]);
       return;
     }
 
     let active = true;
 
-    Promise.all([
-      fetchExploreFeaturedStories(18),
-      fetchSellerPeriodLeaderboard('weekly', 40),
-    ])
-      .then(([stories, leaderboard]) => {
-        if (!active) {
-          return;
-        }
+    fetchExploreFeaturedStories(18)
+      .then((stories) => {
+        if (!active) return;
         setFeaturedStories(stories);
-        setLeaderboardEntries(leaderboard);
       })
       .catch((error) => {
-        captureError(error, { scope: 'explore_featured_data' });
-        if (active) {
-          setFeaturedStories([]);
-          setLeaderboardEntries([]);
-        }
+        captureError(error, { scope: 'explore_featured_stories' });
+        if (active) setFeaturedStories([]);
       });
 
     return () => {
       active = false;
     };
   }, [canUseBackend]);
+
+  useEffect(() => {
+    if (!canUseBackend) {
+      setLeaderboardEntries([]);
+      return;
+    }
+
+    let active = true;
+    setIsLeaderboardLoading(true);
+
+    fetchSellerPeriodLeaderboard(popularPeriod, 40)
+      .then((leaderboard) => {
+        if (!active) return;
+        setLeaderboardEntries(leaderboard);
+      })
+      .catch((error) => {
+        captureError(error, { scope: 'explore_leaderboard', period: popularPeriod });
+        if (active) setLeaderboardEntries([]);
+      })
+      .finally(() => {
+        if (active) setIsLeaderboardLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canUseBackend, popularPeriod]);
 
   const popularSellerItems = useMemo<PopularSellerItem[]>(() => {
     if (leaderboardEntries.length > 0) {
@@ -401,13 +421,13 @@ export default function ExploreScreen() {
 
         {/* ── Popular sellers ───────────────── */}
         <View className="bg-white pt-3 pb-4 border-b border-[#33333315]">
-          <View className="flex-row items-center justify-between px-4 mb-3">
+          <View className="flex-row items-center justify-between px-4 mb-2">
             <View className="flex-1 pr-3">
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
                 Popüler Satıcılar
               </Text>
               <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                {exploreStorySourceLabel}
+                {isLeaderboardLoading ? 'Yükleniyor…' : exploreStorySourceLabel}
               </Text>
             </View>
             <Pressable
@@ -420,6 +440,41 @@ export default function ExploreScreen() {
               <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 14, gap: 6, paddingBottom: 8 }}
+          >
+            {([
+              { id: 'daily' as LeaderboardPeriod, label: 'Günlük' },
+              { id: 'weekly' as LeaderboardPeriod, label: 'Haftalık' },
+              { id: 'monthly' as LeaderboardPeriod, label: 'Aylık' },
+              { id: 'yearly' as LeaderboardPeriod, label: 'Yıllık' },
+              { id: 'all' as LeaderboardPeriod, label: 'Tüm Zamanlar' },
+            ]).map((p) => {
+              const active = popularPeriod === p.id;
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => setPopularPeriod(p.id)}
+                  style={{
+                    height: 28,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: active ? colors.primary : '#F7F7F7',
+                    borderColor: active ? colors.primary : colors.borderLight,
+                  }}
+                >
+                  <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 11, color: active ? '#fff' : colors.textSecondary }}>
+                    {p.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}

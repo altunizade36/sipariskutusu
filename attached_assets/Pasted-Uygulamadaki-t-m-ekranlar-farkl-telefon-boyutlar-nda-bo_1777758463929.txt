@@ -1,0 +1,107 @@
+Uygulamadaki tüm ekranları farklı telefon boyutlarında bozulmayacak şekilde responsive/safe-area uyumlu hale getir.
+
+Amaç:
+Ekranlar iPhone/Android farklı boyutlarda, çentikli/çentiksiz cihazlarda, küçük/büyük ekranlarda taşmadan düzgün görünsün. Yapay “telefon çerçevesi” istemiyorum. Doğal mobil uygulama gibi çalışsın.
+
+1. Genel responsive düzen
+- Sabit width/height değerlerini azalt.
+- Ekran genişliğine göre çalışan flex yapısı kullan.
+- Kartlar, gridler, görseller ve butonlar cihaz genişliğine göre otomatik hizalansın.
+- Küçük ekranlarda yazılar taşmasın, ... ile kısalsın.
+- Büyük ekranlarda içerik aşırı yayılmasın.
+- ScrollView/FlatList doğru kullanılsın.
+- Ekran altında içerik tab bar’ın altında kalmasın.
+
+2. Safe Area düzeltmesi
+Tüm ana ekranlarda SafeAreaView kullan:
+- HomeScreen
+- DiscoverScreen
+- CreateListingScreen
+- ProductDetailScreen
+- MessagesScreen
+- ConversationScreen
+- StoreScreen
+- ProfileScreen
+- NotificationCenterScreen
+- AdminPanelScreen
+
+Çentik, status bar, alt home indicator ve bottom tab alanlarına göre padding otomatik ayarlansın.
+
+3. Üst bar düzeltmesi
+- Header çentiğe taşmasın.
+- Logo, başlık, arama alanı ve ikonlar üst üste binmesin.
+- Header yüksekliği cihaz safe-area değerine göre ayarlansın.
+- Uzun başlıklarda taşma olmasın.
+
+4. Alt bar düzeltmesi
+- Bottom tab bar her cihazda altta düzgün dursun.
+- İçerik tab bar’ın arkasına girmesin.
+- Orta “+” butonu ekran dışına taşmasın.
+- Android navigation bar ve iPhone home indicator dikkate alınsın.
+
+5. Görsel ve grid düzeltmesi
+- Tüm ürün/mağaza/hikaye görselleri aspectRatio ile düzgün ölçeklensin.
+- İkili grid ekran genişliğine göre hesaplanmış cardWidth kullansın.
+- Hikaye avatarları sabit ama taşmayan ölçüde olsun.
+- Kartlar yanlardan kesilmesin.
+- Görseller kırpılırken bozulmasın.
+
+6. Telefon boyutu desteği
+Şu ekran tiplerinde test ederek düzelt:
+- Küçük Android ekran
+- Büyük Android ekran
+- iPhone SE küçük ekran
+- iPhone 13/14/15 normal ekran
+- iPhone Pro Max büyük ekran
+- Tablet olursa maksimum içerik genişliği uygula
+
+7. Dil sistemi
+Uygulamada metinler telefon diline göre değişebilsin.
+- Türkçe varsayılan olsun.
+- İngilizce desteği ekle.
+- Telefon dili Türkçeyse TR metinler göster.
+- Telefon dili İngilizceyse EN metinler göster.
+- Desteklenmeyen dilde Türkçe göster.
+- Sabit metinleri doğrudan component içinde yazma, translations dosyasına taşı.
+
+Örnek yapı:
+src/i18n/index.ts
+src/i18n/tr.ts
+src/i18n/en.ts
+
+8. Metin kullanımı
+Şu alanları çeviri sistemine bağla:
+- Ana sayfa başlıkları
+- Keşfet ekranı
+- İlan ver ekranı
+- Mesajlar ekranı
+- Bildirimler
+- Mağaza ekranı
+- Profil ekranı
+- Admin paneli temel başlıkları
+- Buton yazıları
+- Hata/uyarı mesajları
+
+9. Responsive yardımcı dosya
+Gerekirse ortak yardımcı dosya oluştur:
+src/utils/responsive.ts
+
+İçinde şunlar olsun:
+- screenWidth
+- screenHeight
+- isSmallDevice
+- isLargeDevice
+- wp(percent)
+- hp(percent)
+- clamp(value, min, max)
+- cardWidth hesaplama
+- spacing değerleri
+
+10. Kontrol
+- Tüm ekranlarda yatay taşma var mı kontrol et.
+- Üstte çentiğe giren yazı/ikon var mı kontrol et.
+- Alt tab bar içerik üstünü kapatıyor mu kontrol et.
+- Hikaye alanı, keşfet grid, mağaza kartları ve ürün detay görselleri bozuluyor mu kontrol et.
+- Türkçe/İngilizce dil değişimi çalışıyor mu kontrol et.
+
+Mevcut çalışan özellikleri bozma. Sadece responsive layout, safe-area, ölçü, header/footer ve dil sistemini düzelt. Eksik import/type/navigation hatalarını kendin çöz.
