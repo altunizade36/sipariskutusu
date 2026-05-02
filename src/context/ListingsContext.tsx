@@ -687,12 +687,14 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       storeName: item.profiles?.full_name?.trim() || 'Satıcı',
       sellerKey: item.owner_id ?? item.user_id,
       ownerId: item.owner_id ?? item.user_id,
+      avatarUrl: item.profiles?.avatar_url ?? undefined,
       createdAt: item.created_at,
       expiresAt: item.expires_at,
       productTitle: item.listings?.title ?? undefined,
       priceTag: typeof item.listings?.price === 'number' ? `${item.listings.price} TL` : undefined,
       productDescription: item.caption ?? undefined,
-      likeCount: Math.max(0, item.view_count ?? 0),
+      viewCount: Math.max(0, item.view_count ?? 0),
+      likeCount: 0,
       commentCount: 0,
       image: item.image_url,
     }));
@@ -835,6 +837,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       ...item,
       likeCount: storyLikeCounts[item.id] ?? item.likeCount,
       commentCount: storyCommentCounts[item.id] ?? item.commentCount,
+      viewCount: item.viewCount ?? 0,
     }));
   const myStoryArchive = useMemo(() => {
     if (!user) {

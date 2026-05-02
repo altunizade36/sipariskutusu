@@ -1,0 +1,121 @@
+Ana sayfadaki “Ürün Hikayeleri” bölümünü Instagram hikayeleri gibi ama ürün satışına özel profesyonel hale getir. Mevcut sistemi bozma.
+
+Amaç:
+Satıcılar ürünlerini hikaye olarak paylaşacak. Alıcı hikayeye tıklayınca ürünü büyük ekranda görecek, fiyat/ölçü/açıklama/konum/süre bilgisi görecek, beğenebilecek ve satıcıya mesaj yazabilecek. Mesaj yazınca Messages ekranına konuşma olarak düşecek.
+
+Yapılacaklar:
+
+1. Ana sayfadaki hikaye alanı
+- Yatay scroll düzgün çalışsın.
+- Yuvarlak hikaye avatarları taşmasın, ekran bozulmasın.
+- Her hikayede satıcı/mağaza adı kısa görünsün.
+- Aktif hikayelerde mavi gradient halka olsun.
+- Görülmüş hikayelerde gri halka olsun.
+- “Hikaye ekle” alanı sadece giriş yapan kullanıcı için çalışsın.
+- Alt yazılar taşarsa ... ile kısaltılsın.
+
+2. Hikaye detay ekranı / modalı
+Hikayeye tıklayınca tam ekran Instagram story benzeri ekran açılsın:
+- Üstte ilerleme çizgisi/progress bar olsun.
+- Satıcı profil fotoğrafı, mağaza adı, paylaşım süresi görünsün.
+- Sağ üstte kapatma butonu olsun.
+- Görsel/video tam ekrana düzgün otursun.
+- Alt tarafta ürün kartı olsun:
+  ürün adı,
+  fiyat,
+  kategori,
+  ölçü/beden/renk gibi varyant bilgileri,
+  konum,
+  “Ürünü Gör” butonu.
+- Ürün pasif/silinmişse “Bu ürün artık yayında değil” yazsın.
+
+3. Süre mantığı
+- Hikayeler 24 saat aktif kalsın.
+- Her hikayede kalan süre hesaplansın:
+  “23 sa kaldı”, “5 sa kaldı”, “12 dk kaldı” gibi.
+- Süresi dolan hikayeler ana ekranda görünmesin.
+- Satıcı kendi mağazasında eski hikayeleri “Öne Çıkanlar” olarak tutabilsin.
+
+4. Beğeni ve görüntülenme
+- Hikaye detayında kalp/beğeni butonu olsun.
+- Beğeni sayısı gösterilsin.
+- Görüntülenme sayısı gösterilsin.
+- Kullanıcı aynı hikayeyi tekrar tekrar beğenince sayı artmasın.
+- Satıcı kendi hikayesinde görüntüleyenleri görebilsin.
+
+5. Mesaj gönderme
+- Hikaye detayının altında mesaj yazma alanı olsun:
+  “Satıcıya mesaj yaz...”
+- Kullanıcı mesaj gönderince Messages sisteminde konuşma oluşturulsun.
+- Mesaj otomatik ürün ve hikaye referansıyla gitsin:
+  “Merhaba, hikayede paylaştığınız [ürün adı] hakkında bilgi almak istiyorum.”
+- Aynı kullanıcı + aynı satıcı + aynı ürün için konuşma varsa yeni konuşma açma, mevcut konuşmaya mesaj ekle.
+- Mesaj gönderildikten sonra kullanıcıya küçük başarı bildirimi göster:
+  “Mesaj satıcıya gönderildi.”
+
+6. Hikaye ekleme
+- “Hikaye ekle”ye basınca kullanıcının kendi ilan/ürünleri listelensin.
+- Ürün seçsin.
+- Ürüne ait görsel seçsin veya yeni görsel yüklesin.
+- Hikaye açıklaması yazabilsin.
+- Yayınla deyince 24 saatlik ürün hikayesi oluşsun.
+- Ürünü olmayan kullanıcıya:
+  “Hikaye paylaşmak için önce ürün/ilan eklemelisin.” uyarısı göster.
+
+7. Veri modeli
+Gerekirse şu yapıyı ekle/güncelle:
+
+Story {
+  id,
+  sellerId,
+  sellerName,
+  sellerAvatar,
+  storeName,
+  productId,
+  productTitle,
+  productImage,
+  productPrice,
+  productCategory,
+  productLocation,
+  productAttributes,
+  mediaUrl,
+  mediaType,
+  caption,
+  createdAt,
+  expiresAt,
+  likeCount,
+  viewCount,
+  viewedBy,
+  likedBy,
+  isActive,
+  isHighlighted
+}
+
+8. Tasarım düzeltmeleri
+- Şu an ana ekranda hikaye alanında taşma/bozuk hizalama var, düzelt.
+- Telefon ekranına tam uyumlu yap.
+- Yuvarlak görseller eşit boyutta olsun.
+- Hikaye isimleri avatarın altında düzgün hizalansın.
+- Ana sayfanın diğer bölümlerini bozma.
+- Marka rengi mavi-beyaz kalsın.
+- Instagram story hissi olsun ama ürün satışına özel olsun.
+
+9. Bağlantılar
+- Story alanı ProductDetailScreen ile bağlı olsun.
+- Mesaj gönderme Messages/Conversation sistemiyle bağlı olsun.
+- Bildirim NotificationCenterScreen’e düşsün.
+- Satıcıya:
+  “[Kullanıcı adı] hikayenizdeki [ürün adı] için mesaj gönderdi.”
+  bildirimi gitsin.
+
+10. Test et
+- Ana sayfada hikayeler düzgün görünüyor mu?
+- Hikayeye tıklayınca tam ekran açılıyor mu?
+- Süre/progress bar çalışıyor mu?
+- Beğeni/görüntülenme çalışıyor mu?
+- Hikayeden mesaj gönderince Messages ekranına düşüyor mu?
+- Ürünü Gör butonu doğru ürüne gidiyor mu?
+- 24 saati dolan hikaye gizleniyor mu?
+- Ekran taşması ve hizalama sorunları çözüldü mü?
+
+Mevcut çalışan alanları bozma. Eksik dosya, import, type/interface ve navigation hatalarını kendin düzelt.

@@ -43,6 +43,7 @@ export type Story = {
   sellerKey?: string;
   storeName?: string;
   ownerId?: string;
+  avatarUrl?: string;
   createdAt?: string;
   expiresAt?: string;
   isArchived?: boolean;
@@ -50,6 +51,7 @@ export type Story = {
   productDescription?: string;
   priceTag?: string;
   likeCount?: number;
+  viewCount?: number;
   commentCount?: number;
   badge?: string;
   image: string;

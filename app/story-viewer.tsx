@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StatusBar, Text, TextInput, View } from 'react-native';
+import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { useListings } from '../src/context/ListingsContext';
 import { getOrCreateConversationForListing } from '../src/services/chatLinkageService';
 import { useAuth } from '../src/context/AuthContext';
 import type { Story } from '../src/data/mockData';
-import { fetchStoryById } from '../src/services/storyService';
+import { fetchStoryById, formatStoryExpiration } from '../src/services/storyService';
 import { trackEvent } from '../src/services/monitoring';
 import { TELEMETRY_EVENTS } from '../src/constants/telemetryEvents';
 
@@ -89,12 +89,14 @@ export default function StoryViewerScreen() {
           storeName: item.profiles?.full_name?.trim() || 'Satıcı',
           sellerKey: item.owner_id ?? item.user_id,
           ownerId: item.owner_id ?? item.user_id,
+          avatarUrl: item.profiles?.avatar_url ?? undefined,
           createdAt: item.created_at,
           expiresAt: item.expires_at,
           productTitle: item.listings?.title ?? undefined,
           priceTag: typeof item.listings?.price === 'number' ? `${item.listings.price} TL` : undefined,
           productDescription: item.caption ?? undefined,
-          likeCount: Math.max(0, item.view_count ?? 0),
+          viewCount: Math.max(0, item.view_count ?? 0),
+          likeCount: 0,
           commentCount: 0,
           image: item.image_url,
         });
@@ -150,8 +152,10 @@ export default function StoryViewerScreen() {
   const liked = story ? Boolean(storyLikes[story.id]) : false;
   const storyCommentsList = story ? (storyComments[story.id] ?? []) : [];
   const storyLikeCount = story ? Math.max((story.likeCount ?? 0) + (liked ? 1 : 0), 0) : 0;
+  const storyViewCount = story ? Math.max(story.viewCount ?? 0, 0) : 0;
   const storyCommentCount = story ? (story.commentCount ?? 0) + storyCommentsList.length : 0;
   const storyRemainingSec = Math.max(0, Math.ceil((1 - progress) * (STORY_DURATION_MS / 1000)));
+  const storyExpiryLabel = story?.expiresAt ? formatStoryExpiration(story.expiresAt) : null;
 
   function exitViewer() {
     if (timerRef.current) {
@@ -432,7 +436,7 @@ export default function StoryViewerScreen() {
         {/* Seller row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}>
           <View style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: '#fff', overflow: 'hidden', marginRight: 10 }}>
-            <Image source={{ uri: story.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <Image source={{ uri: story.avatarUrl || story.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
           </View>
           <View style={{ flex: 1 }}>
             <Text
@@ -441,7 +445,7 @@ export default function StoryViewerScreen() {
               {story.seller}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>
-              {sellerStories.length > 1 ? `${storyIndex + 1}/${sellerStories.length} · ` : ''}{isPaused ? 'duraklatıldı' : `${storyRemainingSec}s`}
+              {sellerStories.length > 1 ? `${storyIndex + 1}/${sellerStories.length} · ` : ''}{isPaused ? 'duraklatıldı' : `${storyRemainingSec}s`}{storyExpiryLabel ? ` · ${storyExpiryLabel}` : ''}
             </Text>
           </View>
           {isOwner ? (
@@ -542,47 +546,104 @@ export default function StoryViewerScreen() {
             </View>
           ) : null}
 
-          {/* Instagram bottom bar — input + send + heart */}
+          {/* View + like count stats row */}
+          {!isEditing ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, marginBottom: 10 }}>
+              {storyViewCount > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="eye-outline" size={14} color="rgba(255,255,255,0.65)" />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
+                    {storyViewCount >= 1000 ? `${(storyViewCount / 1000).toFixed(1)}B` : storyViewCount}
+                  </Text>
+                </View>
+              ) : null}
+              {storyLikeCount > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="heart" size={13} color="rgba(248,113,113,0.85)" />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
+                    {storyLikeCount >= 1000 ? `${(storyLikeCount / 1000).toFixed(1)}B` : storyLikeCount}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Instagram bottom bar — quick replies + input + send + heart */}
           <SafeAreaView edges={['bottom']} style={{ paddingHorizontal: 14, paddingTop: 4 }}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+              {/* Quick reply chips — hidden while composer is focused */}
+              {!isComposerFocused && !isOwner ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingBottom: 10, paddingHorizontal: 2 }}
+                >
+                  {[
+                    'Fiyat bilgisi verir misiniz?',
+                    'Hâlâ satışta mı?',
+                    'Kargo detayları neler?',
+                    'Kaç adet kaldı?',
+                    'Farklı rengi var mı?',
+                    'Whatsapp\'tan yazabilir miyim?',
+                  ].map((reply) => (
+                    <Pressable
+                      key={reply}
+                      onPress={() => setMessageDraft(reply)}
+                      style={{
+                        borderRadius: 99,
+                        borderWidth: 1.5,
+                        borderColor: 'rgba(255,255,255,0.5)',
+                        paddingHorizontal: 14,
+                        paddingVertical: 7,
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                      }}
+                    >
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#fff' }}>
+                        {reply}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              ) : null}
+
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 10, gap: 10 }}>
-            <TextInput
-              value={messageDraft}
-              onChangeText={setMessageDraft}
-              onFocus={() => { setIsPaused(true); setIsComposerFocused(true); }}
-              onBlur={() => { setIsPaused(false); setIsComposerFocused(false); }}
-              onSubmitEditing={() => { handleSendMessage(); Keyboard.dismiss(); }}
-              placeholder={`${story.seller}'e mesaj gönder...`}
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              returnKeyType="send"
-              style={{
-                flex: 1,
-                height: 46,
-                borderRadius: 23,
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                borderWidth: 1.5,
-                borderColor: 'rgba(255,255,255,0.4)',
-                paddingHorizontal: 18,
-                fontFamily: fonts.regular,
-                fontSize: 14,
-                color: '#fff',
-              }}
-            />
-            {messageDraft.trim().length > 0 ? (
-              <Pressable
-                onPress={() => { handleSendMessage(); Keyboard.dismiss(); }}
-                style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 23, backgroundColor: colors.primary }}
-              >
-                <Ionicons name="send" size={20} color="#fff" />
-              </Pressable>
-            ) : (
-            <Pressable
-              onPress={() => toggleStoryLike(story.id)}
-              style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Ionicons name={liked ? 'heart' : 'heart-outline'} size={32} color={liked ? '#F87171' : '#fff'} />
-            </Pressable>
-            )}
+                <TextInput
+                  value={messageDraft}
+                  onChangeText={setMessageDraft}
+                  onFocus={() => { setIsPaused(true); setIsComposerFocused(true); }}
+                  onBlur={() => { setIsPaused(false); setIsComposerFocused(false); }}
+                  onSubmitEditing={() => { handleSendMessage(); Keyboard.dismiss(); }}
+                  placeholder={`${story.seller}'e mesaj gönder...`}
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  returnKeyType="send"
+                  style={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: 23,
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    borderWidth: 1.5,
+                    borderColor: 'rgba(255,255,255,0.4)',
+                    paddingHorizontal: 18,
+                    fontFamily: fonts.regular,
+                    fontSize: 14,
+                    color: '#fff',
+                  }}
+                />
+                {messageDraft.trim().length > 0 ? (
+                  <Pressable
+                    onPress={() => { handleSendMessage(); Keyboard.dismiss(); }}
+                    style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 23, backgroundColor: colors.primary }}
+                  >
+                    <Ionicons name="send" size={20} color="#fff" />
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={() => toggleStoryLike(story.id)}
+                    style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name={liked ? 'heart' : 'heart-outline'} size={32} color={liked ? '#F87171' : '#fff'} />
+                  </Pressable>
+                )}
               </View>
             </KeyboardAvoidingView>
           </SafeAreaView>
