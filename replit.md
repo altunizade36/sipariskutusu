@@ -58,3 +58,21 @@ Configured as a static site deployment:
 - Analytics
 - Stores management
 - Settings
+
+## Mobile App Features
+
+### i18n (TR/EN)
+- `src/i18n/tr.ts`, `src/i18n/en.ts`, `src/i18n/index.ts`
+- Module-level `t` constant — no React hooks needed
+- Auto-detects device locale (TR default, EN if locale starts with 'en')
+
+### Responsive Utilities
+- `src/utils/responsive.ts` — `wp()`, `hp()`, `clamp()`, `calcCardWidth()`, `scaledFont()`, `TAB_BAR_HEIGHT`
+
+### Instagram Business/Creator Integration
+- `src/services/instagramService.ts` — Caption parser (extracts price, category, size, color, city, stock from Turkish text), mock Instagram API data (6 posts, 3 reels, 3 stories), AsyncStorage-based connection management
+- `app/instagram-connect.tsx` — Connect/manage Instagram Business or Creator accounts with mock OAuth flow
+- `app/instagram-content.tsx` — 3-tab screen (Gönderiler/Reels/Hikayeler), grid layout, "Ürüne Çevir" → quick-publish, "Hikayeye Çevir" → share-story, multi-select bulk publish
+- `app/instagram-quick-publish.tsx` — Auto-parsed product draft display with EKSİK badges for missing fields, category quick-picker, direct publish via `submitListingToSupabase`, "Detaylı Düzenle" → create-listing with prefilled params
+- `app/(tabs)/account.tsx` — Instagram integration card for sellers (connected status + follower count or CTA to connect)
+- `app/(tabs)/store.tsx` — Instagram analytics panel in the About tab for store owners

@@ -14,6 +14,7 @@ import { fetchUnreadNotificationCount, subscribeToMyNotifications } from '../../
 import { buildMessagesInboxRoute } from '../../src/utils/messageRouting';
 import { useUserPreferences } from '../../src/hooks/useUserPreferences';
 import { t } from '../../src/i18n';
+import { getInstagramConnection, formatIgCount, type InstagramConnection } from '../../src/services/instagramService';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -65,6 +66,7 @@ export default function AccountScreen() {
   const { hasStore, storeMessageCount } = useListings();
   const [toast, setToast] = useState('');
   const [accountCore, setAccountCore] = useState<AccountCoreProfile | null>(null);
+  const [igConnection, setIgConnection] = useState<InstagramConnection | null>(null);
   const [myReports, setMyReports] = useState<ReportRecord[]>([]);
   const [pendingReports, setPendingReports] = useState<ReportRecord[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -98,6 +100,11 @@ export default function AccountScreen() {
       active = false;
     };
   }, [isConfigured, user]);
+
+  useEffect(() => {
+    if (!hasStore) return;
+    getInstagramConnection().then(setIgConnection).catch(() => {});
+  }, [hasStore]);
 
   useEffect(() => {
     let active = true;
@@ -508,6 +515,47 @@ export default function AccountScreen() {
             </Pressable>
           ))}
         </View>
+
+        {/* Instagram Integration Card — only for sellers */}
+        {hasStore && user ? (
+          <Pressable
+            onPress={() => router.push('/instagram-connect' as never)}
+            style={{
+              marginHorizontal: 16, marginTop: 12,
+              backgroundColor: igConnection?.connected ? '#FFF0F5' : palette.surfaceBg,
+              borderRadius: 18, borderWidth: 1.5,
+              borderColor: igConnection?.connected ? '#E1306C44' : palette.border,
+              padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
+            }}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="logo-instagram" size={22} color="#E1306C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              {igConnection?.connected ? (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>@{igConnection.username}</Text>
+                    <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#16A34A' }}>BAĞLI</Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 2 }}>
+                    {formatIgCount(igConnection.followersCount)} takipçi • İçerikleri görüntüle
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Instagram Bağla</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 2 }}>
+                    Gönderilerini otomatik ürüne dönüştür
+                  </Text>
+                </>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={palette.textMuted} />
+          </Pressable>
+        ) : null}
 
         {sectionList.map((section) => (
           <View key={section.title} className="mx-4 mt-4">

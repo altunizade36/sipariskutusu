@@ -937,6 +937,38 @@ export default function StoreScreen() {
               </View>
             </View>
 
+            {/* Instagram Integration Panel — visible to store owner */}
+            {isOwnStoreView ? (
+              <Pressable
+                onPress={() => router.push('/instagram-connect' as never)}
+                style={{ marginBottom: 20, borderWidth: 1.5, borderColor: '#E1306C33', borderRadius: 16, backgroundColor: '#FFF0F5', padding: 14 }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                    <Ionicons name="logo-instagram" size={18} color="#E1306C" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.textPrimary }}>Instagram Entegrasyonu</Text>
+                    <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 1 }}>Gönderilerini ürüne otomatik dönüştür</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[
+                    { label: 'İçe Aktar', icon: 'cloud-download-outline', desc: 'Gönderi & Reel' },
+                    { label: 'Otomatik Taslak', icon: 'flash-outline', desc: 'Caption analizi' },
+                    { label: 'Hızlı Yayın', icon: 'rocket-outline', desc: 'Tek tıkla yayınla' },
+                  ].map((item) => (
+                    <View key={item.label} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 8, alignItems: 'center' }}>
+                      <Ionicons name={item.icon as any} size={16} color="#E1306C" />
+                      <Text style={{ fontSize: 10, fontFamily: fonts.bold, color: colors.textPrimary, marginTop: 4, textAlign: 'center' }}>{item.label}</Text>
+                      <Text style={{ fontSize: 9, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 1, textAlign: 'center' }}>{item.desc}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Pressable>
+            ) : null}
+
             {/* Description */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
