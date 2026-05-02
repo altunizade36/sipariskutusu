@@ -1,8 +1,8 @@
-import { Linking, View, Text, ScrollView, Pressable, Image, Dimensions, Share, TextInput, ActivityIndicator, Modal, Alert } from 'react-native';
+﻿import { Linking, View, Text, ScrollView, Pressable, Image, Dimensions, Share, TextInput, ActivityIndicator, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../../src/constants/theme';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -20,6 +20,8 @@ import { getOrCreateConversationForListing } from '../../src/services/chatLinkag
 import { buildConversationMessagesRoute, buildMessagesInboxRoute, buildSellerMessagesRoute } from '../../src/utils/messageRouting';
 import { InfoBanner } from '../../src/components/InfoBanner';
 import { useRecentlyViewed } from '../../src/hooks/useRecentlyViewed';
+import { captureError, trackEvent } from '../../src/services/monitoring';
+import { TELEMETRY_EVENTS } from '../../src/constants/telemetryEvents';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -60,13 +62,59 @@ const REPORT_TARGET_LABEL: Record<ReportTargetType, string> = {
   comment: 'Yorum',
 };
 
+function CommentSkeletonList() {
+  return (
+    <View className="mt-3" style={{ gap: 10 }}>
+      {[0, 1, 2].map((item) => (
+        <View key={`comment-skeleton-${item}`} className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-3">
+          <View className="h-3 w-24 rounded bg-[#E5E7EB]" />
+          <View className="mt-2 h-3 w-full rounded bg-[#E5E7EB]" />
+          <View className="mt-1.5 h-3 w-4/5 rounded bg-[#E5E7EB]" />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SimilarListingsSkeletonRow() {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
+    >
+      {[0, 1, 2, 3].map((item) => (
+        <View
+          key={`similar-skeleton-${item}`}
+          style={{ width: 130 }}
+          className="rounded-xl overflow-hidden border border-[#33333312] bg-white"
+        >
+          <View style={{ width: 130, height: 130, backgroundColor: '#E5E7EB' }} />
+          <View className="px-2 py-2">
+            <View className="h-3 w-full rounded bg-[#E5E7EB]" />
+            <View className="mt-1.5 h-3 w-3/5 rounded bg-[#E5E7EB]" />
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const { allProducts } = useListings();
   const { checkFavorited, toggle: toggleFav } = useFavorites();
+  const recentlyViewed = useRecentlyViewed();
   const localProduct = allProducts.find((p) => p.id === id) ?? allProducts[0];
+
+  // Similar listings: same category, different product
+  const similarListings = useMemo(() => {
+    return allProducts
+      .filter((p) => p.id !== id && p.category === localProduct?.category && p.id !== undefined)
+      .slice(0, 8);
+  }, [allProducts, id, localProduct?.category]);
   const [product, setProduct] = useState<Product>(
     localProduct,
   );
@@ -96,6 +144,7 @@ export default function ProductDetailScreen() {
   const contactWhatsapp = product.whatsapp || '';
   const mediaUris = getOrderedMediaUris(product);
   const selectedMediaIsVideo = isVideoUri(selectedMediaUri);
+  const shouldShowSimilarSkeleton = allProducts.length === 0;
 
   const flattenActiveCommentCount = useCallback((items: ListingComment[]): number => {
     return items.reduce((total, item) => total + (item.status === 'active' ? 1 : 0) + flattenActiveCommentCount(item.replies), 0);
@@ -162,15 +211,21 @@ export default function ProductDetailScreen() {
     }, [id, user?.id, checkFavorited]);
 
     useEffect(() => {
-      // Track product view
-      const recently = useRecentlyViewed();
-      recently.add({
+      recentlyViewed.add({
         id: product.id,
         title: product.title,
         imageUri: resolveMediaCover(product),
         price: product.price,
       });
-    }, [id, product.id, product.title, product.price]);
+      trackEvent(TELEMETRY_EVENTS.PRODUCT_VIEWED, {
+        product_id: product.id,
+        title: product.title ?? null,
+        price: product.price ?? null,
+        seller_id: (product as any).sellerId ?? null,
+        category: product.category ?? null,
+        source: 'product_detail',
+      });
+    }, [id, product.id, product.title, product.price, recentlyViewed]);
 
     useEffect(() => {
       loadComments();
@@ -272,6 +327,16 @@ export default function ProductDetailScreen() {
     }));
   }
 
+  function handleStartOrderDraft() {
+    if (!product.sellerId) {
+      Alert.alert('Satıcı bilgisi eksik', 'Gorusme baslatmak icin satıcı bilgisi bulunamadı.');
+      return;
+    }
+
+    const query = `/cart?sellerId=${encodeURIComponent(product.sellerId)}&productId=${encodeURIComponent(product.id)}&title=${encodeURIComponent(product.title)}&price=${encodeURIComponent(String(product.price || 0))}&brand=${encodeURIComponent(product.brand || '')}&whatsapp=${encodeURIComponent(contactWhatsapp || '')}`;
+    router.push(query as never);
+  }
+
   function openProductStore() {
     const sellerName = product.brand?.trim();
     const sellerKey = product.sellerId?.trim();
@@ -354,6 +419,13 @@ export default function ProductDetailScreen() {
     setCommentInfo('');
     try {
       await addListingComment(product.id, draft, parentId ?? null);
+      trackEvent(TELEMETRY_EVENTS.LISTING_COMMENT_SUBMITTED, {
+        source: 'product_detail_comments',
+        listing_id: product.id,
+        parent_id: parentId ?? null,
+        is_reply: Boolean(parentId),
+        comment_length: draft.trim().length,
+      });
       if (parentId) {
         setReplyDrafts((current) => ({ ...current, [parentId]: '' }));
         setReplyingTo(null);
@@ -363,10 +435,26 @@ export default function ProductDetailScreen() {
       setCommentInfo('Yorum gönderildi.');
       await loadComments();
     } catch (error) {
+      captureError(error, {
+        scope: 'product_detail_comment_submit',
+        source: 'product_detail_comments',
+        listingId: product.id,
+        hasParentId: Boolean(parentId),
+      });
       setCommentsError(error instanceof Error ? error.message : 'Yorum gönderilemedi.');
     } finally {
       setCommentSubmitting(false);
     }
+  }
+
+  function handlePressSimilarListing(similarListingId: string, index: number) {
+    trackEvent(TELEMETRY_EVENTS.SIMILAR_LISTING_CLICKED, {
+      source: 'product_detail_similar_listings',
+      source_listing_id: product.id,
+      target_listing_id: similarListingId,
+      position: index,
+    });
+    router.push(`/product/${similarListingId}` as never);
   }
 
   async function handleDeleteComment(commentId: string) {
@@ -674,7 +762,7 @@ canlı yorum
               style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}
               className="mt-1"
             >
-Ödeme ve kargo detayları için satıcıyla iletişime geçin.
+Ödeme ve teslimat detayları için satıcıyla doğrudan iletişime geçin.
             </Text>
             <View className="mt-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5">
               <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary, lineHeight: 17 }}>
@@ -830,6 +918,17 @@ Beden Seç
                 </Pressable>
               ) : null}
             </View>
+
+            <Pressable
+              onPress={handleStartOrderDraft}
+              style={{ backgroundColor: '#ECFEFF', borderColor: '#A5F3FC' }}
+              className="mt-2 h-10 rounded-xl border items-center justify-center flex-row"
+            >
+              <Ionicons name="receipt-outline" size={16} color="#0E7490" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#0E7490' }} className="ml-1.5">
+                Mesajla Gorusme Baslat
+              </Text>
+            </Pressable>
           </View>
 
           {/* Description */}
@@ -923,9 +1022,7 @@ Beden Seç
             </View>
 
             {commentsLoading ? (
-              <View className="mt-4 items-center justify-center">
-                <ActivityIndicator color={colors.primary} />
-              </View>
+              <CommentSkeletonList />
             ) : comments.length > 0 ? (
               <View className="mt-1">
                 {comments.map((comment) => renderCommentItem(comment))}
@@ -938,6 +1035,66 @@ Beden Seç
               </View>
             )}
           </View>
+
+          {/* Similar Listings */}
+          {similarListings.length > 0 || shouldShowSimilarSkeleton ? (
+            <View className="mt-6">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
+                  Benzer İlanlar
+                </Text>
+                {!shouldShowSimilarSkeleton ? (
+                  <Pressable onPress={() => router.push('/(tabs)/categories')}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
+                      Tümünü gör →
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {shouldShowSimilarSkeleton ? (
+                <SimilarListingsSkeletonRow />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
+                >
+                  {similarListings.map((item, index) => {
+                    const itemImageUri = resolveMediaCover(item);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => handlePressSimilarListing(item.id, index)}
+                        style={{ width: 130 }}
+                        className="rounded-xl overflow-hidden border border-[#33333312] bg-white active:opacity-80"
+                      >
+                        <Image
+                          source={{ uri: itemImageUri }}
+                          style={{ width: 130, height: 130 }}
+                          resizeMode="cover"
+                        />
+                        <View className="px-2 py-2">
+                          <Text
+                            style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textPrimary }}
+                            numberOfLines={2}
+                            className="leading-4"
+                          >
+                            {item.title}
+                          </Text>
+                          <Text
+                            style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}
+                            className="mt-1"
+                          >
+                            ₺{item.price.toFixed(2)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          ) : null}
 
           <View className="h-24" />
         </View>

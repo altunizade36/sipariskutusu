@@ -1,18 +1,19 @@
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useUnreadMessageCount } from '../../src/hooks/useUnreadMessageCount';
+import BoxMascot from '../../src/components/BoxMascot';
 
 export default function TabLayout() {
-  const { isLoading } = useAuth();
+  const { isLoading, isDarkMode } = useAuth();
   const unreadCount = useUnreadMessageCount();
 
   if (isLoading) {
     return (
       <View style={styles.fullscreenCenter}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <BoxMascot variant="loading" size={110} animated />
         <Text style={styles.loadingText}>Oturum kontrol ediliyor...</Text>
       </View>
     );
@@ -25,10 +26,10 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarInactiveTintColor: isDarkMode ? '#94A3B8' : colors.textMuted,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E8EEF8',
+          backgroundColor: isDarkMode ? '#0F172A' : '#FFFFFF',
+          borderTopColor: isDarkMode ? '#1E293B' : '#E8EEF8',
           borderTopWidth: 1,
           height: Platform.select({ web: 94, default: 102 }),
           paddingBottom: Platform.select({ web: 22, default: 26 }),
@@ -38,19 +39,20 @@ export default function TabLayout() {
           borderTopRightRadius: 24,
           overflow: 'visible',
           shadowColor: '#0F172A',
-          shadowOpacity: 0.08,
+          shadowOpacity: isDarkMode ? 0.24 : 0.08,
           shadowRadius: 20,
           shadowOffset: { width: 0, height: -4 },
           elevation: 18,
         },
         tabBarLabelStyle: {
           fontFamily: fonts.medium,
-          fontSize: 10,
+          fontSize: 9,
           marginTop: 2,
           paddingBottom: 2,
         },
         tabBarItemStyle: {
           paddingTop: 4,
+          paddingHorizontal: 0,
         },
       }}
     >

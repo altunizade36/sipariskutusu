@@ -299,6 +299,34 @@ export async function fetchMySalesOrders(): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
+export async function fetchOrderById(orderId: string): Promise<Order | null> {
+  if (isBackendApiConfigured) {
+    try {
+      return await backendRequest<Order>(`/v1/orders/${orderId}`, {
+        method: 'GET',
+        responseValidator: assertOrderPayload,
+      });
+    } catch (error) {
+      if (isBackendStrictMode) {
+        throw error;
+      }
+    }
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? null) as Order | null;
+}
+
 export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,

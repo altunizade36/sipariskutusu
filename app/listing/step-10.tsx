@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, fonts } from '../../src/constants/theme';
+import BoxMascot from '../../src/components/BoxMascot';
 
 export default function ListingStep10RedirectScreen() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function ListingStep10RedirectScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#F7F7F7] items-center justify-center px-6" edges={['top']}>
       <View className="bg-white rounded-2xl border border-[#33333315] p-5 items-center">
-        <ActivityIndicator color={colors.primary} />
+        <BoxMascot variant="loading" size={130} animated />
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginTop: 12 }}>
           Hızlı ilan ekranı açılıyor
         </Text>

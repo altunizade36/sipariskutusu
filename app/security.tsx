@@ -1,6 +1,5 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
+import BoxMascot from '../src/components/BoxMascot';
 import {
   applyRecommendedSecurity,
   changePassword,
@@ -314,7 +314,7 @@ export default function SecurityScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F7F7' }} edges={['top']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <BoxMascot variant="loading" size={110} animated />
           <Text style={{ fontFamily: fonts.medium, color: colors.textSecondary, marginTop: 12 }}>
             Güvenlik ayarları yükleniyor...
           </Text>

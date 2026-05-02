@@ -87,6 +87,20 @@ export default function ResetPasswordScreen() {
           </Pressable>
         </View>
 
+        {password.length > 0 ? (
+          <View style={{ marginBottom: 12, gap: 5 }}>
+            {[
+              { ok: hasMinLength, label: 'En az 8 karakter' },
+              { ok: hasUppercase || hasNumber, label: 'Büyük harf veya rakam içermeli' },
+            ].map(({ ok, label }) => (
+              <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name={ok ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={ok ? '#059669' : colors.textMuted} />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: ok ? '#047857' : colors.textMuted }}>{label}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Yeni Şifre Tekrar</Text>
         <TextInput
           value={confirmPassword}
@@ -95,8 +109,13 @@ export default function ResetPasswordScreen() {
           placeholder="Şifreyi tekrar gir"
           secureTextEntry={!showPassword}
           placeholderTextColor={colors.textMuted}
-          style={{ borderWidth: 1, borderColor: colors.borderDefault, borderRadius: 12, height: 46, paddingHorizontal: 12, marginBottom: 14, fontFamily: fonts.regular, color: colors.textPrimary, fontSize: 14 }}
+          style={{ borderWidth: 1, borderColor: confirmPassword.length > 0 && confirmPassword !== password ? '#EF4444' : colors.borderDefault, borderRadius: 12, height: 46, paddingHorizontal: 12, marginBottom: 14, fontFamily: fonts.regular, color: colors.textPrimary, fontSize: 14 }}
         />
+        {confirmPassword.length > 0 && confirmPassword !== password ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#EF4444', marginTop: -10, marginBottom: 10 }}>
+            Şifreler eşleşmiyor
+          </Text>
+        ) : null}
 
         <Pressable
           onPress={handleUpdatePassword}

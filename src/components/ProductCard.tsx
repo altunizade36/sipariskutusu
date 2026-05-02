@@ -1,4 +1,5 @@
-import { ActivityIndicator, Alert, View, Text, Pressable, Image } from 'react-native';
+import { ActivityIndicator, Alert, View, Text, Pressable } from 'react-native';
+import CachedImage from './CachedImage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { memo, useEffect, useMemo, useState } from 'react';
@@ -153,10 +154,10 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
     >
       {/* Image */}
       <View style={{ aspectRatio: 3 / 4 }} className="relative bg-[#F1F5F9] overflow-hidden">
-        <Image
-          source={{ uri: resolveMediaCover(product) }}
+        <CachedImage
+          uri={resolveMediaCover(product)}
           style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
+          contentFit="cover"
         />
 
         {hasVideo ? (
@@ -177,15 +178,25 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
         {/* Badge */}
         {badge ? (
           <View
-            style={{ backgroundColor: badge.bg, maxWidth: '88%' }}
-            className="absolute top-2 left-2 flex-row items-center px-2 py-[3px] rounded-md gap-1"
+            style={{
+              backgroundColor: badge.bg,
+              borderColor: badge.text + '33',
+              borderWidth: 1,
+              maxWidth: '88%',
+              elevation: 1,
+              shadowColor: '#000',
+              shadowOpacity: 0.08,
+              shadowRadius: 2,
+              shadowOffset: { width: 0, height: 1 },
+            }}
+            className="absolute top-2 left-2 flex-row items-center px-2.5 py-1 rounded-full gap-1"
           >
-            <Text style={{ fontSize: 9 }}>{badge.icon}</Text>
+            <Text style={{ fontSize: 8 }}>{badge.icon}</Text>
             <Text
               numberOfLines={1}
-              style={{ fontFamily: fonts.bold, fontSize: 9, color: badge.text }}
+              style={{ fontFamily: fonts.bold, fontSize: 8.5, color: badge.text, letterSpacing: 0.3 }}
             >
-              {badge.label.toUpperCase()}
+              {badge.label}
             </Text>
           </View>
         ) : null}
@@ -193,9 +204,17 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
         {/* Discount pill */}
         {discountPct >= 10 ? (
           <View
-            style={{ backgroundColor: colors.danger }}
-            className="absolute top-2 right-2 px-2 py-[3px] rounded-md"
+            style={{
+              backgroundColor: '#EF4444',
+              elevation: 2,
+              shadowColor: '#EF4444',
+              shadowOpacity: 0.35,
+              shadowRadius: 4,
+              shadowOffset: { width: 0, height: 2 },
+            }}
+            className="absolute top-2 right-2 flex-row items-center px-2 py-1 rounded-full gap-0.5"
           >
+            <Ionicons name="flash" size={9} color="#fff" />
             <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>
               -{discountPct}%
             </Text>

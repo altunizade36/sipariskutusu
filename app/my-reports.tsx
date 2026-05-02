@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 import { fetchMyReports, type ReportRecord, type ReportStatus } from '../src/services/reportService';
+import BoxMascot from '../src/components/BoxMascot';
 
 function formatReportTarget(targetType: ReportRecord['targetType']): string {
   if (targetType === 'listing') return 'İlan';
@@ -62,7 +63,7 @@ export default function MyReportsScreen() {
         <View className="w-10 h-10" />
       </View>
 
-      <View className="px-4 pb-1 flex-row" style={{ gap: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8, gap: 8, flexDirection: 'row' }}>
         {(['all', 'pending', 'reviewed', 'resolved', 'rejected'] as const).map((status) => {
           const active = statusFilter === status;
           const label = status === 'all' ? 'Tümü' : status === 'pending' ? 'Bekleyen' : status === 'reviewed' ? 'İncelendi' : status === 'resolved' ? 'Çözüldü' : 'Reddedildi';
@@ -74,18 +75,17 @@ export default function MyReportsScreen() {
               className="rounded-full px-3 py-1.5"
             >
               <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 11, color: active ? '#1E40AF' : colors.textSecondary }}>
--                {status === 'all' ? 'Tümü' : status}
-+                {label}
+                {label}
               </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
         {loading ? (
           <View className="mt-8 items-center justify-center">
-            <ActivityIndicator color={colors.primary} />
+            <BoxMascot variant="loading" size={90} animated />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 8 }}>
               Şikayetler yükleniyor...
             </Text>
@@ -126,9 +126,17 @@ export default function MyReportsScreen() {
             })}
           </View>
         ) : (
-          <View className="rounded-2xl border border-dashed border-[#D1D5DB] bg-white px-4 py-6 items-center">
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
-              Bu filtrede şikayet bulunmuyor.
+          <View className="rounded-2xl border border-dashed border-[#D1D5DB] bg-white px-4 py-10 items-center">
+            <View style={{ backgroundColor: '#EFF6FF' }} className="w-14 h-14 rounded-full items-center justify-center mb-3">
+              <Ionicons name="flag-outline" size={24} color={colors.primary} />
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
+              {statusFilter === 'all' ? 'Şikayet Yok' : 'Sonuç Bulunamadı'}
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6, textAlign: 'center' }}>
+              {statusFilter === 'all'
+                ? 'Henüz hiç şikayet oluşturmadın.'
+                : 'Bu durumda şikayet bulunamadı.'}
             </Text>
           </View>
         )}

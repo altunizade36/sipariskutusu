@@ -1,40 +1,48 @@
-import { View, Text } from 'react-native';
-import { useMemo } from 'react';
+import { View, Animated, StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
 
 type Props = {
   width?: number | string;
 };
 
 export default function SkeletonCard({ width = '100%' }: Props) {
-  const animatedStyle = useMemo(
-    () => ({
-      animation: 'pulse 1.5s ease-in-out infinite',
-    }),
-    []
-  );
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulse]);
+
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.85] });
 
   return (
-    <View style={{ width: typeof width === 'number' ? width : undefined }} className="bg-white">
-      {/* Image skeleton */}
-      <View
-        style={{ aspectRatio: 3 / 4 }}
-        className="bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 relative overflow-hidden"
-      >
-        {/* Shimmer effect via opacity animation */}
-        <View className="absolute inset-0 bg-white/40" />
-      </View>
+    <View style={[styles.card, { width: typeof width === 'number' ? width : undefined }]}>
+      {/* Image placeholder */}
+      <Animated.View style={[styles.imagePlaceholder, { opacity }]} />
 
-      {/* Title skeleton */}
-      <View className="p-3 gap-2">
-        <View className="h-4 bg-slate-200 rounded w-3/4" />
-        <View className="h-4 bg-slate-200 rounded w-1/2" />
-
-        {/* Bottom info skeleton */}
-        <View className="flex-row justify-between items-center mt-2">
-          <View className="h-5 bg-slate-200 rounded w-1/3" />
-          <View className="w-6 h-6 bg-slate-200 rounded-full" />
+      {/* Info */}
+      <View style={styles.info}>
+        <Animated.View style={[styles.bone, { height: 9, width: '45%', borderRadius: 4, opacity }]} />
+        <Animated.View style={[styles.bone, { height: 11, width: '92%', marginTop: 7, opacity }]} />
+        <Animated.View style={[styles.bone, { height: 11, width: '68%', marginTop: 7, opacity }]} />
+        <Animated.View style={[styles.bone, { height: 9, width: '55%', marginTop: 9, borderRadius: 4, opacity }]} />
+        <View style={styles.priceRow}>
+          <Animated.View style={[styles.bone, { height: 16, width: '38%', opacity }]} />
+          <Animated.View style={[styles.bone, { height: 28, width: 28, borderRadius: 14, opacity }]} />
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { backgroundColor: '#fff', overflow: 'hidden' },
+  imagePlaceholder: { aspectRatio: 3 / 4, backgroundColor: '#DDE3ED' },
+  info: { padding: 10 },
+  bone: { backgroundColor: '#DDE3ED', borderRadius: 6 },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+});

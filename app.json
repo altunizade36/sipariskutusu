@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "Sipariş Kutusu",
+    "name": "Sipariş kutusu",
     "slug": "sipariskutusu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "sipariskutusu",
-    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A66FF"
     },
+    "scheme": "sipariskutusu",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sipariskutusu.app"
@@ -19,18 +19,17 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0A66FF"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.sipariskutusu.app",
-      "versionCode": 1,
+      "versionCode": 4,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS"
-      ],
-      "googleServicesFile": "./google-services.json"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,6 +38,15 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A66FF"
+        }
+      ],
       "@sentry/react-native",
       [
         "expo-notifications",
@@ -47,15 +55,25 @@
           "color": "#3B82F6",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://de.sentry.io/",
+          "project": "react-native",
+          "organization": "sipariskutusu"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "ff942e41-b44d-4f2d-98c6-05262f25ed60"
       }
-    }
+    },
+    "owner": "orderbox"
   }
 }

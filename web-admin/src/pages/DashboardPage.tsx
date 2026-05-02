@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -28,6 +28,8 @@ export default function DashboardPage() {
   const [recentListings, setRecentListings] = useState<MiniListing[]>([]);
   const [recentUsers, setRecentUsers] = useState<MiniUser[]>([]);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function load() {
     const [
@@ -66,7 +68,15 @@ export default function DashboardPage() {
     setLastUpdated(new Date().toLocaleTimeString('tr-TR'));
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    if (autoRefresh) {
+      intervalRef.current = setInterval(() => { void load(); }, 30_000);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [autoRefresh]);
 
   const statCards = stats
     ? [
@@ -86,7 +96,14 @@ export default function DashboardPage() {
           {lastUpdated && <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0' }}>Son güncelleme: {lastUpdated}</p>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={() => void load()}>⟳ Yenile</button>
+          <button
+            className={`btn ${autoRefresh ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setAutoRefresh((v) => !v)}
+            title={autoRefresh ? 'Otomatik yenileme açık (30s)' : 'Otomatik yenileme kapalı'}
+          >
+            {autoRefresh ? '⟳ Canlı' : '⟳ Durduruldu'}
+          </button>
+          <button className="btn btn-ghost" onClick={() => void load()}>Yenile</button>
           <button className="btn btn-primary" onClick={() => navigate('/ops')}>Canli Durum</button>
         </div>
       </div>

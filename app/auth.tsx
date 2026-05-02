@@ -9,53 +9,109 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../src/context/AuthContext';
+import BoxMascot from '../src/components/BoxMascot';
+import { trackEvent } from '../src/services/monitoring';
+import { TELEMETRY_EVENTS } from '../src/constants/telemetryEvents';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  keyboardRoot: {
+    flex: 1,
+  },
   containerDark: {
     backgroundColor: '#0A0A0A',
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  scrollContentCompact: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  contentInner: {
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 8,
   },
-  logo: {
-    fontSize: 64,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: -2,
+  mascotContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  logoDark: {
-    color: '#FFFFFF',
+  mascotHint: {
+    marginTop: 6,
+    fontSize: 11,
+    color: '#5B6B80',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  mascotHintDark: {
+    color: '#A5B4C8',
+  },
+  brandWordmark: {
+    fontSize: 32,
+    fontWeight: '800',
+    lineHeight: 40,
+    letterSpacing: -1.0,
+    textAlign: 'center',
+  },
+  brandWordmarkFirst: {
+    color: '#0D2347',
+  },
+  brandWordmarkFirstDark: {
+    color: '#E5EEFF',
+  },
+  brandWordmarkSecond: {
+    color: '#1E5FC6',
+  },
+  brandBoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  brandLine: {
+    width: 52,
+    height: 2,
+    borderRadius: 999,
+    backgroundColor: '#1E5FC6',
+  },
+  brandBoText: {
+    color: '#1E5FC6',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginHorizontal: 8,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666666',
-    marginTop: 8,
-    fontWeight: '500',
-    letterSpacing: 1.5,
+    marginTop: 10,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    textAlign: 'center',
   },
   subtitleDark: {
     color: '#999999',
   },
   formContainer: {
-    marginBottom: 24,
+    marginBottom: 8,
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 32,
+    marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -81,7 +137,7 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   label: {
     fontSize: 13,
@@ -143,8 +199,8 @@ const styles = StyleSheet.create({
   demoContainer: {
     backgroundColor: '#F0F9FF',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 24,
+    padding: 10,
+    marginBottom: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#3B82F6',
   },
@@ -178,22 +234,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  themeToggle: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   themeToggleDark: {
     backgroundColor: '#2A2A2A',
-  },
-  themeToggleText: {
-    fontSize: 20,
   },
 });
 
@@ -201,6 +243,8 @@ type AuthMode = 'login' | 'signup';
 
 export default function AuthScreen() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const params = useLocalSearchParams<{ redirect?: string }>();
   const { isDarkMode, toggleDarkMode, signInWithPassword, signUpWithPassword, isLoading } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
@@ -208,6 +252,11 @@ export default function AuthScreen() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [accountRole, setAccountRole] = useState<'buyer' | 'seller'>('buyer');
+  const redirectPath = typeof params.redirect === 'string' && params.redirect.trim().startsWith('/')
+    ? params.redirect.trim()
+    : '/(tabs)';
+  const isCompactScreen = height < 760 || width < 360;
+  const mascotSize = isCompactScreen ? 78 : 90;
 
   const handleAuth = async () => {
     try {
@@ -219,14 +268,16 @@ export default function AuthScreen() {
 
       if (mode === 'login') {
         await signInWithPassword(email, password);
-        router.replace('/(tabs)');
+        trackEvent(TELEMETRY_EVENTS.USER_SIGNED_IN, { method: 'email', account_role: null });
+        router.replace(redirectPath as never);
       } else {
         if (!fullName) {
           setError('Ad Soyad gereklidir');
           return;
         }
         await signUpWithPassword(email, password, fullName, accountRole);
-        router.replace('/(tabs)');
+        trackEvent(TELEMETRY_EVENTS.USER_SIGNED_UP, { method: 'email', account_role: accountRole });
+        router.replace(redirectPath as never);
       }
     } catch (err: any) {
       setError(err?.message || 'Bir hata oluştu');
@@ -237,32 +288,44 @@ export default function AuthScreen() {
     try {
       setError('');
       await signInWithPassword(demoEmail, demoPassword);
-      router.replace('/(tabs)');
+      trackEvent(TELEMETRY_EVENTS.USER_SIGNED_IN, { method: 'demo', account_role: role });
+      router.replace(redirectPath as never);
     } catch (err: any) {
       setError(`Demo giriş başarısız: ${err?.message}`);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, isDarkMode && styles.containerDark]}
-    >
-      <TouchableOpacity
-        style={[styles.themeToggle, isDarkMode && styles.themeToggleDark]}
-        onPress={toggleDarkMode}
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardRoot}
       >
-        <Text style={styles.themeToggleText}>{isDarkMode ? '🌙' : '☀️'}</Text>
-      </TouchableOpacity>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, isCompactScreen && styles.scrollContentCompact]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.contentInner}>
         <View style={styles.logoContainer}>
-          <Text style={[styles.logo, isDarkMode && styles.logoDark]}>BO</Text>
+          <Text style={[styles.brandWordmark, isCompactScreen && { fontSize: 28, lineHeight: 35 }]}>
+            <Text style={[styles.brandWordmarkFirst, isDarkMode && styles.brandWordmarkFirstDark]}>Sipariş </Text>
+            <Text style={styles.brandWordmarkSecond}>kutusu</Text>
+          </Text>
+          <View style={styles.brandBoRow}>
+            <View style={styles.brandLine} />
+            <Text style={styles.brandBoText}>BO</Text>
+            <View style={styles.brandLine} />
+          </View>
           <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-            SİPARİŞ KUTUSU
+            Güvenli Alışveriş Pazaryeri
+          </Text>
+        </View>
+
+        <View style={styles.mascotContainer}>
+          <BoxMascot variant="welcome" size={mascotSize} animated />
+          <Text style={[styles.mascotHint, isDarkMode && styles.mascotHintDark]}>
+            BO seni karşılıyor. Giriş yapıp vitrine ya da alışverişe devam edebilirsin.
           </Text>
         </View>
 
@@ -419,8 +482,57 @@ export default function AuthScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {mode === 'signup' && (
+            <View style={{ marginTop: 16, paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 11, color: '#6B7280', textAlign: 'center', lineHeight: 18 }}>
+                Kayıt olarak{' '}
+                <Text
+                  style={{ color: '#3B82F6', textDecorationLine: 'underline', fontWeight: '600' }}
+                  onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } })}
+                >
+                  Kullanım Şartları
+                </Text>
+                {' '}ve{' '}
+                <Text
+                  style={{ color: '#3B82F6', textDecorationLine: 'underline', fontWeight: '600' }}
+                  onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy-kvkk' } })}
+                >
+                  Gizlilik Politikası (KVKK)
+                </Text>
+                {'\u2019nı okuduğunuzu ve kabul ettiğinizi onaylarsınız.'}
+              </Text>
+            </View>
+          )}
+
+          {mode === 'login' && (
+            <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 4 }}>
+              <Text
+                style={{ fontSize: 11, color: '#3B82F6', textDecorationLine: 'underline' }}
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } })}
+              >
+                Kullanım Şartları
+              </Text>
+              <Text style={{ fontSize: 11, color: '#D1D5DB', paddingHorizontal: 4 }}>·</Text>
+              <Text
+                style={{ fontSize: 11, color: '#3B82F6', textDecorationLine: 'underline' }}
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy-kvkk' } })}
+              >
+                Gizlilik & KVKK
+              </Text>
+              <Text style={{ fontSize: 11, color: '#D1D5DB', paddingHorizontal: 4 }}>·</Text>
+              <Text
+                style={{ fontSize: 11, color: '#3B82F6', textDecorationLine: 'underline' }}
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'platform-liability' } })}
+              >
+                Sorumluluk
+              </Text>
+            </View>
+          )}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

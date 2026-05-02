@@ -5,10 +5,14 @@
  * Gerekli .env değişkenleri:
  *   EXPO_PUBLIC_SENTRY_DSN       — Sentry projesinden alın
  *   EXPO_PUBLIC_POSTHOG_API_KEY  — PostHog projesinden alın
+ *   EXPO_PUBLIC_POSTHOG_HOST     — PostHog sunucu adresi (örn: https://eu.i.posthog.com)
  */
 
 import * as Sentry from '@sentry/react-native';
 import PostHog from 'posthog-react-native';
+import { Platform } from 'react-native';
+import { TELEMETRY_EVENTS } from '../constants/telemetryEvents';
+import type { TelemetryEventName, TelemetryEventPayload, TelemetryRecord } from '../constants/telemetryEvents';
 
 // ─── Sentry ──────────────────────────────────────────────────
 export function initSentry(): void {
@@ -54,20 +58,35 @@ export function captureError(error: unknown, context?: Record<string, unknown>):
 // ─── PostHog ─────────────────────────────────────────────────
 let posthog: PostHog | null = null;
 
+/** PostHog singleton — PostHogProvider'a client prop olarak geçilebilir */
+export function getPostHogClient(): PostHog | null {
+  return posthog;
+}
+
 export function initPostHog(): void {
   const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
   if (!apiKey) return;
 
   posthog = new PostHog(apiKey, {
-    host: 'https://eu.i.posthog.com',  // EU sunucusu (KVKK uyumu)
+    host: process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com',
     captureAppLifecycleEvents: true,
   });
 }
 
-type PHProps = Record<string, string | number | boolean | null | undefined>;
+type PHProps = TelemetryRecord;
+const APP_SESSION_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+function withOperationalContext(properties?: PHProps): PHProps {
+  return {
+    session_id: APP_SESSION_ID,
+    platform: Platform.OS,
+    runtime: __DEV__ ? 'development' : 'production',
+    ...properties,
+  };
+}
 
 export function identifyUser(userId: string, properties?: PHProps): void {
-  posthog?.identify(userId, properties);
+  posthog?.identify(userId, withOperationalContext(properties));
 }
 
 export function resetUser(): void {
@@ -76,30 +95,30 @@ export function resetUser(): void {
 
 /** Ekran görüntüleme takibi */
 export function trackScreen(screenName: string, properties?: PHProps): void {
-  posthog?.screen(screenName, properties);
+  posthog?.screen(screenName, withOperationalContext(properties));
 }
 
 /** Özel olay takibi */
-export function trackEvent(event: string, properties?: PHProps): void {
-  posthog?.capture(event, properties);
+export function trackEvent<E extends TelemetryEventName>(event: E, properties?: TelemetryEventPayload<E>): void {
+  posthog?.capture(event, withOperationalContext(properties as PHProps));
 }
 
 /** İlan oluşturma */
 export function trackListingCreated(categoryId?: string, price?: number): void {
-  trackEvent('listing_created', { category_id: categoryId ?? null, price: price ?? null });
+  trackEvent(TELEMETRY_EVENTS.LISTING_CREATED, { category_id: categoryId ?? null, price: price ?? null });
 }
 
 /** Sipariş tamamlandı */
 export function trackOrderPlaced(orderId: string, total: number): void {
-  trackEvent('order_placed', { order_id: orderId, total });
+  trackEvent(TELEMETRY_EVENTS.ORDER_PLACED, { order_id: orderId, total });
 }
 
 /** Arama yapıldı */
 export function trackSearch(query: string, resultCount: number): void {
-  trackEvent('search', { query, result_count: resultCount });
+  trackEvent(TELEMETRY_EVENTS.SEARCH, { query, result_count: resultCount });
 }
 
 /** Mesaj gönderildi */
 export function trackMessageSent(conversationId: string): void {
-  trackEvent('message_sent', { conversation_id: conversationId });
+  trackEvent(TELEMETRY_EVENTS.MESSAGE_SENT, { conversation_id: conversationId });
 }

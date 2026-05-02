@@ -8,6 +8,8 @@ import { MARKETPLACE_CATEGORIES } from '../src/constants/marketplaceCategories';
 import { useListings } from '../src/context/ListingsContext';
 import { useAuth } from '../src/context/AuthContext';
 import { pickImageFromLibrary } from '../src/utils/imagePicker';
+import { trackEvent } from '../src/services/monitoring';
+import { TELEMETRY_EVENTS } from '../src/constants/telemetryEvents';
 
 export default function ShareStoryScreen() {
   const router = useRouter();
@@ -71,6 +73,12 @@ export default function ShareStoryScreen() {
       productId: selectedProductId || undefined,
       categoryId: selectedCategory,
       isVideo: isVideoPost,
+    });
+
+    trackEvent(TELEMETRY_EVENTS.STORY_SHARED, {
+      listing_id: selectedProductId ?? null,
+      category_id: selectedCategory ?? null,
+      has_price: Boolean(priceTag.trim()),
     });
 
     router.push('/(tabs)/store');

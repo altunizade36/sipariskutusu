@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
+import BoxMascot from '../src/components/BoxMascot';
+import { hasLaunchedBefore } from './onboarding';
 
 const { width, height } = Dimensions.get('window');
 
@@ -65,7 +67,7 @@ const styles = StyleSheet.create({
 
 export default function SplashScreen() {
   const router = useRouter();
-  const { user, isLoading, isDarkMode } = useAuth();
+  const { isLoading, isDarkMode } = useAuth();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const dotAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -95,21 +97,23 @@ export default function SplashScreen() {
 
   useEffect(() => {
     if (!isLoading) {
-      const timer = setTimeout(() => {
-        if (user) {
-          router.replace('/(tabs)');
+      const timer = setTimeout(async () => {
+        const launched = await hasLaunchedBefore();
+        if (!launched) {
+          router.replace('/onboarding' as never);
         } else {
-          router.replace('/auth');
+          router.replace('/(tabs)' as never);
         }
       }, 2000);
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading, user]);
+  }, [isLoading]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <Animated.View style={[styles.logoContainer, { opacity: fadeAnim }]}>
+        <BoxMascot variant="loading" size={150} animated />
         <Text style={[styles.logo, isDarkMode && styles.logoDark]}>BO</Text>
         <Text style={[styles.logoSubtext, isDarkMode && styles.logoSubtextDark]}>
           SİPARİŞ KUTUSU

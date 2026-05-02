@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SEARCH_HISTORY_KEY = '@sipariskutusu/search_history';
@@ -58,10 +58,13 @@ export async function removeSearchHistoryItem(query: string) {
 }
 
 export function useSearchHistory() {
-  return {
-    add: addSearchHistory,
-    get: getSearchHistory,
-    clear: clearSearchHistory,
-    remove: removeSearchHistoryItem,
-  };
+  return useMemo(
+    () => ({
+      add: addSearchHistory,
+      get: getSearchHistory,
+      clear: clearSearchHistory,
+      remove: removeSearchHistoryItem,
+    }),
+    [],
+  );
 }

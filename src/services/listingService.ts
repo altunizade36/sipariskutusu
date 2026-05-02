@@ -61,11 +61,14 @@ export interface Listing {
   original_price?: number | null;
   currency: string;
   category_id?: string | null;
+  sub_category_id?: string | null;
+  custom_sub_category?: string | null;
   condition: ListingCondition;
   status: ListingStatus;
   delivery: DeliveryType;
   city?: string | null;
   district?: string | null;
+  neighborhood?: string | null;
   stock: number;
   view_count: number;
   favorite_count: number;
@@ -93,10 +96,13 @@ export type SearchFilters = {
   query?: string;
   categoryId?: string;
   category_id?: string;
+  subCategoryId?: string;
+  sub_category_id?: string;
   minPrice?: number;
   maxPrice?: number;
   city?: string;
   district?: string;
+  neighborhood?: string;
   page?: number;
   pageSize?: number;
   sellerId?: string;
@@ -110,10 +116,15 @@ export type CreateListingInput = {
   price: number;
   categoryId?: string;
   category_id?: string;
+  subCategoryId?: string;
+  sub_category_id?: string;
+  customSubCategory?: string;
+  custom_sub_category?: string;
   condition: ListingCondition;
   delivery: DeliveryType;
   city?: string;
   district?: string;
+  neighborhood?: string;
   stock?: number;
   isNegotiable?: boolean;
   is_negotiable?: boolean;
@@ -237,6 +248,8 @@ export async function createListing(
 ): Promise<Listing> {
   const supabase = getSupabaseClient();
   const categoryId = input.categoryId ?? input.category_id ?? '';
+  const subCategoryId = input.subCategoryId ?? input.sub_category_id ?? null;
+  const customSubCategory = (input.customSubCategory ?? input.custom_sub_category ?? '').trim() || null;
 
   // 1. Input validation
   const validation = validateListingUpdateInput({
@@ -249,25 +262,32 @@ export async function createListing(
   }
 
   // 2. Create with seller_id = auth.uid()
-  const { data, error } = await supabase
-    .from('listings')
-    .insert({
-      seller_id: userId,
-      title: input.title,
-      description: input.description.trim() ? input.description : null,
-      price: input.price,
-      category_id: categoryId,
-      condition: input.condition,
-      delivery: input.delivery,
-      city: input.city,
-      district: input.district,
-      stock: input.stock ?? 1,
-      is_negotiable: input.isNegotiable ?? false,
-      currency: 'TRY',
-      status: 'active',
-    })
-    .select()
-    .single();
+  const basePayload = {
+    seller_id: userId,
+    title: input.title,
+    description: input.description.trim() ? input.description : null,
+    price: input.price,
+    category_id: categoryId,
+    sub_category_id: subCategoryId,
+    custom_sub_category: customSubCategory,
+    condition: input.condition,
+    delivery: input.delivery,
+    city: input.city,
+    district: input.district,
+    ...(input.neighborhood ? { neighborhood: input.neighborhood } : {}),
+    stock: input.stock ?? 1,
+    is_negotiable: input.isNegotiable ?? false,
+    currency: 'TRY',
+    status: 'active',
+  };
+
+  let { data, error } = await supabase.from('listings').insert(basePayload).select().single();
+
+  // If neighborhood column doesn't exist yet (migration 051 pending), retry without it
+  if (error && (error as { code?: string }).code === '42703' && 'neighborhood' in basePayload) {
+    const { neighborhood: _n, ...payloadWithoutNeighborhood } = basePayload as typeof basePayload & { neighborhood?: string };
+    ({ data, error } = await supabase.from('listings').insert(payloadWithoutNeighborhood).select().single());
+  }
 
   if (error) {
     throw new Error(`İlan oluşturulamadı: ${error.message}`);
@@ -284,10 +304,13 @@ export type SubmitListingInput = {
   description?: string;
   price: number;
   categoryId: string;
+  subCategoryId?: string;
+  customSubCategory?: string;
   condition: QuickListingCondition | ListingCondition;
   delivery: QuickListingDelivery[];
   city: string;
   district?: string;
+  neighborhood?: string;
   imageUris: string[];
   coverIndex?: number;
   negotiable?: boolean;
@@ -442,6 +465,13 @@ export async function submitListingToSupabase(input: SubmitListingInput): Promis
     throw new Error('Şehir zorunlu.');
   }
 
+  if (!input.district?.trim()) {
+    throw new Error('İlçe zorunlu.');
+  }
+
+  // neighborhood is optional until migration 051 is confirmed applied on the live DB
+  // if (!input.neighborhood?.trim()) { throw new Error('Mahalle zorunlu.'); }
+
   const coverIndex = Math.min(Math.max(input.coverIndex ?? 0, 0), imageUris.length - 1);
   const orderedUris = coverIndex > 0
     ? [imageUris[coverIndex], ...imageUris.filter((_, index) => index !== coverIndex)]
@@ -452,10 +482,13 @@ export async function submitListingToSupabase(input: SubmitListingInput): Promis
     description: input.description?.trim() ?? '',
     price: input.price,
     categoryId: input.categoryId,
+    subCategoryId: input.subCategoryId,
+    customSubCategory: input.customSubCategory,
     condition: mapQuickCondition(input.condition),
     delivery: mapQuickDelivery(input.delivery),
     city: input.city.trim(),
     district: input.district?.trim() ?? '',
+    neighborhood: input.neighborhood?.trim() ?? '',
     stock: input.stock ?? 1,
     isNegotiable: Boolean(input.negotiable),
   });
@@ -599,6 +632,11 @@ export async function fetchListings(
     query = query.eq('category_id', categoryFilter);
   }
 
+  const subCategoryFilter = filters?.subCategoryId ?? filters?.sub_category_id;
+  if (subCategoryFilter) {
+    query = query.eq('sub_category_id', subCategoryFilter);
+  }
+
   if (filters?.minPrice) {
     query = query.gte('price', filters.minPrice);
   }
@@ -618,6 +656,11 @@ export async function fetchListings(
   if (filters?.district) {
     query = query.eq('district', filters.district);
   }
+
+  // neighborhood filter guarded: column may not exist until migration 051 is applied
+  // if (filters?.neighborhood) {
+  //   query = query.eq('neighborhood', filters.neighborhood);
+  // }
 
   const page = typeof userIdOrPage === 'number' ? userIdOrPage : (filters?.page ?? 0);
   const pageSize = Math.min(pageSizeArg ?? filters?.pageSize ?? 20, MAX_LISTINGS_PAGE_SIZE);

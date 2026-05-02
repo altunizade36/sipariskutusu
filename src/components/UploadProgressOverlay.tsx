@@ -1,5 +1,6 @@
 import { View, Text, Modal, ActivityIndicator } from 'react-native';
 import { colors, fonts } from '../constants/theme';
+import BoxMascot from './BoxMascot';
 
 interface UploadProgressOverlayProps {
   visible: boolean;
@@ -16,6 +17,8 @@ export function UploadProgressOverlay({
 }: UploadProgressOverlayProps) {
   if (!visible) return null;
 
+  const mascotVariant = error ? 'loading' : progress >= 100 ? 'success' : progress > 0 ? 'order' : 'loading';
+
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View className="flex-1 bg-black/50 justify-center items-center">
@@ -25,7 +28,10 @@ export function UploadProgressOverlay({
             {error ? (
               <Text className="text-4xl mb-2">⚠️</Text>
             ) : (
-              <ActivityIndicator size="large" color={colors.primary} />
+              <>
+                <BoxMascot variant={mascotVariant} size={132} animated={mascotVariant !== 'success'} />
+                {mascotVariant !== 'success' ? <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 10 }} /> : null}
+              </>
             )}
           </View>
 

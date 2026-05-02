@@ -21,8 +21,11 @@ export interface Message {
   image_url?: string | null;
   attachment_url?: string | null;
   message_type?: 'text' | 'image' | 'offer' | 'system';
+  offer_amount?: number | null;
+  offer_status?: 'pending' | 'accepted' | 'rejected' | 'countered' | null;
   createdAt?: string;
   created_at: string;
+  updated_at?: string;
   isRead?: boolean;
   is_read?: boolean;
   status?: string;
@@ -309,7 +312,7 @@ const conversationSelect = `
 
 const messageSelect = `
   id, conversation_id, sender_id, receiver_id, body, attachment_url, image_url,
-  message_type, is_read, status, created_at
+  message_type, offer_amount, offer_status, is_read, status, created_at, updated_at
 `;
 
 function currentUserId(): Promise<string> {
@@ -512,6 +515,59 @@ export function subscribeToMessages(conversationId: string, onMessage: (message:
   return () => { supabase.removeChannel(channel); };
 }
 
+export function subscribeToUserMessages(userId: string, onMessage: (message: Message) => void): () => void {
+  const receiverChannel = supabase
+    .channel(`messages:user:receiver:${userId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` }, (payload) => {
+      onMessage(payload.new as Message);
+    })
+    .subscribe();
+
+  const senderChannel = supabase
+    .channel(`messages:user:sender:${userId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${userId}` }, (payload) => {
+      onMessage(payload.new as Message);
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(receiverChannel);
+    supabase.removeChannel(senderChannel);
+  };
+}
+
+export function subscribeToUserConversations(
+  userId: string,
+  onConversationChange: (conversation: Conversation, eventType: 'INSERT' | 'UPDATE') => void,
+): () => void {
+  const buyerChannel = supabase
+    .channel(`conversations:user:buyer:${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `buyer_id=eq.${userId}` }, (payload) => {
+      if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') {
+        return;
+      }
+
+      onConversationChange(payload.new as Conversation, payload.eventType);
+    })
+    .subscribe();
+
+  const sellerChannel = supabase
+    .channel(`conversations:user:seller:${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `seller_id=eq.${userId}` }, (payload) => {
+      if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') {
+        return;
+      }
+
+      onConversationChange(payload.new as Conversation, payload.eventType);
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(buyerChannel);
+    supabase.removeChannel(sellerChannel);
+  };
+}
+
 export function subscribeToReactions(
   conversationId: string,
   onReaction: (reaction: MessageReaction, type: 'INSERT' | 'DELETE') => void,
@@ -587,6 +643,37 @@ export async function reportUser(reportedUserId: string, reason: string): Promis
     target_id: reportedUserId,
     reason,
   });
+  if (error) throw error;
+}
+
+/** Edit the body of a message the current user sent. */
+export async function updateMessageBody(messageId: string, newBody: string): Promise<void> {
+  const userId = await currentUserId();
+  const { error } = await supabase
+    .from('messages')
+    .update({ body: newBody, updated_at: new Date().toISOString() })
+    .eq('id', messageId)
+    .eq('sender_id', userId);
+  if (error) throw error;
+}
+
+/** Accept, reject, or counter an offer message. */
+export async function updateOfferStatus(
+  messageId: string,
+  status: 'accepted' | 'rejected' | 'countered',
+  counterAmount?: number
+): Promise<void> {
+  const payload: Record<string, unknown> = {
+    offer_status: status,
+    updated_at: new Date().toISOString(),
+  };
+  if (status === 'countered' && counterAmount != null) {
+    payload.offer_amount = counterAmount;
+  }
+  const { error } = await supabase
+    .from('messages')
+    .update(payload)
+    .eq('id', messageId);
   if (error) throw error;
 }
 

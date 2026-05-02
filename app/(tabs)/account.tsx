@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Image } from 'react-native';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { fetchMyAccountCore, type AccountCoreProfile } from '../../src/services/
 import { fetchMyReports, fetchPendingReportsAdmin, reviewReportAdmin, type ReportRecord, type ReportStatus } from '../../src/services/reportService';
 import { fetchUnreadNotificationCount, subscribeToMyNotifications } from '../../src/services/inAppNotificationService';
 import { buildMessagesInboxRoute } from '../../src/utils/messageRouting';
+import { useUserPreferences } from '../../src/hooks/useUserPreferences';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -23,6 +24,9 @@ const sections: { title: string; items: { icon: IoniconName; label: string; badg
     items: [
       { icon: 'person-outline', label: 'Kişisel Bilgiler' },
       { icon: 'storefront-outline', label: 'Mağaza Profili' },
+      { icon: 'location-outline', label: 'Adreslerim' },
+      { icon: 'card-outline', label: 'Ödeme Tercihlerim' },
+      { icon: 'bag-handle-outline', label: 'Görüşme Geçmişim' },
       { icon: 'shield-checkmark-outline', label: 'Güvenlik' },
     ],
   },
@@ -49,7 +53,8 @@ const sections: { title: string; items: { icon: IoniconName; label: string; badg
 export default function AccountScreen() {
   const router = useRouter();
   useAndroidTabBackToHome();
-  const { user, signOut, isConfigured } = useAuth();
+  const { user, signOut, isConfigured, isDarkMode } = useAuth();
+  const { preferences } = useUserPreferences();
   const { favorites } = useFavorites();
   const { hasStore, storeMessageCount } = useListings();
   const [toast, setToast] = useState('');
@@ -205,6 +210,8 @@ export default function AccountScreen() {
 
   function handleQuickAction(label: string) {
     if (label === 'Favoriler') { router.push('/(tabs)/favorites'); return; }
+    if (label === 'Sepetim') { router.push('/(tabs)/cart'); return; }
+    if (label === 'Kategoriler') { router.push('/(tabs)/categories'); return; }
     if (label === 'Mesajlar')  { router.push(buildMessagesInboxRoute()); return; }
     if (label === 'Mağazam') {
       if (!requireAuthForAction('Mağaza paneline girmek için giriş yapman gerekiyor.')) return;
@@ -238,15 +245,30 @@ export default function AccountScreen() {
       router.push(hasStore ? '/store-settings' : '/store-setup');
       return;
     }
+    if (label === 'Adreslerim') {
+      if (!requireAuthForAction('Adresler için giriş yapman gerekiyor.')) return;
+      router.push('/addresses');
+      return;
+    }
+    if (label === 'Ödeme Tercihlerim') {
+      if (!requireAuthForAction('Ödeme yöntemleri için giriş yapman gerekiyor.')) return;
+      router.push('/payment-methods');
+      return;
+    }
+    if (label === 'Görüşme Geçmişim') {
+      if (!requireAuthForAction('Görüşme geçmişi için giriş yapman gerekiyor.')) return;
+      router.push('/(tabs)/orders');
+      return;
+    }
     if (label === 'Güvenlik') {
       if (!requireAuthForAction('Güvenlik ayarları için giriş yapman gerekiyor.')) return;
       router.push('/security');
       return;
     }
     if (label === 'Şartlar & Gizlilik'){ router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }); return; }
-    if (label === 'Dil & Bölge')       { showToast('Dil: Türkçe | Bölge: Türkiye'); return; }
+    if (label === 'Dil & Bölge')       { router.push('/preferences'); return; }
     if (label === 'Bildirimler')       { router.push('/notifications'); return; }
-    if (label === 'Görünüm')           { showToast('Tema modu: Sistem (otomatik).'); return; }
+    if (label === 'Görünüm')           { router.push('/preferences'); return; }
     if (label === 'Çıkış Yap') {
       if (!user) {
         router.push('/auth');
@@ -262,7 +284,7 @@ export default function AccountScreen() {
       }
       return;
     }
-    showToast(`${label} yakında aktif olacak.`);
+    router.push(buildMessagesInboxRoute());
   }
 
   const displayName = (user?.user_metadata?.full_name as string | undefined) ?? 'Misafir Kullanıcı';
@@ -277,28 +299,56 @@ export default function AccountScreen() {
         accountCore.seller_profile.website,
       ].filter(Boolean).join(' • ')
     : null;
-  const sectionList = sections.map((section) => {
-    if (section.title !== 'Uygulama') {
-      return section;
-    }
+  const profileBioLine = accountCore?.bio?.trim() || null;
+  const languageBadge = `${preferences.language === 'en' ? 'EN' : 'TR'}/${preferences.currency === 'EUR' ? 'EU' : preferences.currency === 'USD' ? 'US' : 'TR'}`;
+  const themeBadge = preferences.theme === 'dark' ? 'Koyu' : preferences.theme === 'light' ? 'Acik' : 'Oto';
 
-    return {
-      ...section,
-      items: section.items.map((item) => {
-        if (item.label !== 'Bildirimler') {
-          return item;
-        }
+  const palette = {
+    screenBg: isDarkMode ? '#0F172A' : '#F7F7F7',
+    surfaceBg: isDarkMode ? '#111827' : '#FFFFFF',
+    surfaceAlt: isDarkMode ? '#1E293B' : '#F7F7F7',
+    border: isDarkMode ? '#334155' : '#33333315',
+    borderAlt: isDarkMode ? '#1E293B' : '#D1D5DB',
+    avatarBg: isDarkMode ? '#1E3A8A' : '#DBEAFE',
+    badgeBg: isDarkMode ? '#1E293B' : '#F3F4F6',
+    buttonAlt: isDarkMode ? '#1E3A8A' : '#EFF6FF',
+    buttonBorder: isDarkMode ? '#1E40AF' : '#BFDBFE',
+    quickActionBg: isDarkMode ? '#1F2937' : '#FFFFFF',
+    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
+    textMuted: isDarkMode ? '#64748B' : colors.textMuted,
+  };
 
+  const sectionList = sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      if (item.label === 'Bildirimler') {
         return {
           ...item,
           badge: unreadNotificationCount > 0 ? String(Math.min(unreadNotificationCount, 99)) : undefined,
         };
-      }),
-    };
-  });
+      }
+
+      if (item.label === 'Dil & Bölge') {
+        return {
+          ...item,
+          badge: languageBadge,
+        };
+      }
+
+      if (item.label === 'Görünüm') {
+        return {
+          ...item,
+          badge: themeBadge,
+        };
+      }
+
+      return item;
+    }),
+  }));
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F7F7F7]" edges={['top']}>
+    <SafeAreaView style={{ backgroundColor: palette.screenBg }} className="flex-1" edges={['top']}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.primary }} className="px-4 pt-4 pb-20">
           <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: '#fff' }}>
@@ -306,37 +356,49 @@ export default function AccountScreen() {
           </Text>
         </View>
 
-        <View className="mx-4 -mt-14 bg-white rounded-2xl p-4 shadow-sm border border-[#33333315]">
+        <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="mx-4 -mt-14 rounded-2xl p-4 shadow-sm border">
           <View className="flex-row items-center">
-            <View
-              style={{ backgroundColor: '#DBEAFE' }}
-              className="w-16 h-16 rounded-full items-center justify-center"
-            >
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 24, color: colors.primary }}>
-                {(displayName[0] ?? 'M').toUpperCase()}
-              </Text>
-            </View>
+            {accountCore?.avatar_url ? (
+              <Image
+                source={{ uri: accountCore.avatar_url }}
+                style={{ width: 64, height: 64, borderRadius: 32 }}
+              />
+            ) : (
+              <View
+                style={{ backgroundColor: palette.avatarBg }}
+                className="w-16 h-16 rounded-full items-center justify-center"
+              >
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 24, color: colors.primary }}>
+                  {(displayName[0] ?? 'M').toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View className="flex-1 ml-3">
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>
                 {displayName}
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
                 {displayEmail}
               </Text>
-              <View style={{ alignSelf: 'flex-start', backgroundColor: resolvedRole === 'seller' ? '#DBEAFE' : '#F3F4F6' }} className="mt-2 rounded-full px-2.5 py-1">
-                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: resolvedRole === 'seller' ? colors.primary : colors.textSecondary }}>
+              {profileBioLine ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 4 }} numberOfLines={2}>
+                  {profileBioLine}
+                </Text>
+              ) : null}
+              <View style={{ alignSelf: 'flex-start', backgroundColor: resolvedRole === 'seller' ? palette.avatarBg : palette.badgeBg }} className="mt-2 rounded-full px-2.5 py-1">
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: resolvedRole === 'seller' ? colors.primary : palette.textSecondary }}>
                   {roleLabel}
                 </Text>
               </View>
               {sellerContactLine ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 6 }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 6 }}>
                   {sellerContactLine}
                 </Text>
               ) : null}
             </View>
             {user && (
-              <View style={{ backgroundColor: '#D1FAE5' }} className="w-6 h-6 rounded-full items-center justify-center">
-                <Ionicons name="checkmark-sharp" size={14} color="#059669" />
+              <View style={{ backgroundColor: isDarkMode ? '#064E3B' : '#D1FAE5' }} className="w-6 h-6 rounded-full items-center justify-center">
+                <Ionicons name="checkmark-sharp" size={14} color={isDarkMode ? '#86EFAC' : '#059669'} />
               </View>
             )}
             {!user && (
@@ -350,7 +412,7 @@ export default function AccountScreen() {
             <Pressable
               onPress={() => router.push('/auth')}
               className="mt-3 rounded-xl items-center justify-center"
-              style={{ height: 38, backgroundColor: '#EFF6FF' }}
+              style={{ height: 38, backgroundColor: palette.buttonAlt }}
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>Giriş Yap / Kayıt Ol</Text>
             </Pressable>
@@ -359,7 +421,8 @@ export default function AccountScreen() {
           {user && resolvedRole === 'buyer' ? (
             <Pressable
               onPress={() => router.push('/store-setup')}
-              className="mt-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-3 active:opacity-80"
+              style={{ borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt }}
+              className="mt-3 rounded-xl border px-3 py-3 active:opacity-80"
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
                 Satıcı / İçerik Üretici hesabına geç
@@ -370,7 +433,7 @@ export default function AccountScreen() {
             </Pressable>
           ) : null}
 
-          <View className="flex-row mt-4 pt-4 border-t border-[#33333315]">
+          <View style={{ borderTopColor: palette.border }} className="flex-row mt-4 pt-4 border-t">
             <Pressable
               className="flex-1 items-center active:opacity-70"
               onPress={() => {
@@ -378,41 +441,62 @@ export default function AccountScreen() {
                 router.push(hasStore ? '/store-settings' : '/store-setup');
               }}
             >
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>{hasStore ? 1 : 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>Mağaza</Text>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>{hasStore ? 1 : 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }}>Mağaza</Text>
             </Pressable>
-            <View style={{ width: 1, backgroundColor: colors.borderLight }} />
+            <View style={{ width: 1, backgroundColor: palette.border }} />
             <Pressable className="flex-1 items-center active:opacity-70" onPress={() => router.push('/(tabs)/favorites')}>
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>{favorites.length}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>Favori</Text>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>{favorites.length}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }}>Favori</Text>
             </Pressable>
-            <View style={{ width: 1, backgroundColor: colors.borderLight }} />
+            <View style={{ width: 1, backgroundColor: palette.border }} />
             <Pressable className="flex-1 items-center active:opacity-70" onPress={() => router.push(buildMessagesInboxRoute())}>
               <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.primary }}>{storeMessageCount}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>Mesaj</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }}>Mesaj</Text>
             </Pressable>
           </View>
         </View>
 
         <View className="flex-row mx-4 mt-3 gap-2">
           {[
-            { icon: 'heart' as const, label: 'Favoriler', color: '#3B82F6' },
-            { icon: 'chatbubble-ellipses' as const, label: 'Mesajlar', color: '#0F766E' },
-            { icon: 'storefront' as const, label: 'Mağazam', color: '#1E5FC6' },
-            { icon: 'help-circle' as const, label: 'Yardım', color: '#60A5FA' },
+            { icon: 'heart' as const, label: 'Favoriler', color: '#3B82F6', badge: null as string | null },
+            { icon: 'cart' as const, label: 'Sepetim', color: '#F59E0B', badge: null as string | null },
+            { icon: 'grid' as const, label: 'Kategoriler', color: '#8B5CF6', badge: null as string | null },
+            { icon: 'chatbubble-ellipses' as const, label: 'Mesajlar', color: '#0F766E', badge: storeMessageCount > 0 ? String(Math.min(storeMessageCount, 99)) : null },
+            { icon: 'storefront' as const, label: 'Mağazam', color: '#1E5FC6', badge: null as string | null },
+            { icon: 'help-circle' as const, label: 'Yardım', color: '#60A5FA', badge: null as string | null },
           ].map((a) => (
             <Pressable
               key={a.label}
               onPress={() => handleQuickAction(a.label)}
-              className="flex-1 bg-white rounded-xl items-center py-3 border border-[#33333315] active:opacity-80"
+              style={{ backgroundColor: palette.quickActionBg, borderColor: palette.border }}
+              className="flex-1 rounded-xl items-center py-3 border active:opacity-80"
             >
               <View
                 style={{ backgroundColor: a.color + '22' }}
                 className="w-9 h-9 rounded-full items-center justify-center mb-1.5"
               >
                 <Ionicons name={a.icon} size={16} color={a.color} />
+                {a.badge ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -4,
+                      backgroundColor: '#EF4444',
+                      borderRadius: 8,
+                      minWidth: 16,
+                      height: 16,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 3,
+                    }}
+                  >
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{a.badge}</Text>
+                  </View>
+                ) : null}
               </View>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textPrimary }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textPrimary }}>
                 {a.label}
               </Text>
             </Pressable>
@@ -422,37 +506,38 @@ export default function AccountScreen() {
         {sectionList.map((section) => (
           <View key={section.title} className="mx-4 mt-4">
             <Text
-              style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary }}
+              style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textSecondary }}
               className="mb-2 ml-1 uppercase"
             >
               {section.title}
             </Text>
-            <View className="bg-white rounded-2xl border border-[#33333315] overflow-hidden">
+            <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="rounded-2xl border overflow-hidden">
               {section.items.map((item, idx) => (
                 <Pressable
                   key={item.label}
                   onPress={() => handleSectionItem(item.label)}
                   style={{
                     borderBottomWidth: idx < section.items.length - 1 ? 1 : 0,
-                    borderBottomColor: colors.borderLight,
+                    borderBottomColor: palette.border,
+                    backgroundColor: 'transparent',
                   }}
-                  className="flex-row items-center px-4 py-3.5 active:bg-[#F7F7F7]"
+                  className="flex-row items-center px-4 py-3.5 active:opacity-70"
                 >
                   <View
-                    style={{ backgroundColor: '#F7F7F7' }}
+                    style={{ backgroundColor: palette.surfaceAlt }}
                     className="w-8 h-8 rounded-lg items-center justify-center"
                   >
                     <Ionicons
                       name={item.icon}
                       size={16}
-                      color={item.color ?? colors.textPrimary}
+                      color={item.color ?? palette.textPrimary}
                     />
                   </View>
                   <Text
                     style={{
                       fontFamily: fonts.medium,
                       fontSize: 13,
-                      color: item.color ?? colors.textPrimary,
+                      color: item.color ?? palette.textPrimary,
                     }}
                     className="flex-1 ml-3"
                   >
@@ -474,7 +559,7 @@ export default function AccountScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={palette.textMuted} />
                 </Pressable>
               ))}
             </View>
@@ -484,27 +569,28 @@ export default function AccountScreen() {
         {user ? (
           <View className="mx-4 mt-4">
             <View className="flex-row items-center justify-between mb-2 ml-1">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary }} className="uppercase">
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textSecondary }} className="uppercase">
                 Şikayetlerim
               </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textMuted }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textMuted }}>
                 {myReports.length} kayıt
               </Text>
             </View>
             <Pressable
               onPress={() => router.push('/my-reports')}
-              className="mb-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5"
+              style={{ borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt }}
+              className="mb-3 rounded-xl border px-3 py-2.5"
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
                 Tüm Şikayetlerimi Gör
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 3 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>
                 Geçmiş kayıtlar, karar notları ve durum filtreleri
               </Text>
             </Pressable>
-            <View className="bg-white rounded-2xl border border-[#33333315] p-3">
+            <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="rounded-2xl border p-3">
               {reportsLoading ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
                   Şikayetler yükleniyor...
                 </Text>
               ) : myReports.length > 0 ? (
@@ -513,11 +599,11 @@ export default function AccountScreen() {
                   return (
                     <View
                       key={report.id}
-                      style={{ borderBottomWidth: index < Math.min(myReports.length, 6) - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}
+                      style={{ borderBottomWidth: index < Math.min(myReports.length, 6) - 1 ? 1 : 0, borderBottomColor: palette.border }}
                       className="py-2.5"
                     >
                       <View className="flex-row items-center justify-between">
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textPrimary }}>
                           {formatReportTarget(report.targetType)} • {report.reason}
                         </Text>
                         <View style={{ backgroundColor: statusMeta.bg }} className="px-2 py-0.5 rounded-full">
@@ -526,11 +612,11 @@ export default function AccountScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 3 }}>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>
                         {new Date(report.createdAt).toLocaleString('tr-TR')}
                       </Text>
                       {report.description ? (
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 3 }}>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginTop: 3 }}>
                           {report.description}
                         </Text>
                       ) : null}
@@ -538,7 +624,7 @@ export default function AccountScreen() {
                   );
                 })
               ) : (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
                   Henüz şikayet kaydın bulunmuyor.
                 </Text>
               )}
@@ -549,16 +635,17 @@ export default function AccountScreen() {
         {user && accountCore?.resolved_role === 'admin' ? (
           <View className="mx-4 mt-4">
             <View className="flex-row items-center justify-between mb-2 ml-1">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary }} className="uppercase">
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textSecondary }} className="uppercase">
                 Bekleyen Şikayetler (Admin)
               </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textMuted }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textMuted }}>
                 {pendingReports.length} bekleyen
               </Text>
             </View>
             <Pressable
               onPress={() => router.push('/report-moderation')}
-              className="mb-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5"
+              style={{ borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt }}
+              className="mb-3 rounded-xl border px-3 py-2.5"
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
                 Gelişmiş Moderasyon Ekranını Aç
@@ -567,22 +654,22 @@ export default function AccountScreen() {
                 Filtre, istatistik ve toplu akış görünümü
               </Text>
             </Pressable>
-            <View className="bg-white rounded-2xl border border-[#33333315] p-3">
+            <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="rounded-2xl border p-3">
               {pendingReports.length > 0 ? (
                 pendingReports.slice(0, 8).map((report, index) => (
                   <View
                     key={report.id}
-                    style={{ borderBottomWidth: index < Math.min(pendingReports.length, 8) - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}
+                    style={{ borderBottomWidth: index < Math.min(pendingReports.length, 8) - 1 ? 1 : 0, borderBottomColor: palette.border }}
                     className="py-2.5"
                   >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textPrimary }}>
                       {formatReportTarget(report.targetType)} • {report.reason}
                     </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 2 }}>
                       {new Date(report.createdAt).toLocaleString('tr-TR')}
                     </Text>
                     {report.description ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 3 }}>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginTop: 3 }}>
                         {report.description}
                       </Text>
                     ) : null}
@@ -590,29 +677,29 @@ export default function AccountScreen() {
                       <Pressable
                         disabled={reportActionBusyId === report.id}
                         onPress={() => handleAdminReportDecision(report.id, 'reviewed')}
-                        className="rounded-lg border border-[#93C5FD] bg-[#EFF6FF] px-3 py-1.5"
+                        style={{ borderColor: isDarkMode ? '#1E40AF' : '#93C5FD', backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
                       >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#1E40AF' }}>İncelendi</Text>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDarkMode ? '#93C5FD' : '#1E40AF' }}>İncelendi</Text>
                       </Pressable>
                       <Pressable
                         disabled={reportActionBusyId === report.id}
                         onPress={() => handleAdminReportDecision(report.id, 'resolved')}
-                        className="rounded-lg border border-[#86EFAC] bg-[#ECFDF5] px-3 py-1.5"
+                        style={{ borderColor: isDarkMode ? '#065F46' : '#86EFAC', backgroundColor: isDarkMode ? '#064E3B' : '#ECFDF5', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
                       >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#065F46' }}>Çözüldü</Text>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDarkMode ? '#86EFAC' : '#065F46' }}>Çözüldü</Text>
                       </Pressable>
                       <Pressable
                         disabled={reportActionBusyId === report.id}
                         onPress={() => handleAdminReportDecision(report.id, 'rejected')}
-                        className="rounded-lg border border-[#FCA5A5] bg-[#FEF2F2] px-3 py-1.5"
+                        style={{ borderColor: isDarkMode ? '#7F1D1D' : '#FCA5A5', backgroundColor: isDarkMode ? '#7F1D1D' : '#FEF2F2', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
                       >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#991B1B' }}>Reddet</Text>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDarkMode ? '#FECACA' : '#991B1B' }}>Reddet</Text>
                       </Pressable>
                     </View>
                   </View>
                 ))
               ) : (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
                   Bekleyen şikayet bulunmuyor.
                 </Text>
               )}
@@ -621,15 +708,15 @@ export default function AccountScreen() {
         ) : null}
 
         {reportsError ? (
-          <View className="mx-4 mt-3 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-3 py-2.5">
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#991B1B' }}>
+          <View style={{ borderColor: isDarkMode ? '#7F1D1D' : '#FCA5A5', backgroundColor: isDarkMode ? '#7F1D1D' : '#FEF2F2' }} className="mx-4 mt-3 rounded-xl border px-3 py-2.5">
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: isDarkMode ? '#FECACA' : '#991B1B' }}>
               {reportsError}
             </Text>
           </View>
         ) : null}
 
         <View className="items-center mt-6 mb-4">
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted }}>
             Sürüm 1.0.0
           </Text>
         </View>
@@ -637,7 +724,7 @@ export default function AccountScreen() {
 
       {toast ? (
         <View
-          style={{ backgroundColor: '#111827' }}
+          style={{ backgroundColor: isDarkMode ? '#1F2937' : '#1F2937' }}
           className="absolute bottom-6 left-4 right-4 rounded-xl px-4 py-3"
         >
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#fff', textAlign: 'center' }}>

@@ -35,8 +35,11 @@ export default function StoreSettingsScreen() {
   const [storeName, setStoreName] = useState(sellerStore?.name ?? '');
   const [bio, setBio] = useState(sellerStore?.description ?? '');
   const [location, setLocation] = useState(sellerStore?.city ?? '');
+  const [email, setEmail] = useState(sellerStore?.email ?? '');
+  const [phone, setPhone] = useState(sellerStore?.phone ?? '');
   const [whatsapp, setWhatsapp] = useState(sellerStore?.whatsapp ?? '');
   const [website, setWebsite] = useState(sellerStore?.website ?? '');
+  const [deliveryInfo, setDeliveryInfo] = useState(sellerStore?.deliveryInfo ?? '');
   const [instagramHandle, setInstagramHandle] = useState(sellerStore?.instagramHandle ?? '');
   const [profileImage, setProfileImage] = useState(sellerStore?.avatar ?? '');
   const [coverImage, setCoverImage] = useState(sellerStore?.coverImage ?? '');
@@ -51,8 +54,11 @@ export default function StoreSettingsScreen() {
     setStoreName(sellerStore?.name ?? '');
     setBio(sellerStore?.description ?? '');
     setLocation(sellerStore?.city ?? '');
+    setEmail(sellerStore?.email ?? '');
+    setPhone(sellerStore?.phone ?? '');
     setWhatsapp(sellerStore?.whatsapp ?? '');
     setWebsite(sellerStore?.website ?? '');
+    setDeliveryInfo(sellerStore?.deliveryInfo ?? '');
     setInstagramHandle(sellerStore?.instagramHandle ?? '');
     setProfileImage(sellerStore?.avatar ?? '');
     setCoverImage(sellerStore?.coverImage ?? '');
@@ -159,8 +165,11 @@ export default function StoreSettingsScreen() {
           city: location.trim(),
           avatar: avatar,
           coverImage: coverImage,
+          email: email.trim(),
+          phone: phone.trim(),
           whatsapp: whatsapp.trim(),
           website: website.trim(),
+          deliveryInfo: deliveryInfo.trim(),
           instagramHandle: instagramHandle.trim(),
         });
       }
@@ -297,6 +306,29 @@ export default function StoreSettingsScreen() {
             />
           </View>
           <View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>E-posta</Text>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="magaza@email.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              className="rounded-xl border border-[#33333320] bg-white px-3 py-3"
+              style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}
+            />
+          </View>
+          <View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Telefon</Text>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="05xx xxx xx xx"
+              keyboardType="phone-pad"
+              className="rounded-xl border border-[#33333320] bg-white px-3 py-3"
+              style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}
+            />
+          </View>
+          <View>
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>WhatsApp</Text>
             <TextInput
               value={whatsapp}
@@ -326,6 +358,16 @@ export default function StoreSettingsScreen() {
               placeholder="https://magazaniz.com"
               autoCapitalize="none"
               keyboardType="url"
+              className="rounded-xl border border-[#33333320] bg-white px-3 py-3"
+              style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}
+            />
+          </View>
+          <View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Teslimat Bilgisi</Text>
+            <TextInput
+              value={deliveryInfo}
+              onChangeText={setDeliveryInfo}
+              placeholder="Örn. Aynı gün kargo, 1-3 iş günü..."
               className="rounded-xl border border-[#33333320] bg-white px-3 py-3"
               style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}
             />

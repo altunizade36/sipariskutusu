@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
+import BoxMascot from '../src/components/BoxMascot';
 import { fetchMyProfile } from '../src/services/profileService';
 import {
   fetchReportActionsAdmin,
@@ -156,7 +157,7 @@ export default function ReportModerationScreen() {
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
         {loading ? (
           <View className="mt-8 items-center justify-center">
-            <ActivityIndicator color={colors.primary} />
+            <BoxMascot variant="loading" size={90} animated />
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: 8 }}>
               Moderasyon verileri yükleniyor...
             </Text>

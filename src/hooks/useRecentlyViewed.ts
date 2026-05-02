@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const RECENTLY_VIEWED_KEY = '@sipariskutusu/recently_viewed';
@@ -49,9 +49,11 @@ export async function clearRecentlyViewed() {
 }
 
 export function useRecentlyViewed() {
-  return {
+  // useMemo with empty deps ensures the returned object reference is stable
+  // across renders, preventing useEffect infinite loops when included in deps
+  return useMemo(() => ({
     add: addToRecentlyViewed,
     get: getRecentlyViewed,
     clear: clearRecentlyViewed,
-  };
+  }), []);
 }

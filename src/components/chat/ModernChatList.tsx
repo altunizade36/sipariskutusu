@@ -225,8 +225,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyIcon: {
-    fontSize: 56,
-    marginBottom: 16,
+    fontSize: 40,
+    marginBottom: 12,
   },
   emptyText: {
     fontSize: 16,

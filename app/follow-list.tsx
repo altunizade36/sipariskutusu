@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Image, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -154,9 +154,21 @@ export default function FollowListScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         renderItem={({ item }) => {
           return (
-            <View className="flex-row items-center border border-[#33333315] rounded-2xl px-3 py-3 bg-white">
-              <View className="w-10 h-10 rounded-full bg-[#EFF6FF] items-center justify-center">
-                <Ionicons name="storefront-outline" size={18} color={colors.primary} />
+            <Pressable
+              onPress={() => {
+                const encodedName = encodeURIComponent(item.name);
+                router.push(`/(tabs)/store?name=${encodedName}&storeKey=${encodeURIComponent(item.id)}&sellerId=${encodeURIComponent(item.id)}` as never);
+              }}
+              className="flex-row items-center border border-[#33333315] rounded-2xl px-3 py-3 bg-white active:opacity-80"
+            >
+              <View style={{ width: 42, height: 42, borderRadius: 21, overflow: 'hidden', borderWidth: 1.5, borderColor: item.isFollowing ? colors.primary : colors.borderLight }}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={{ width: 42, height: 42 }} resizeMode="cover" />
+                ) : (
+                  <View className="w-full h-full bg-[#EFF6FF] items-center justify-center">
+                    <Ionicons name="storefront-outline" size={18} color={colors.primary} />
+                  </View>
+                )}
               </View>
 
               <View className="flex-1 ml-3">
@@ -167,7 +179,7 @@ export default function FollowListScreen() {
               </View>
 
               <Pressable
-                onPress={() => toggleSellerFollow(item.id)}
+                onPress={(e) => { e.stopPropagation(); toggleSellerFollow(item.id); }}
                 style={{ backgroundColor: item.isFollowing ? '#F1F5F9' : colors.primary, borderWidth: 1, borderColor: item.isFollowing ? colors.borderLight : colors.primary }}
                 className="h-8 px-3 rounded-full items-center justify-center"
               >
@@ -175,7 +187,7 @@ export default function FollowListScreen() {
                   {item.isFollowing ? 'Takiptesin' : 'Takip Et'}
                 </Text>
               </Pressable>
-            </View>
+            </Pressable>
           );
         }}
         ListEmptyComponent={

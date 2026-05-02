@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import { getSupabaseClient, isSupabaseConfigured } from '../services/supabase';
-import { identifyUser, resetUser, setSentryUser } from '../services/monitoring';
+import { identifyUser, resetUser, setSentryUser, trackEvent } from '../services/monitoring';
+import { TELEMETRY_EVENTS } from '../constants/telemetryEvents';
 import { backendRequest, isBackendApiConfigured, isBackendStrictMode } from '../services/backendApiClient';
 import { getCacheValue, removeCacheValue, setCacheValue } from '../services/noSqlStore';
 import { AUTH_ME_CACHE_PREFIX } from '../constants/cacheKeys';
@@ -22,6 +24,7 @@ type AuthContextValue = {
   isLoading: boolean;
   isUserVerified: boolean;
   isDarkMode: boolean;
+  setDarkMode: (next: boolean) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, fullName: string) => Promise<void>;
   toggleDarkMode: () => Promise<void>;
@@ -125,6 +128,7 @@ function hasVerifiedContact(user: User | null) {
 }
 
 const AUTH_ME_CACHE_TTL_MS = 60_000;
+const THEME_STORAGE_KEY = '@sipariskutusu/theme_dark_mode';
 
 type BackendAuthSessionPayload = {
   accessToken?: string;
@@ -228,12 +232,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+
+    AsyncStorage.getItem(THEME_STORAGE_KEY)
+      .then((stored) => {
+        if (!active || stored === null) {
+          return;
+        }
+
+        setIsDarkMode(stored === '1');
+      })
+      .catch(() => {
+        // Tema tercihi okunamasa da auth akisi devam etmeli.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const syncMonitoringUser = (nextSession: Session | null) => {
     const nextUser = nextSession?.user ?? null;
     if (nextUser) {
       setSentryUser(nextUser.id, nextUser.email);
       identifyUser(nextUser.id, {
         email: nextUser.email ?? null,
+        account_role: (nextUser.user_metadata as { account_role?: string } | undefined)?.account_role ?? null,
       });
       return;
     }
@@ -250,11 +275,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const supabase = getSupabaseClient();
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session ?? null);
-      syncMonitoringUser(data.session ?? null);
-      setIsLoading(false);
-    });
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+    Promise.race([
+      supabase.auth.getSession().then(({ data }) => data.session ?? null),
+      timeout,
+    ])
+      .then((sess) => {
+        setSession(sess);
+        syncMonitoringUser(sess);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsLoading(false);
+      });
 
     const {
       data: { subscription },
@@ -760,7 +793,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return data.user ?? null;
       },
       async toggleDarkMode() {
-        setIsDarkMode(!isDarkMode);
+        const next = !isDarkMode;
+        setIsDarkMode(next);
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, next ? '1' : '0').catch(() => {
+          // Kayit hatasi ana akisi bloklamamali.
+        });
+      },
+      async setDarkMode(next: boolean) {
+        setIsDarkMode(next);
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, next ? '1' : '0').catch(() => {
+          // Kayit hatasi ana akisi bloklamamali.
+        });
       },
       async login(email: string, password: string) {
         return this.signInWithPassword(email, password);
@@ -770,6 +813,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async signOut() {
         const authMeCacheKey = session?.user?.id ? `${AUTH_ME_CACHE_PREFIX}:${session.user.id}` : null;
+
+        trackEvent(TELEMETRY_EVENTS.USER_SIGNED_OUT, {});
 
         if (demoUser) {
           setDemoUser(null);

@@ -1,8 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface DayCount { day: string; count: number }
-interface TopSeller { id: string; name: string; listings: number; reports: number }
+interface TopSeller {
+  id: string;
+  name: string;
+  listings: number;
+  activeListings: number;
+  views: number;
+  favorites: number;
+  comments: number;
+  reports: number;
+  score: number;
+}
+
+interface TopStore {
+  id: string;
+  name: string;
+  username: string;
+  listings: number;
+  activeListings: number;
+  followers: number;
+  rating: number;
+  ratingCount: number;
+  views: number;
+  favorites: number;
+  score: number;
+  verified: boolean;
+  active: boolean;
+}
 
 interface AnalyticsData {
   totalListings: number;
@@ -18,6 +44,7 @@ interface AnalyticsData {
   listingsByStatus: { status: string; count: number }[];
   reportsByStatus: { status: string; count: number }[];
   topSellers: TopSeller[];
+  topStores: TopStore[];
 }
 
 function barMaxWidth(val: number, max: number) {
@@ -49,8 +76,12 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [liveMode, setLiveMode] = useState(true);
+  const [sellerSort, setSellerSort] = useState<'score' | 'listings' | 'views' | 'favorites' | 'reports'>('score');
+  const [storeSort, setStoreSort] = useState<'score' | 'followers' | 'rating' | 'listings' | 'views'>('score');
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -132,26 +163,133 @@ export default function AnalyticsPage() {
       });
       const reportsByStatus = Object.entries(rpStatusMap).map(([status, count]) => ({ status, count }));
 
-      // Top sellers by listing count
-      const { data: topRaw } = await supabase
+      // Seller and store leaderboard sources
+      const { data: leaderboardListings } = await supabase
         .from('listings')
-        .select('seller_id, profiles (full_name, username)')
-        .limit(500);
-      const sellerMap: Record<string, { name: string; listings: number }> = {};
-      (topRaw ?? []).forEach((l: any) => {
-        const id = l.seller_id;
-        if (!sellerMap[id]) {
-          sellerMap[id] = {
-            name: l.profiles?.full_name ?? l.profiles?.username ?? id.slice(0, 8),
+        .select('id, seller_id, store_id, status, view_count, favorite_count, comment_count, profiles (full_name, username)')
+        .limit(6000);
+
+      const { data: reportsRaw } = await supabase
+        .from('reports')
+        .select('target_type, target_id, status')
+        .limit(6000);
+
+      const { data: storesRaw } = await supabase
+        .from('stores')
+        .select('id, name, username, follower_count, rating, rating_count, is_verified, is_active')
+        .limit(2000);
+
+      const sellerMap: Record<string, TopSeller> = {};
+      const listingIdToSeller: Record<string, string> = {};
+
+      (leaderboardListings ?? []).forEach((listing: any) => {
+        if (!listing?.seller_id) {
+          return;
+        }
+
+        const sellerId = listing.seller_id as string;
+        listingIdToSeller[listing.id] = sellerId;
+        if (!sellerMap[sellerId]) {
+          const sellerName = listing.profiles?.full_name ?? listing.profiles?.username ?? sellerId.slice(0, 8);
+          sellerMap[sellerId] = {
+            id: sellerId,
+            name: sellerName,
             listings: 0,
+            activeListings: 0,
+            views: 0,
+            favorites: 0,
+            comments: 0,
+            reports: 0,
+            score: 0,
           };
         }
-        sellerMap[id].listings++;
+
+        sellerMap[sellerId].listings += 1;
+        if (listing.status === 'active') {
+          sellerMap[sellerId].activeListings += 1;
+        }
+        sellerMap[sellerId].views += Number(listing.view_count ?? 0);
+        sellerMap[sellerId].favorites += Number(listing.favorite_count ?? 0);
+        sellerMap[sellerId].comments += Number(listing.comment_count ?? 0);
       });
-      const topSellers: TopSeller[] = Object.entries(sellerMap)
-        .sort((a, b) => b[1].listings - a[1].listings)
-        .slice(0, 10)
-        .map(([id, v]) => ({ id, name: v.name, listings: v.listings, reports: 0 }));
+
+      (reportsRaw ?? []).forEach((report: any) => {
+        if (!report?.target_id) {
+          return;
+        }
+
+        if (report.target_type === 'listing') {
+          const sellerId = listingIdToSeller[report.target_id as string];
+          if (sellerId && sellerMap[sellerId]) {
+            sellerMap[sellerId].reports += 1;
+          }
+        }
+      });
+
+      const topSellers: TopSeller[] = Object.values(sellerMap).map((seller) => ({
+        ...seller,
+        score: Number(
+          (
+            seller.listings * 3 +
+            seller.activeListings * 1.5 +
+            seller.views * 0.02 +
+            seller.favorites * 0.7 +
+            seller.comments * 0.9 -
+            seller.reports * 1.8
+          ).toFixed(2),
+        ),
+      }));
+
+      const storeMap: Record<string, TopStore> = {};
+      (storesRaw ?? []).forEach((store: any) => {
+        if (!store?.id) {
+          return;
+        }
+
+        storeMap[store.id] = {
+          id: store.id,
+          name: store.name ?? 'Magaza',
+          username: store.username ?? '',
+          listings: 0,
+          activeListings: 0,
+          followers: Number(store.follower_count ?? 0),
+          rating: Number(store.rating ?? 0),
+          ratingCount: Number(store.rating_count ?? 0),
+          views: 0,
+          favorites: 0,
+          score: 0,
+          verified: Boolean(store.is_verified),
+          active: Boolean(store.is_active),
+        };
+      });
+
+      (leaderboardListings ?? []).forEach((listing: any) => {
+        const storeId = listing.store_id as string | null;
+        if (!storeId || !storeMap[storeId]) {
+          return;
+        }
+
+        storeMap[storeId].listings += 1;
+        if (listing.status === 'active') {
+          storeMap[storeId].activeListings += 1;
+        }
+        storeMap[storeId].views += Number(listing.view_count ?? 0);
+        storeMap[storeId].favorites += Number(listing.favorite_count ?? 0);
+      });
+
+      const topStores: TopStore[] = Object.values(storeMap).map((store) => ({
+        ...store,
+        score: Number(
+          (
+            store.listings * 3 +
+            store.activeListings * 1.8 +
+            store.followers * 0.05 +
+            store.rating * 22 +
+            store.views * 0.02 +
+            store.favorites * 0.5
+          ).toFixed(2),
+        ),
+      }));
 
       setData({
         totalListings: totalListings ?? 0,
@@ -167,6 +305,7 @@ export default function AnalyticsPage() {
         listingsByStatus,
         reportsByStatus,
         topSellers,
+        topStores,
       });
     } catch (e: any) {
       setError(e.message ?? 'Bilinmeyen hata');
@@ -174,12 +313,81 @@ export default function AnalyticsPage() {
 
     setLastUpdated(new Date().toLocaleTimeString('tr-TR'));
     setLoading(false);
-  }
+  }, []);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!autoRefresh) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void load();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, load]);
+
+  useEffect(() => {
+    if (!liveMode) {
+      return;
+    }
+
+    const channel = supabase
+      .channel('analytics-live-board')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => { void load(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores' }, () => { void load(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => { void load(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void load(); })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [liveMode, load]);
 
   const userChartMax = useMemo(() => Math.max(1, ...(data?.newUsersLast30.map(d => d.count) ?? [0])), [data]);
   const listingChartMax = useMemo(() => Math.max(1, ...(data?.newListingsLast30.map(d => d.count) ?? [0])), [data]);
+  const sortedTopSellers = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    const list = [...data.topSellers];
+    switch (sellerSort) {
+      case 'listings':
+        return list.sort((a, b) => b.listings - a.listings);
+      case 'views':
+        return list.sort((a, b) => b.views - a.views);
+      case 'favorites':
+        return list.sort((a, b) => b.favorites - a.favorites);
+      case 'reports':
+        return list.sort((a, b) => b.reports - a.reports);
+      default:
+        return list.sort((a, b) => b.score - a.score);
+    }
+  }, [data, sellerSort]);
+
+  const sortedTopStores = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    const list = [...data.topStores];
+    switch (storeSort) {
+      case 'followers':
+        return list.sort((a, b) => b.followers - a.followers);
+      case 'rating':
+        return list.sort((a, b) => b.rating - a.rating);
+      case 'listings':
+        return list.sort((a, b) => b.listings - a.listings);
+      case 'views':
+        return list.sort((a, b) => b.views - a.views);
+      default:
+        return list.sort((a, b) => b.score - a.score);
+    }
+  }, [data, storeSort]);
 
   const bigStats = data
     ? [
@@ -198,6 +406,12 @@ export default function AnalyticsPage() {
           <p className="page-sub">Platform geneli gerçek zamanlı metrikler</p>
         </div>
         <div className="header-actions">
+          <button className={`btn ${liveMode ? 'btn-success' : 'btn-ghost'}`} onClick={() => setLiveMode(v => !v)}>
+            {liveMode ? 'Canli: Acik' : 'Canli: Kapali'}
+          </button>
+          <button className={`btn ${autoRefresh ? 'btn-success' : 'btn-ghost'}`} onClick={() => setAutoRefresh(v => !v)}>
+            {autoRefresh ? 'Oto Yenile: 15sn' : 'Oto Yenile: Kapali'}
+          </button>
           <button className="btn btn-primary" onClick={() => void load()} disabled={loading}>Yenile</button>
         </div>
       </div>
@@ -308,19 +522,32 @@ export default function AnalyticsPage() {
 
           {/* Top Sellers */}
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="section-title">En Çok İlan Veren Satıcılar</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
+              <div className="section-title" style={{ marginBottom: 0 }}>Populer Satici Liderligi</div>
+              <select value={sellerSort} onChange={(e) => setSellerSort(e.target.value as typeof sellerSort)} className="search-input" style={{ width: 230 }}>
+                <option value="score">Skor (onerilen)</option>
+                <option value="listings">Ilan sayisi</option>
+                <option value="views">Goruntulenme</option>
+                <option value="favorites">Favori</option>
+                <option value="reports">Sikayet</option>
+              </select>
+            </div>
             <table>
               <thead>
                 <tr>
                   <th>#</th>
                   <th>Satıcı</th>
                   <th>İlan Sayısı</th>
+                  <th>Goruntulenme</th>
+                  <th>Favori</th>
+                  <th>Sikayet</th>
+                  <th>Skor</th>
                 </tr>
               </thead>
               <tbody>
-                {data.topSellers.length === 0 ? (
-                  <tr className="empty-row"><td colSpan={3}>Veri yok</td></tr>
-                ) : data.topSellers.map((s, i) => (
+                {sortedTopSellers.length === 0 ? (
+                  <tr className="empty-row"><td colSpan={7}>Veri yok</td></tr>
+                ) : sortedTopSellers.slice(0, 25).map((s, i) => (
                   <tr key={s.id}>
                     <td style={{ fontWeight: 700, color: i < 3 ? '#d97706' : 'var(--muted)', width: 32 }}>{i + 1}</td>
                     <td>{s.name}</td>
@@ -332,6 +559,64 @@ export default function AnalyticsPage() {
                         {s.listings.toLocaleString('tr-TR')}
                       </span>
                     </td>
+                    <td>{s.views.toLocaleString('tr-TR')}</td>
+                    <td>{s.favorites.toLocaleString('tr-TR')}</td>
+                    <td>
+                      <span className={`badge ${s.reports > 0 ? 'badge-rejected' : 'badge-active'}`}>
+                        {s.reports.toLocaleString('tr-TR')}
+                      </span>
+                    </td>
+                    <td>
+                      <strong style={{ color: '#1d4ed8' }}>{s.score.toLocaleString('tr-TR')}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card" style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
+              <div className="section-title" style={{ marginBottom: 0 }}>Populer Magaza Liderligi</div>
+              <select value={storeSort} onChange={(e) => setStoreSort(e.target.value as typeof storeSort)} className="search-input" style={{ width: 230 }}>
+                <option value="score">Skor (onerilen)</option>
+                <option value="followers">Takipci</option>
+                <option value="rating">Puan</option>
+                <option value="listings">Ilan sayisi</option>
+                <option value="views">Goruntulenme</option>
+              </select>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Magaza</th>
+                  <th>Takipci</th>
+                  <th>Puan</th>
+                  <th>Ilan</th>
+                  <th>Goruntulenme</th>
+                  <th>Skor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTopStores.length === 0 ? (
+                  <tr className="empty-row"><td colSpan={7}>Veri yok</td></tr>
+                ) : sortedTopStores.slice(0, 25).map((s, i) => (
+                  <tr key={s.id}>
+                    <td style={{ fontWeight: 700, color: i < 3 ? '#d97706' : 'var(--muted)', width: 32 }}>{i + 1}</td>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {s.username ? `@${s.username}` : 'kullanici-adi-yok'}
+                        {s.verified ? ' • dogrulanmis' : ''}
+                        {s.active ? '' : ' • pasif'}
+                      </div>
+                    </td>
+                    <td>{s.followers.toLocaleString('tr-TR')}</td>
+                    <td>{s.rating > 0 ? `${s.rating.toFixed(1)} (${s.ratingCount})` : '—'}</td>
+                    <td>{s.listings.toLocaleString('tr-TR')}</td>
+                    <td>{s.views.toLocaleString('tr-TR')}</td>
+                    <td><strong style={{ color: '#1d4ed8' }}>{s.score.toLocaleString('tr-TR')}</strong></td>
                   </tr>
                 ))}
               </tbody>

@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TELEMETRY_EVENTS } from '../constants/telemetryEvents';
+import type { TelemetryEventName, TelemetryEventPayload } from '../constants/telemetryEvents';
 
 export interface UserAnalytics {
   sessionStart: number;
@@ -10,10 +12,10 @@ export interface UserAnalytics {
   lastActiveScreen?: string;
 }
 
-export interface AnalyticsEvent {
-  event: string;
+export interface AnalyticsEvent<E extends TelemetryEventName = TelemetryEventName> {
+  event: E;
   timestamp: number;
-  data?: Record<string, any>;
+  data?: TelemetryEventPayload<E>;
 }
 
 const ANALYTICS_KEY = '@sipariskutusu/analytics';
@@ -35,7 +37,7 @@ export class AnalyticsService {
     }
   }
 
-  static async trackEvent(event: string, data?: Record<string, any>): Promise<void> {
+  static async trackEvent<E extends TelemetryEventName>(event: E, data?: TelemetryEventPayload<E>): Promise<void> {
     try {
       const analyticsEvent: AnalyticsEvent = {
         event,
@@ -97,7 +99,7 @@ export class AnalyticsService {
   }
 
   static async trackScreenView(screenName: string): Promise<void> {
-    await this.trackEvent('screen_view', { screen: screenName });
+    await this.trackEvent(TELEMETRY_EVENTS.SCREEN_VIEW, { screen: screenName });
   }
 
   static async endSession(): Promise<UserAnalytics | null> {

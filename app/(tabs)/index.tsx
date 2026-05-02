@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Pressable, Image, Dimensions, RefreshControl, A
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { colors, fonts } from '../../src/constants/theme';
 import { ProductCard } from '../../src/components/ProductCard';
@@ -14,6 +15,8 @@ import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome
 import { useAuth } from '../../src/context/AuthContext';
 import { fetchUnreadNotificationCount, subscribeToMyNotifications } from '../../src/services/inAppNotificationService';
 import { getTopDailyPerformers, getRankBadge } from '../../src/services/leaderboardService';
+import { getRecentlyViewed, clearRecentlyViewed, type RecentlyViewedItem } from '../../src/hooks/useRecentlyViewed';
+import BoxMascot from '../../src/components/BoxMascot';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 24) / 2;
@@ -54,14 +57,6 @@ const heroBanners = [
     emoji: '🛍️',
     bgGradient: ['#0F766E', '#14B8A6'],
   },
-  {
-    id: 'campaign-shipping',
-    title: 'Ücretsiz Kargo',
-    subtitle: 'Belirli ürünlerde kargo bedava fırsatı',
-    cta: 'Listeyi Gör',
-    emoji: '🚚',
-    bgGradient: ['#7C3AED', '#8B5CF6'],
-  },
 ] as const;
 
 const discountTiers = [
@@ -81,11 +76,14 @@ export default function HomeScreen() {
   const [activeProductTab, setActiveProductTab] = useState<ProductTabId>('all');
   const [activeProductSort, setActiveProductSort] = useState<ProductSortId>('newest');
   const [refreshing, setRefreshing] = useState(false);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const heroBannerScrollRef = useRef<ScrollView>(null);
   const [storyRotationSeed, setStoryRotationSeed] = useState(0);
   const [flashCountdown, setFlashCountdown] = useState('');
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [topDailyPerformers, setTopDailyPerformers] = useState<any[]>([]);
-  const { homeProducts, reloadProducts, reloadHomeStories, loadMoreProducts, homeHasMore, homeLoadingMore, homeStories } = useListings();
+  const [recentlyViewedItems, setRecentlyViewedItems] = useState<RecentlyViewedItem[]>([]);
+  const { homeProducts, reloadProducts, reloadHomeStories, loadMoreProducts, homeHasMore, homeLoadingMore, homeStories, cartItemCount } = useListings();
 
   useEffect(() => {
     let active = true;
@@ -164,6 +162,24 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const loadRecentlyViewed = useCallback(() => {
+    let cancelled = false;
+    getRecentlyViewed()
+      .then((items) => {
+        if (!cancelled) {
+          setRecentlyViewedItems(items.slice(0, 8));
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reload when screen becomes active so list stays fresh after returning from product detail.
+  useFocusEffect(loadRecentlyViewed);
+
   const scrollToProducts = () => {
     scrollRef.current?.scrollTo({ y: Math.max(productSectionOffsetRef.current - 12, 0), animated: true });
   };
@@ -184,6 +200,17 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
+    const autoBannerTimer = setInterval(() => {
+      setActiveBanner((prev) => {
+        const next = (prev + 1) % heroBanners.length;
+        heroBannerScrollRef.current?.scrollTo({ x: next * (SCREEN_WIDTH - 24), animated: true });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(autoBannerTimer);
+  }, []);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setStoryRotationSeed((current) => current + 1);
       reloadHomeStories().catch(() => undefined);
@@ -193,6 +220,9 @@ export default function HomeScreen() {
   }, [reloadHomeStories]);
 
   const handleFeedScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    setShowScrollToTop(contentOffset.y > 500);
+
     if (!homeHasMore || homeLoadingMore) {
       return;
     }
@@ -202,7 +232,6 @@ export default function HomeScreen() {
       return;
     }
 
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const threshold = 280;
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold) {
       lastLoadMoreAttemptRef.current = now;
@@ -256,6 +285,15 @@ export default function HomeScreen() {
 
   const activeProductTabLabel = productTabs.find((tab) => tab.id === activeProductTab)?.label ?? 'Tümü';
   const activeSortLabel = productSortOptions.find((sort) => sort.id === activeProductSort)?.label ?? 'En Yeni';
+
+  const tabProductCounts = useMemo<Record<ProductTabId, number>>(() => ({
+    all: homeProducts.length,
+    new: homeProducts.filter((p) => p.badge?.includes('Yeni') || p.badge === 'Hikayede').length,
+    flash: homeProducts.filter((p) => p.badge === 'Flash').length,
+    discount: homeProducts.filter((p) => Boolean(p.discount && p.discount >= 10)).length,
+    freeShipping: homeProducts.filter((p) => Boolean(p.freeShipping)).length,
+  }), [homeProducts]);
+
   type StoryCircle = (typeof homeStories)[number] & { sellerStoryCount?: number };
 
   const groupedStoryCircles = useMemo<StoryCircle[]>(() => {
@@ -297,18 +335,38 @@ export default function HomeScreen() {
       {/* Header */}
       <View className="bg-white px-4 pb-3 pt-2">
         <View className="flex-row items-center justify-between mb-3">
-          <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: colors.primary }}>
-            Sipariş Kutusu
-          </Text>
-          <View className="flex-row items-center gap-4">
-            <Pressable onPress={() => router.push('/notifications')} className="relative">
-              <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
+          {/* Logo */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <BoxMascot variant="welcome" size={38} animated />
+            <View>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 19, lineHeight: 23, letterSpacing: -0.3 }}>
+                <Text style={{ color: '#0D2347' }}>Sipariş </Text>
+                <Text style={{ color: colors.primary }}>Kutusu</Text>
+              </Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: '#94A3B8', letterSpacing: 0.2, marginTop: 1 }}>
+                alışveriş artık kolay
+              </Text>
+            </View>
+          </View>
+
+          {/* Action icons */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable onPress={() => router.push('/notifications')} style={{ position: 'relative' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0F4FF', borderWidth: 1, borderColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+              </View>
               {unreadNotificationCount > 0 ? (
                 <View
-                  className="absolute -right-2 -top-1.5 min-w-[16px] h-4 rounded-full items-center justify-center px-1"
-                  style={{ backgroundColor: '#EF4444' }}
+                  style={{
+                    position: 'absolute', top: -2, right: -2,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    backgroundColor: '#EF4444',
+                    alignItems: 'center', justifyContent: 'center',
+                    paddingHorizontal: 3,
+                    borderWidth: 1.5, borderColor: '#fff',
+                  }}
                 >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff' }}>
                     {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
                   </Text>
                 </View>
@@ -334,27 +392,27 @@ export default function HomeScreen() {
           <Ionicons name="camera-outline" size={20} color={colors.primary} />
         </Pressable>
 
-        <View className="flex-row gap-2 mt-3">
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
           <Pressable
             onPress={() => router.push('/(tabs)/categories')}
-            className="flex-1 h-10 rounded-xl border px-3 flex-row items-center justify-center"
+            style={{ flex: 1, height: 36, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: '#EFF6FF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}
           >
-            <Ionicons name="grid-outline" size={16} color={colors.primary} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }} className="ml-2">
+            <Ionicons name="grid-outline" size={15} color={colors.primary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary, marginLeft: 5 }}>
               Kategoriler
             </Text>
           </Pressable>
           <Pressable
             onPress={() => router.push('/(tabs)/explore')}
-            style={{ backgroundColor: '#F8FAFC', borderColor: colors.borderLight }}
-            className="flex-1 h-10 rounded-xl border px-3 flex-row items-center justify-center"
+            style={{ flex: 1, height: 36, borderRadius: 12, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: '#F8FAFC', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}
           >
-            <Ionicons name="compass-outline" size={16} color={colors.textPrimary} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} className="ml-2">
+            <Ionicons name="compass-outline" size={15} color={colors.textPrimary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary, marginLeft: 5 }}>
               Satıcı Keşfet
             </Text>
           </Pressable>
         </View>
+
       </View>
 
       <ScrollView 
@@ -367,13 +425,13 @@ export default function HomeScreen() {
       >
         {/* Category quick-jump */}
         <View className="bg-white pt-1">
-          <View className="px-3 flex-row items-center justify-between mb-2">
+          <View className="px-4 flex-row items-center justify-between mb-2">
             <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
               Kategoriler
             </Text>
             <Pressable onPress={() => router.push('/(tabs)/categories')}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
-                Tümünü gör →
+                Tümünü gör
               </Text>
             </Pressable>
           </View>
@@ -383,21 +441,22 @@ export default function HomeScreen() {
             contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10, gap: 8 }}
           >
             {[
-              { label: '👗 Kadın', cat: 'women' },
-              { label: '📱 Elektronik', cat: 'electronics' },
-              { label: '👟 Ayakkabı', cat: 'shoes-bags' },
-              { label: '💄 Kozmetik', cat: 'cosmetics' },
-              { label: '🏠 Ev & Yaşam', cat: 'home' },
-              { label: '👔 Erkek', cat: 'men' },
-              { label: '⚽ Spor', cat: 'sports' },
+              { emoji: '👗', label: 'Kadın', cat: 'women' },
+              { emoji: '📱', label: 'Elektronik', cat: 'electronics' },
+              { emoji: '👟', label: 'Ayakkabı', cat: 'shoes-bags' },
+              { emoji: '💄', label: 'Kozmetik', cat: 'cosmetics' },
+              { emoji: '🏠', label: 'Ev & Yaşam', cat: 'home' },
+              { emoji: '👔', label: 'Erkek', cat: 'men' },
+              { emoji: '⚽', label: 'Spor', cat: 'sports' },
             ].map((chip) => (
               <Pressable
                 key={chip.cat}
                 onPress={() => router.push(`/category/${chip.cat}` as never)}
                 style={{ backgroundColor: '#F7F7F7', borderColor: colors.borderLight }}
-                className="px-4 h-9 rounded-lg border items-center justify-center"
+                className="px-4 h-9 rounded-lg border flex-row items-center justify-center"
               >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textPrimary }}>
+                <Text style={{ fontSize: 14 }}>{chip.emoji}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textPrimary, marginLeft: 5 }}>
                   {chip.label}
                 </Text>
               </Pressable>
@@ -408,6 +467,7 @@ export default function HomeScreen() {
         {/* Hero Banner */}
         <View className="bg-white pb-3">
           <ScrollView
+            ref={heroBannerScrollRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -430,7 +490,7 @@ export default function HomeScreen() {
                     return;
                   }
 
-                  focusProductTab('freeShipping');
+                  focusProductTab('discount');
                 }}
                 style={{
                   width: SCREEN_WIDTH - 24,
@@ -529,6 +589,56 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* Son Gördüklerin */}
+        {recentlyViewedItems.length > 0 ? (
+          <View className="bg-white mt-1 px-3 py-3 border-b border-[#33333315]">
+            <View className="flex-row items-center justify-between mb-2.5">
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
+                Son Gördüklerin
+              </Text>
+              <Pressable onPress={() => { clearRecentlyViewed(); setRecentlyViewedItems([]); }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}>
+                  Temizle
+                </Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, paddingBottom: 2 }}
+            >
+              {recentlyViewedItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/product/${item.id}` as never)}
+                  style={{ width: 100 }}
+                  className="active:opacity-80"
+                >
+                  <View className="rounded-xl overflow-hidden border border-[#33333312]">
+                    <Image
+                      source={{ uri: item.imageUri }}
+                      style={{ width: 100, height: 100 }}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <Text
+                    style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 4 }}
+                    numberOfLines={1}
+                  >
+                    ₺{item.price.toFixed(2)}
+                  </Text>
+                  <Text
+                    style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
         {/* Discount tier chips */}
         <View className="bg-white mt-1 px-3 py-3 border-b border-[#33333315]">
           <Text
@@ -555,6 +665,58 @@ export default function HomeScreen() {
             ))}
           </View>
         </View>
+
+        {/* Günün Yıldızları */}
+        {topDailyPerformers.length > 0 && (
+          <View className="bg-white mt-1 pt-3 pb-2">
+            <View className="flex-row items-center justify-between px-3 mb-2">
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="star" size={15} color="#F59E0B" />
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
+                  Günün Yıldızları
+                </Text>
+              </View>
+              <Pressable onPress={() => router.push('/seller-leaderboard')}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>Tümü →</Text>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10 }}>
+              {topDailyPerformers.map((performer, idx) => {
+                const rankColors = ['#F59E0B', '#9CA3AF', '#CD7F32', colors.primary, colors.primary];
+                const rankColor = rankColors[idx] ?? colors.primary;
+                const trendIcon = performer.rank_trend === 'up' ? 'arrow-up' : performer.rank_trend === 'down' ? 'arrow-down' : 'remove';
+                const trendColor = performer.rank_trend === 'up' ? '#10B981' : performer.rank_trend === 'down' ? '#EF4444' : '#9CA3AF';
+                return (
+                  <Pressable
+                    key={performer.seller_id}
+                    onPress={() => router.push(`/store?sellerId=${performer.seller_id}` as any)}
+                    style={{ alignItems: 'center', width: 72 }}
+                  >
+                    <View style={{ position: 'relative' }}>
+                      {performer.avatar_url ? (
+                        <Image source={{ uri: performer.avatar_url }} style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: rankColor }} />
+                      ) : (
+                        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#F1F5F9', borderWidth: 2, borderColor: rankColor, alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="person" size={22} color="#9CA3AF" />
+                        </View>
+                      )}
+                      <View style={{ position: 'absolute', bottom: -4, left: '50%', transform: [{ translateX: -9 }], backgroundColor: rankColor, borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1 }}>
+                        <Text style={{ fontFamily: fonts.headingBold, fontSize: 10, color: '#fff' }}>#{performer.rank}</Text>
+                      </View>
+                    </View>
+                    <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.textPrimary, marginTop: 8, textAlign: 'center' }}>
+                      {performer.store_name || performer.full_name}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                      <Ionicons name={trendIcon as any} size={10} color={trendColor} />
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 9, color: colors.textSecondary }}>{performer.daily_score ?? performer.score}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Flash Sale banner */}
         <View className="bg-white mt-1 mx-3 my-3 rounded-2xl overflow-hidden" style={{ backgroundColor: '#EFF6FF' }}>
@@ -642,6 +804,13 @@ export default function HomeScreen() {
                   >
                     {tab.label}
                   </Text>
+                  {tabProductCounts[tab.id] > 0 && (
+                    <View style={{ backgroundColor: selected ? 'rgba(255,255,255,0.25)' : colors.primary + '18', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: selected ? '#fff' : colors.primary }}>
+                        {tabProductCounts[tab.id]}
+                      </Text>
+                    </View>
+                  )}
                 </Pressable>
               );
             })}
@@ -752,6 +921,31 @@ export default function HomeScreen() {
 
         <View className="h-6" />
       </ScrollView>
+
+      {/* Scroll-to-top FAB */}
+      {showScrollToTop && (
+        <Pressable
+          onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            right: 20,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: colors.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 5,
+          }}
+        >
+          <Ionicons name="arrow-up" size={22} color="#fff" />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }

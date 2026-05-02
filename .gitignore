@@ -58,3 +58,5 @@ tsconfig.tsbuildinfo
 google-services.json
 service-account-key.json
 GoogleService-Info.plist
+
+.env.local

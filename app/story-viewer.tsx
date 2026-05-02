@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StatusBar, Text, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts } from '../src/constants/theme';
@@ -9,6 +10,8 @@ import { getOrCreateConversationForListing } from '../src/services/chatLinkageSe
 import { useAuth } from '../src/context/AuthContext';
 import type { Story } from '../src/data/mockData';
 import { fetchStoryById } from '../src/services/storyService';
+import { trackEvent } from '../src/services/monitoring';
+import { TELEMETRY_EVENTS } from '../src/constants/telemetryEvents';
 
 const STORY_DURATION_MS = 5000;
 const TICK_MS = 80;
@@ -33,6 +36,7 @@ export default function StoryViewerScreen() {
     deleteHomeStory,
   } = useListings();
 
+  const insets = useSafeAreaInsets();
   const [isPaused, setIsPaused] = useState(false);
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -40,7 +44,6 @@ export default function StoryViewerScreen() {
   const [editCaption, setEditCaption] = useState('');
   const [editPriceTag, setEditPriceTag] = useState('');
   const [progress, setProgress] = useState(0);
-  const [commentDraft, setCommentDraft] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [remoteStory, setRemoteStory] = useState<Story | null>(null);
   const [remoteStoryFailed, setRemoteStoryFailed] = useState(false);
@@ -209,6 +212,11 @@ export default function StoryViewerScreen() {
     }
 
     markStorySeen(story.id);
+    trackEvent(TELEMETRY_EVENTS.STORY_VIEWED, {
+      story_id: story.id ?? null,
+      seller_id: (story.sellerKey || story.ownerId || null) ?? null,
+      seller_name: story.seller ?? null,
+    });
     setProgress(0);
 
     if (timerRef.current) {
@@ -254,7 +262,6 @@ export default function StoryViewerScreen() {
   }, [isPaused, sellerIndex, sellerOrder.length, sellerStories.length, story, storyIndex]);
 
   useEffect(() => {
-    setCommentDraft('');
     setMessageDraft('');
     setIsComposerFocused(false);
     setIsEditing(false);
@@ -328,14 +335,6 @@ export default function StoryViewerScreen() {
     }
   }
 
-  function submitComment() {
-    if (!story) return;
-    const clean = commentDraft.trim();
-    if (!clean) return;
-    addStoryComment(story.id, clean);
-    setCommentDraft('');
-  }
-
   async function handleDirectProductLink() {
     if (!story || !story.productId) return;
     
@@ -391,347 +390,233 @@ export default function StoryViewerScreen() {
     }
   }
 
+  const bottomPad = 0; // handled by SafeAreaView edges bottom
+
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
-      {/* Progress bars header */}
-      <View className="absolute top-0 left-0 right-0 z-20 px-3 pt-2">
-        <View className="flex-row gap-1">
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {/* Full-screen story image */}
+      <Image
+        source={{ uri: story.image }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        resizeMode="cover"
+      />
+
+      {/* ── TOP GRADIENT (subtle shadow so text reads) ── */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.45)', 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 130, zIndex: 18 }}
+        pointerEvents="none"
+      />
+
+      {/* ── TOP AREA ── */}
+      <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20 }}>
+        {/* Progress bars */}
+        <View style={{ flexDirection: 'row', gap: 3, paddingHorizontal: 12, paddingTop: 10 }}>
           {sellerStories.map((item, i) => {
             const fill = i < storyIndex ? 1 : i > storyIndex ? 0 : progress;
             return (
-              <View key={item.id} className="flex-1 h-1 rounded-full bg-white/30 overflow-hidden">
-                <View style={{ width: `${Math.max(0, Math.min(1, fill)) * 100}%` }} className="h-full bg-white" />
+              <View
+                key={item.id}
+                style={{ flex: 1, height: 2, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}
+              >
+                <View
+                  style={{ width: `${Math.max(0, Math.min(1, fill)) * 100}%`, height: '100%', backgroundColor: '#fff', borderRadius: 99 }}
+                />
               </View>
             );
           })}
         </View>
 
-        {/* Seller info and close */}
-        <View className="flex-row items-center justify-between mt-3 mb-2">
-          <View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>
+        {/* Seller row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}>
+          <View style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: '#fff', overflow: 'hidden', marginRight: 10 }}>
+            <Image source={{ uri: story.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', letterSpacing: 0.1 }}
+            >
               {story.seller}
             </Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#E5E7EB' }}>
-              Hikaye {storyIndex + 1}/{sellerStories.length}
-              {isPaused ? ' • duraklatıldı' : ` • ${storyRemainingSec}s`}
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>
+              {sellerStories.length > 1 ? `${storyIndex + 1}/${sellerStories.length} · ` : ''}{isPaused ? 'duraklatıldı' : `${storyRemainingSec}s`}
             </Text>
           </View>
-          <Pressable onPress={closeViewer} className="w-9 h-9 rounded-full bg-black/40 items-center justify-center">
+          {isOwner ? (
+            <>
+              <Pressable
+                onPress={() => setIsEditing((c) => !c)}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.38)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}
+              >
+                <Ionicons name={isEditing ? 'close-outline' : 'create-outline'} size={18} color="#fff" />
+              </Pressable>
+              <Pressable
+                onPress={handleDeleteStory}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(180,0,0,0.5)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#fff" />
+              </Pressable>
+            </>
+          ) : null}
+          <Pressable
+            onPress={closeViewer}
+            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.38)', alignItems: 'center', justifyContent: 'center' }}
+          >
             <Ionicons name="close" size={20} color="#fff" />
           </Pressable>
         </View>
-        {isOwner ? (
-          <View className="flex-row gap-2 mb-2">
-            <Pressable
-              onPress={() => setIsEditing((current) => !current)}
-              className="px-3 h-8 rounded-full items-center justify-center"
-              style={{ backgroundColor: '#00000066' }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>
-                {isEditing ? 'Iptal' : 'Duzenle'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={handleDeleteStory}
-              className="px-3 h-8 rounded-full items-center justify-center"
-              style={{ backgroundColor: '#7F1D1DCC' }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>
-                Sil
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
+      </SafeAreaView>
 
-      {/* Story image */}
-      <View className="flex-1">
-        <Image source={{ uri: story.image }} className="w-full h-full" resizeMode="cover" />
-      </View>
-
-      {/* Bottom overlay - Product info and actions */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-        style={{ position: 'absolute', left: 12, right: 12, bottom: 10, zIndex: 30 }}
-      >
-        <View style={{ borderRadius: 14, backgroundColor: '#00000088', padding: 10, backdropFilter: 'blur(8px)' }}>
-          {/* Product info card */}
+      {/* ── BOTTOM GRADIENT OVERLAY ── */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20 }}>
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,0.97)']}
+          locations={[0, 0.35, 0.65, 1]}
+          style={{ paddingTop: 160 }}
+        >
+          {/* Edit form */}
           {isEditing ? (
-            <View style={{ gap: 6, marginBottom: 6 }}>
+            <View style={{ paddingHorizontal: 16, gap: 8, marginBottom: 14 }}>
               <TextInput
                 value={editTitle}
                 onChangeText={setEditTitle}
-                placeholder="Urun adi"
-                placeholderTextColor="#9CA3AF"
-                style={{
-                  height: 34,
-                  borderRadius: 10,
-                  backgroundColor: '#FFFFFFE6',
-                  paddingHorizontal: 10,
-                  fontFamily: fonts.regular,
-                  fontSize: 11,
-                  color: colors.textPrimary,
-                }}
+                placeholder="Ürün adı"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                style={{ height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, fontFamily: fonts.regular, fontSize: 14, color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
               />
               <TextInput
                 value={editPriceTag}
                 onChangeText={setEditPriceTag}
-                placeholder="Fiyat etiketi"
-                placeholderTextColor="#9CA3AF"
-                style={{
-                  height: 34,
-                  borderRadius: 10,
-                  backgroundColor: '#FFFFFFE6',
-                  paddingHorizontal: 10,
-                  fontFamily: fonts.regular,
-                  fontSize: 11,
-                  color: colors.textPrimary,
-                }}
+                placeholder="Fiyat (örn: 249 TL)"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                style={{ height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, fontFamily: fonts.regular, fontSize: 14, color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
               />
               <TextInput
                 value={editCaption}
                 onChangeText={setEditCaption}
-                placeholder="Aciklama"
-                placeholderTextColor="#9CA3AF"
-                style={{
-                  height: 34,
-                  borderRadius: 10,
-                  backgroundColor: '#FFFFFFE6',
-                  paddingHorizontal: 10,
-                  fontFamily: fonts.regular,
-                  fontSize: 11,
-                  color: colors.textPrimary,
-                }}
+                placeholder="Açıklama"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                style={{ height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, fontFamily: fonts.regular, fontSize: 14, color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
               />
               <Pressable
                 onPress={handleSaveStoryEdit}
-                style={{
-                  height: 34,
-                  borderRadius: 10,
-                  backgroundColor: colors.primary,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                style={{ height: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>
-                  Degisiklikleri Kaydet
-                </Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>Kaydet</Text>
               </Pressable>
             </View>
-          ) : story.productTitle ? (
-            <>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }} numberOfLines={1}>
-                {story.productTitle}
-              </Text>
-              {story.productDescription && (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#E5E7EB', marginTop: 2 }} numberOfLines={2}>
+          ) : (story.productTitle || story.priceTag) ? (
+            /* Product info */
+            <View style={{ paddingHorizontal: 16, marginBottom: 14 }}>
+              {story.productTitle ? (
+                <Text
+                  style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff', letterSpacing: 0.1 }}
+                  numberOfLines={2}
+                >
+                  {story.productTitle}
+                </Text>
+              ) : null}
+              {story.productDescription ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 4, lineHeight: 18 }} numberOfLines={2}>
                   {story.productDescription}
                 </Text>
-              )}
-              {story.priceTag && (
-                <View style={{ marginTop: 6, alignSelf: 'flex-start', backgroundColor: '#111827DD', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>
-                    {story.priceTag}
-                  </Text>
-                </View>
-              )}
-            </>
+              ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                {story.priceTag ? (
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 99 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{story.priceTag}</Text>
+                  </View>
+                ) : null}
+                {story.productId ? (
+                  <Pressable
+                    onPress={handleDirectProductLink}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 7, borderRadius: 99 }}
+                  >
+                    <Ionicons name="storefront-outline" size={13} color="#111" />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#111' }}>Ürüne Git</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
           ) : null}
 
-          {/* Engagement metrics */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 14 }}>
-            <Pressable onPress={() => toggleStoryLike(story.id)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color={liked ? '#F87171' : '#fff'} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff', marginLeft: 5 }}>
-                {storyLikeCount}
-              </Text>
-            </Pressable>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="chatbubble-outline" size={17} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff', marginLeft: 5 }}>
-                {storyCommentCount}
-              </Text>
-            </View>
-          </View>
-
-          {/* Direct action buttons */}
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-            {story.productId ? (
-              <Pressable
-                onPress={handleDirectProductLink}
-                style={{
-                  flex: 1,
-                  height: 36,
-                  borderRadius: 10,
-                  backgroundColor: colors.primary,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                  gap: 6,
-                }}
-              >
-                <Ionicons name="eye-outline" size={16} color="#fff" />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>
-                  Ürüne Git
-                </Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={handleMessageSeller}
-              style={{
-                flex: 1,
-                height: 36,
-                borderRadius: 10,
-                backgroundColor: '#1F2937',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-                gap: 6,
-              }}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>
-                Mesaj At
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Comment input */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <TextInput
-              value={commentDraft}
-              onChangeText={setCommentDraft}
-              onFocus={() => {
-                setIsPaused(true);
-                setIsComposerFocused(true);
-              }}
-              onBlur={() => {
-                setIsPaused(false);
-                setIsComposerFocused(false);
-              }}
-              onSubmitEditing={submitComment}
-              placeholder="Yorum yaz"
-              placeholderTextColor="#9CA3AF"
-              showSoftInputOnFocus
-              autoCorrect
-              autoCapitalize="sentences"
-              returnKeyType="send"
-              blurOnSubmit={false}
-              style={{
-                flex: 1,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: '#FFFFFFE6',
-                paddingHorizontal: 10,
-                fontFamily: fonts.regular,
-                fontSize: 11,
-                color: colors.textPrimary,
-              }}
-            />
-            <Pressable
-              onPress={() => {
-                submitComment();
-                Keyboard.dismiss();
-              }}
-              disabled={!commentDraft.trim()}
-              style={{
-                height: 34,
-                paddingHorizontal: 10,
-                borderRadius: 10,
-                backgroundColor: commentDraft.trim() ? '#FFFFFFE6' : '#E5E7EB',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textPrimary }}>
-                Gönder
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Message input */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          {/* Instagram bottom bar — input + send + heart */}
+          <SafeAreaView edges={['bottom']} style={{ paddingHorizontal: 14, paddingTop: 4 }}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 10, gap: 10 }}>
             <TextInput
               value={messageDraft}
               onChangeText={setMessageDraft}
-              onFocus={() => {
-                setIsPaused(true);
-                setIsComposerFocused(true);
-              }}
-              onBlur={() => {
-                setIsPaused(false);
-                setIsComposerFocused(false);
-              }}
-              onSubmitEditing={handleSendMessage}
-              placeholder="Mesaj gönder"
-              placeholderTextColor="#9CA3AF"
-              showSoftInputOnFocus
-              autoCorrect
-              autoCapitalize="sentences"
+              onFocus={() => { setIsPaused(true); setIsComposerFocused(true); }}
+              onBlur={() => { setIsPaused(false); setIsComposerFocused(false); }}
+              onSubmitEditing={() => { handleSendMessage(); Keyboard.dismiss(); }}
+              placeholder={`${story.seller}'e mesaj gönder...`}
+              placeholderTextColor="rgba(255,255,255,0.5)"
               returnKeyType="send"
-              blurOnSubmit={false}
               style={{
                 flex: 1,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: '#FFFFFFE6',
-                paddingHorizontal: 10,
+                height: 46,
+                borderRadius: 23,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1.5,
+                borderColor: 'rgba(255,255,255,0.4)',
+                paddingHorizontal: 18,
                 fontFamily: fonts.regular,
-                fontSize: 11,
-                color: colors.textPrimary,
+                fontSize: 14,
+                color: '#fff',
               }}
             />
+            {messageDraft.trim().length > 0 ? (
+              <Pressable
+                onPress={() => { handleSendMessage(); Keyboard.dismiss(); }}
+                style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 23, backgroundColor: colors.primary }}
+              >
+                <Ionicons name="send" size={20} color="#fff" />
+              </Pressable>
+            ) : (
             <Pressable
-              onPress={() => {
-                handleSendMessage();
-                Keyboard.dismiss();
-              }}
-              disabled={!messageDraft.trim()}
-              style={{
-                height: 34,
-                paddingHorizontal: 10,
-                borderRadius: 10,
-                backgroundColor: messageDraft.trim() ? colors.primary : '#AFC7ED',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              onPress={() => toggleStoryLike(story.id)}
+              style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>
-                Mesaj
-              </Text>
+              <Ionicons name={liked ? 'heart' : 'heart-outline'} size={32} color={liked ? '#F87171' : '#fff'} />
             </Pressable>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+            )}
+              </View>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </LinearGradient>
+      </View>
 
-      {/* Touch zones for navigation */}
-      <View style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: 92,
-        bottom: 220,
-        flexDirection: 'row',
-        display: isComposerFocused ? 'none' : 'flex',
-        zIndex: 10,
-      }}>
+      {/* Touch zones — left = prev, right = next */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 100,
+          bottom: 160,
+          flexDirection: 'row',
+          display: isComposerFocused ? 'none' : 'flex',
+          zIndex: 10,
+        }}
+      >
         <Pressable
           onPressIn={() => setIsPaused(true)}
           onPressOut={() => setIsPaused(false)}
           onPress={prevStory}
           delayLongPress={200}
-          className="flex-1"
+          style={{ flex: 1 }}
         />
         <Pressable
           onPressIn={() => setIsPaused(true)}
           onPressOut={() => setIsPaused(false)}
           onPress={nextStory}
           delayLongPress={200}
-          className="flex-1"
+          style={{ flex: 1 }}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

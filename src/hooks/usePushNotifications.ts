@@ -171,6 +171,14 @@ export function usePushNotifications() {
         await Promise.all(tokens.map((token) => saveTokenToSupabase(token)));
       }
 
+      const lastResponse = await Notifications.getLastNotificationResponseAsync();
+      if (active && lastResponse) {
+        const lastRoute = resolveNotificationTapRoute(lastResponse.notification.request.content.data as Record<string, unknown> | undefined);
+        if (lastRoute) {
+          router.push(lastRoute as never);
+        }
+      }
+
       if (!active) return;
 
       notificationListener.current = Notifications.addNotificationReceivedListener(() => {

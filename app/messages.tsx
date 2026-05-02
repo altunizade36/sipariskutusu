@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  ActivityIndicator,
   Alert,
   AppState,
   AppStateStatus,
+  BackHandler,
   FlatList,
   Image,
-  ImageBackground,
   KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   Text,
   TextInput,
   View,
@@ -20,7 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 import { useListings } from '../src/context/ListingsContext';
@@ -38,11 +40,15 @@ import {
   setMyPresence,
   setTypingStatus,
   subscribeToMessages,
+  subscribeToUserConversations,
+  subscribeToUserMessages,
   subscribeToProfilePresence,
   subscribeToReactions,
   subscribeToTyping,
   toggleReaction,
   uploadMessageImage,
+  updateMessageBody,
+  updateOfferStatus,
   type Conversation,
   type Message,
 } from '../src/services/messageService';
@@ -102,9 +108,102 @@ function parseReplyPayload(rawText: string) {
   return { replyToText, body: body || rawText.trim() };
 }
 
+function parseOrderDraftMessage(rawText: string) {
+  if (!rawText.startsWith('Sipariş Taslağı #')) {
+    return null;
+  }
+
+  const lines = rawText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const draftId = (lines[0] || '').replace('Sipariş Taslağı #', '').trim() || 'Taslak';
+  const getLineValue = (prefix: string) => {
+    const line = lines.find((entry) => entry.startsWith(`${prefix}:`));
+    return line ? line.slice(prefix.length + 1).trim() : undefined;
+  };
+
+  const parseAmount = (value?: string) => {
+    if (!value) return undefined;
+    const normalized = value.replace('₺', '').replace('TL', '').replace(/\s+/g, '').replace(',', '.');
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? numeric : undefined;
+  };
+
+  return {
+    draftId,
+    productTitle: getLineValue('Ürün'),
+    quantity: Number(getLineValue('Adet')) || undefined,
+    subtotal: parseAmount(getLineValue('Ara Toplam')),
+    shippingFee: parseAmount(getLineValue('Kargo')),
+    total: parseAmount(getLineValue('Tahmini Toplam')),
+    paymentMethod: getLineValue('Ödeme Tercihi'),
+    city: getLineValue('Şehir'),
+    district: getLineValue('İlçe'),
+    note: getLineValue('Not'),
+  };
+}
+
+function parseOrderConfirmMessage(rawText: string) {
+  if (!rawText.startsWith('SIPARIS_ONAY:')) {
+    return null;
+  }
+
+  const parts = rawText.split(':');
+  const draftId = (parts[1] || '').trim();
+  const total = Number(parts[2] || '0');
+  return {
+    draftId: draftId || undefined,
+    total: Number.isFinite(total) && total > 0 ? total : undefined,
+  };
+}
+
+function parseOrderStatusMessage(rawText: string) {
+  if (!rawText.startsWith('SIPARIS_DURUM:')) {
+    return null;
+  }
+
+  const parts = rawText.split(':');
+  const draftId = (parts[1] || '').trim();
+  const status = (parts[2] || '').trim() as OrderStatusData['status'];
+  const allowed: OrderStatusData['status'][] = ['draft', 'confirmed', 'payment_pending', 'preparing', 'shipped'];
+  if (!allowed.includes(status)) {
+    return null;
+  }
+
+  return {
+    draftId: draftId || undefined,
+    status,
+  };
+}
+
 // ─── Tipler ──────────────────────────────────────────────────
  
-type MessageKind = 'text' | 'image' | 'offer';
+type MessageKind = 'text' | 'image' | 'offer' | 'order' | 'order_confirm' | 'order_status';
+
+interface OrderDraftData {
+  draftId: string;
+  productTitle?: string;
+  quantity?: number;
+  subtotal?: number;
+  shippingFee?: number;
+  total?: number;
+  paymentMethod?: string;
+  city?: string;
+  district?: string;
+  note?: string;
+}
+
+interface OrderConfirmData {
+  draftId?: string;
+  total?: number;
+}
+
+interface OrderStatusData {
+  draftId?: string;
+  status: 'draft' | 'confirmed' | 'payment_pending' | 'preparing' | 'shipped' | 'delivered';
+}
  
 interface OfferData {
   amount: number;
@@ -121,10 +220,14 @@ type MsgItem =
       sender: string;
       text: string;
       createdAt: string;
+  updatedAt?: string;
       status?: 'sending' | 'sent' | 'failed';
       msgKind?: MessageKind;
       imageUri?: string;
       offerData?: OfferData;
+      orderData?: OrderDraftData;
+      orderConfirmData?: OrderConfirmData;
+      orderStatusData?: OrderStatusData;
       reactions?: string[];
       replyToText?: string;
     };
@@ -141,9 +244,13 @@ type ConversationView= {
     sender: string;
     text: string;
     createdAt: string;
+    updatedAt?: string;
     msgKind?: MessageKind;
     imageUri?: string;
     offerData?: OfferData;
+    orderData?: OrderDraftData;
+    orderConfirmData?: OrderConfirmData;
+    orderStatusData?: OrderStatusData;
     reactions?: string[];
     replyToText?: string;
   }>;
@@ -154,6 +261,17 @@ type ConversationView= {
     price?: number;
     status?: string;
   };
+};
+
+type DmCandidate = {
+  id: string;
+  name: string;
+  avatar?: string;
+  profileId?: string;
+  fallbackSellerKey?: string;
+  unreadCount?: number;
+  lastMessageAt?: string;
+  lastMessage?: string;
 };
  
 // ─── Teklif Modalı ───────────────────────────────────────────
@@ -287,12 +405,154 @@ function OfferBubble({
     </View>
   );
 }
+
+function formatOrderAmount(value?: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return `₺${value.toFixed(2)}`;
+}
+
+const ORDER_TIMELINE: Array<{ key: OrderStatusData['status']; label: string }> = [
+  { key: 'draft', label: 'Taslak' },
+  { key: 'confirmed', label: 'Anlasildi' },
+  { key: 'payment_pending', label: 'Detaylar' },
+  { key: 'preparing', label: 'Surec' },
+  { key: 'shipped', label: 'Guncel' },
+];
+
+function timelineIndex(status: OrderStatusData['status']) {
+  return ORDER_TIMELINE.findIndex((item) => item.key === status);
+}
+
+function OrderTimeline({ current }: { current: OrderStatusData['status'] }) {
+  const currentIdx = timelineIndex(current);
+  return (
+    <View style={{ flexDirection: 'row', marginTop: 9, gap: 6 }}>
+      {ORDER_TIMELINE.map((step, idx) => {
+        const active = idx <= currentIdx;
+        return (
+          <View
+            key={step.key}
+            style={{
+              flex: 1,
+              minHeight: 22,
+              borderRadius: 999,
+              paddingHorizontal: 6,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: active ? '#D1FAE5' : '#F1F5F9',
+              borderWidth: 1,
+              borderColor: active ? '#6EE7B7' : '#E2E8F0',
+            }}
+          >
+            <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 10, color: active ? '#166534' : colors.textMuted }} numberOfLines={1}>{step.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function OrderDraftBubble({
+  draft,
+  isMine,
+  onEditDraft,
+}: {
+  draft: OrderDraftData;
+  isMine: boolean;
+  onEditDraft: () => void;
+}) {
+  return (
+    <View style={{ backgroundColor: '#ECFEFF', borderWidth: 1, borderColor: '#A5F3FC', borderRadius: 14, padding: 12, maxWidth: '86%' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#0E7490', marginBottom: 6 }}>🧾 Sipariş Taslağı #{draft.draftId}</Text>
+      {draft.productTitle ? (
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={2}>{draft.productTitle}</Text>
+      ) : null}
+      <View style={{ marginTop: 8, gap: 3 }}>
+        {draft.quantity ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>Adet: {draft.quantity}</Text> : null}
+        {draft.paymentMethod ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>Ödeme: {draft.paymentMethod}</Text> : null}
+        {(draft.city || draft.district) ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>Teslimat: {[draft.city, draft.district].filter(Boolean).join(' / ')}</Text> : null}
+        {draft.total ? <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: '#0E7490', marginTop: 2 }}>Tahmini Toplam: {formatOrderAmount(draft.total)}</Text> : null}
+      </View>
+      <OrderTimeline current="draft" />
+      {draft.note ? (
+        <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: '#67E8F9' }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#155E75' }} numberOfLines={3}>Not: {draft.note}</Text>
+        </View>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+        {isMine ? (
+          <Pressable
+            onPress={onEditDraft}
+            style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, height: 34, borderWidth: 0.5, borderColor: '#67E8F9', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#0E7490' }}>Teklifi Güncelle</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function OrderConfirmBubble({
+  data,
+}: {
+  data: OrderConfirmData;
+}) {
+  return (
+    <View style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#86EFAC', borderRadius: 14, padding: 12, maxWidth: '82%' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#166534', marginBottom: 5 }}>✅ Sipariş Onayı</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
+        {data.draftId ? `Taslak #${data.draftId} onaylandı.` : 'Sipariş taslağı onaylandı.'}
+      </Text>
+      {data.total ? (
+        <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: '#166534', marginTop: 6 }}>
+          Toplam: {formatOrderAmount(data.total)}
+        </Text>
+      ) : null}
+      <OrderTimeline current="confirmed" />
+      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#166534', marginTop: 6 }}>
+        Detaylar sohbet uzerinden karsilikli olarak netlestirilir.
+      </Text>
+    </View>
+  );
+}
+
+function OrderStatusBubble({
+  data,
+}: {
+  data: OrderStatusData;
+}) {
+  const currentLabel = ORDER_TIMELINE.find((item) => item.key === data.status)?.label || 'Durum';
+  const isDelivered = data.status === 'delivered';
+
+  return (
+    <View style={{ backgroundColor: isDelivered ? '#F0FDF4' : '#F0F9FF', borderWidth: 1, borderColor: isDelivered ? '#86EFAC' : '#BAE6FD', borderRadius: 14, padding: 12, maxWidth: '82%' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDelivered ? '#166534' : '#0369A1', marginBottom: 5 }}>
+        {isDelivered ? '🎉 Surec Sonuclandi' : '📦 Gorusme Durumu'}
+      </Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
+        {data.draftId ? `Taslak #${data.draftId}` : 'Sipariş'} • {currentLabel}
+      </Text>
+      <OrderTimeline current={data.status} />
+      {isDelivered ? (
+        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#166534', marginTop: 6 }}>
+          Taraflar sureci goruserek tamamlamistir.
+        </Text>
+      ) : null}
+    </View>
+  );
+}
  
 // ─── Tepki Seçici ────────────────────────────────────────────
  
 const EMOJI_REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+const QUICK_REPLIES = ['Tamam 👍', 'Anladım', 'Hâlâ satılık mı?', 'Fiyat nedir?', 'Teslimat nasil?', 'Teşekkürler 🙏'];
 const REMOTE_CONVERSATIONS_CACHE_PREFIX = 'messages:remote:conversations:v1';
 const REMOTE_THREAD_CACHE_PREFIX = 'messages:remote:thread:v1';
+const RECENT_DM_CACHE_PREFIX = 'messages:recent-dm:v1';
  
 function MessageActionSheet({
   visible,
@@ -301,6 +561,7 @@ function MessageActionSheet({
   onReply,
   onEdit,
   canEdit,
+  onCopy,
   onReport,
   onDismiss,
 }: {
@@ -310,6 +571,7 @@ function MessageActionSheet({
   onReply: () => void;
   onEdit: () => void;
   canEdit: boolean;
+  onCopy: () => void;
   onReport: () => void;
   onDismiss: () => void;
 }) {
@@ -335,6 +597,11 @@ function MessageActionSheet({
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, marginLeft: 10 }}>Yanıtla</Text>
           </Pressable>
 
+          <Pressable onPress={() => { onCopy(); onDismiss(); }} className="h-10 flex-row items-center">
+            <Ionicons name="copy-outline" size={18} color={colors.textPrimary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, marginLeft: 10 }}>Kopyala / Paylaş</Text>
+          </Pressable>
+
           {canEdit ? (
             <Pressable onPress={() => { onEdit(); onDismiss(); }} className="h-10 flex-row items-center">
               <Ionicons name="create-outline" size={18} color={colors.textPrimary} />
@@ -356,9 +623,10 @@ function MessageActionSheet({
  
 export default function MessagesScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const segments = useSegments();
+  const { user, isDarkMode } = useAuth();
   const params = useLocalSearchParams<{ conversation?: string; sellerId?: string; productId?: string; productTitle?: string; whatsapp?: string; initialMessage?: string }>();
-  const { allProducts, conversations: fallbackConversations, typingConversationId, openConversation, sendMessage: sendFallbackMessage, sellerStore } = useListings();
+  const { allProducts, conversations: fallbackConversations, typingConversationId, openConversation, openOrCreateConversation, sendMessage: sendFallbackMessage } = useListings();
  
   const [searchText, setSearchText] = useState('');
   const [listFilter, setListFilter] = useState<'all' | 'unread'>('all');
@@ -371,13 +639,31 @@ export default function MessagesScreen() {
  
   const [localReactions, setLocalReactions] = useState<Record<string, string[]>>({});
   const [remoteReactions, setRemoteReactions] = useState<Record<string, string[]>>({});
-  const [localOfferStatuses, setLocalOfferStatuses] = useState<Record<string, OfferData['status']>>({});
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const [showNewDmModal, setShowNewDmModal] = useState(false);
+  const [newDmQuery, setNewDmQuery] = useState('');
+
+  const palette = useMemo(() => ({
+    screenBg: isDarkMode ? '#0F172A' : '#FAFAFA',
+    headerBg: isDarkMode ? '#111827' : '#FFFFFF',
+    headerChipBg: isDarkMode ? '#1F2937' : '#F7F7F7',
+    threadBg: isDarkMode ? '#1E293B' : '#EDF2FB',
+    composerBg: isDarkMode ? '#111827' : '#FFFFFF',
+    inputBg: isDarkMode ? '#1F2937' : '#F4F6FB',
+    border: isDarkMode ? '#334155' : '#33333315',
+    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
+    textMuted: isDarkMode ? '#94A3B8' : colors.textMuted,
+  }), [isDarkMode]);
+  const [startingDmCandidateId, setStartingDmCandidateId] = useState<string | null>(null);
+  const [recentDmIds, setRecentDmIds] = useState<string[]>([]);
+  const [candidatePresence, setCandidatePresence] = useState<Record<string, boolean>>({});
+  const [inboxPresence, setInboxPresence] = useState<Record<string, boolean>>({});
+  const [showScrollFab, setShowScrollFab] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [activeMessageAction, setActiveMessageAction] = useState<{ id: string; text: string; mine: boolean } | null>(null);
   const [replyTarget, setReplyTarget] = useState<{ id: string; text: string } | null>(null);
   const [editTarget, setEditTarget] = useState<{ id: string; text: string } | null>(null);
-  const [editedMessageTexts, setEditedMessageTexts] = useState<Record<string, string>>({});
   const [counterpartyPresence, setCounterpartyPresence] = useState<{ isOnline: boolean; lastSeenAt?: string } | null>(null);
   const [remoteTypingUserId, setRemoteTypingUserId] = useState<string | null>(null);
   const typingOffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -396,6 +682,8 @@ export default function MessagesScreen() {
   const relatedProductTitle = params.productTitle ? decodeURIComponent(params.productTitle) : '';
   const initialMessageText = params.initialMessage ? decodeURIComponent(params.initialMessage) : '';
   const remoteConversationsCacheKey = user?.id ? `${REMOTE_CONVERSATIONS_CACHE_PREFIX}:${user.id}` : null;
+  const recentDmCacheKey = user?.id ? `${RECENT_DM_CACHE_PREFIX}:${user.id}` : null;
+  const isTabMessagesRoute = (segments as string[]).includes('(tabs)');
 
   function findMatchingRemoteConversation() {
     if (!routeSellerId) {
@@ -519,6 +807,56 @@ export default function MessagesScreen() {
   }, [isRemoteMode]);
 
   useEffect(() => {
+    if (!isRemoteMode || !user?.id) {
+      return;
+    }
+
+    const unsubscribeConversations = subscribeToUserConversations(user.id, (conversation) => {
+      setRemoteConversations((current) => {
+        const idx = current.findIndex((item) => item.id === conversation.id);
+
+        if (idx < 0) {
+          return [conversation, ...current];
+        }
+
+        const merged = {
+          ...current[idx],
+          ...conversation,
+        };
+
+        const next = current.filter((item) => item.id !== conversation.id);
+        return [merged, ...next];
+      });
+    });
+
+    const unsubscribeMessages = subscribeToUserMessages(user.id, (message) => {
+      const conversationId = message.conversation_id;
+      if (!conversationId) {
+        return;
+      }
+
+      setRemoteMessages((current) => {
+        const prev = current[conversationId] ?? [];
+        if (prev.some((entry) => entry.id === message.id)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [conversationId]: [...prev, message],
+        };
+      });
+
+      updateConversationPreview(conversationId, message.body ?? '', message.created_at, message.sender_id);
+    });
+
+    return () => {
+      unsubscribeConversations();
+      unsubscribeMessages();
+    };
+  }, [isRemoteMode, user?.id]);
+
+  useEffect(() => {
     if (!isRemoteMode || !remoteConversationsCacheKey) {
       return;
     }
@@ -581,6 +919,28 @@ export default function MessagesScreen() {
     };
   }, []);
  
+  // Tab'a geri dönüldüğünde (başka tab'dan) route param yoksa seçili konuşmayı sıfırla
+  useFocusEffect(
+    useCallback(() => {
+      if (!routeConversationId && !routeSellerId) {
+        setSelectedConversationId(null);
+        handledRouteIntentRef.current = null;
+      }
+    }, [routeConversationId, routeSellerId]),
+  );
+
+  // Android fiziksel geri tuşu: açık konuşma varsa inbox'a dön
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectedConversationId) {
+        setSelectedConversationId(null);
+        return true; // olayı yakala, daha fazla işlem yapma
+      }
+      return false; // normal geri davranışına bırak
+    });
+    return () => subscription.remove();
+  }, [selectedConversationId]);
+
   useEffect(() => {
     if (!routeConversationId) {
       return;
@@ -617,7 +977,9 @@ export default function MessagesScreen() {
     if (existing) {
       handledRouteIntentRef.current = intentKey;
       openConversationThread(existing.id);
-      router.replace(buildConversationMessagesRoute(existing.id));
+      if (!isTabMessagesRoute) {
+        router.replace(buildConversationMessagesRoute(existing.id));
+      }
       return;
     }
 
@@ -625,9 +987,11 @@ export default function MessagesScreen() {
     getOrCreateConversation(routeSellerId, routeProductId || undefined).then((created) => {
       setRemoteConversations((c) => { if (c.some((i) => i.id === created.id)) return c; return [created, ...c]; });
       openConversationThread(created.id);
-      router.replace(buildConversationMessagesRoute(created.id));
+      if (!isTabMessagesRoute) {
+        router.replace(buildConversationMessagesRoute(created.id));
+      }
     }).catch((e) => captureError(e, { scope: 'messages_get_or_create_conversation' }));
-  }, [routeProductId, routeSellerId, remoteConversations, isRemoteMode, router, fallbackConversations]);
+  }, [routeProductId, routeSellerId, remoteConversations, isRemoteMode, router, fallbackConversations, isTabMessagesRoute]);
  
   useEffect(() => {
     if (!relatedProductTitle || !selectedConversationId) return;
@@ -659,6 +1023,18 @@ export default function MessagesScreen() {
 
       const remaining = current.filter((item) => item.id !== conversationId);
       return [updated, ...remaining];
+    });
+  }
+
+  function patchRemoteMessage(
+    conversationId: string,
+    messageId: string,
+    patch: Partial<Message>,
+  ) {
+    setRemoteMessages((current) => {
+      const list = current[conversationId] ?? [];
+      const nextList = list.map((msg) => (msg.id === messageId ? { ...msg, ...patch } : msg));
+      return { ...current, [conversationId]: nextList };
     });
   }
 
@@ -711,8 +1087,36 @@ export default function MessagesScreen() {
           sender: msg.sender_id === user?.id ? 'me' : 'store',
           text: (msg.text || msg.body || '').trim(),
           createdAt: msg.created_at,
-          msgKind: (msg.image_url || msg.attachment_url || msg.message_type === 'image') ? 'image' : 'text',
+          updatedAt: msg.updated_at,
+          msgKind: (msg.image_url || msg.attachment_url || msg.message_type === 'image')
+            ? 'image'
+            : ((msg.message_type === 'offer' || (msg.body || '').startsWith('TEKLIF:'))
+              ? 'offer'
+              : ((msg.body || '').startsWith('Sipariş Taslağı #')
+                ? 'order'
+                : ((msg.body || '').startsWith('SIPARIS_ONAY:')
+                  ? 'order_confirm'
+                  : ((msg.body || '').startsWith('SIPARIS_DURUM:') ? 'order_status' : 'text')))),
           imageUri: msg.image_url || msg.attachment_url || undefined,
+          offerData: (() => {
+            if (!(msg.message_type === 'offer' || (msg.body || '').startsWith('TEKLIF:'))) {
+              return undefined;
+            }
+            const parts = (msg.body || '').split(':');
+            const bodyAmount = Number(parts[1] ?? '0');
+            const bodyOriginalPrice = Number(parts[2] ?? '0');
+            const amount = typeof msg.offer_amount === 'number' && Number.isFinite(msg.offer_amount)
+              ? msg.offer_amount
+              : (Number.isFinite(bodyAmount) ? bodyAmount : 0);
+            return {
+              amount,
+              originalPrice: Number.isFinite(bodyOriginalPrice) && bodyOriginalPrice > 0 ? bodyOriginalPrice : undefined,
+              status: (msg.offer_status as OfferData['status']) || 'pending',
+            };
+          })(),
+          orderData: parseOrderDraftMessage((msg.text || msg.body || '').trim()) || undefined,
+          orderConfirmData: parseOrderConfirmMessage((msg.text || msg.body || '').trim()) || undefined,
+          orderStatusData: parseOrderStatusMessage((msg.text || msg.body || '').trim()) || undefined,
         })),
         listing: item.listing ? { id: item.listing_id ?? undefined, title: item.listing.title, image: item.listing.listing_images?.[0]?.url, price: item.listing.price, status: item.listing.status } : undefined,
       };
@@ -762,8 +1166,199 @@ export default function MessagesScreen() {
     if (!relatedProductTitle) return null;
     return { id: routeProductId, title: relatedProductTitle, image: undefined, priceLabel: undefined, price: undefined, status: 'Aktif' };
   }, [activeListingFromParams, conversation?.listing, routeProductId, relatedProductTitle]);
+
+  const dmCandidates = useMemo(() => {
+    const map = new Map<string, DmCandidate>();
+
+    if (isRemoteMode) {
+      remoteConversations.forEach((item) => {
+        const counterpartyId = user?.id === item.buyer_id ? item.seller_id : item.buyer_id;
+        if (!counterpartyId || counterpartyId === user?.id || map.has(counterpartyId)) {
+          return;
+        }
+
+        const profile = user?.id === item.buyer_id ? item.seller : item.buyer;
+        const displayName = profile?.full_name?.trim() || 'Kullanıcı';
+        map.set(counterpartyId, {
+          id: counterpartyId,
+          name: displayName,
+          avatar: profile?.avatar_url || storeData.avatar,
+          profileId: counterpartyId,
+          unreadCount: user?.id === item.buyer_id ? item.buyer_unread : item.seller_unread,
+          lastMessageAt: item.last_message_at || item.created_at,
+          lastMessage: item.last_message || undefined,
+        });
+      });
+
+      allProducts.forEach((product) => {
+        const sellerId = product.sellerId?.trim();
+        if (!sellerId || sellerId === user?.id || map.has(sellerId)) {
+          return;
+        }
+
+        map.set(sellerId, {
+          id: sellerId,
+          name: product.brand?.trim() || 'Satıcı',
+          avatar: storeData.avatar,
+          profileId: sellerId,
+          unreadCount: 0,
+        });
+      });
+    } else {
+      fallbackConversations.forEach((item) => {
+        if (map.has(item.id)) {
+          return;
+        }
+
+        map.set(item.id, {
+          id: item.id,
+          name: item.title,
+          avatar: item.avatar || storeData.avatar,
+          fallbackSellerKey: item.id,
+          unreadCount: item.unreadCount,
+          lastMessageAt: item.lastMessageAt,
+        });
+      });
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const unreadDiff = (b.unreadCount ?? 0) - (a.unreadCount ?? 0);
+      if (unreadDiff !== 0) {
+        return unreadDiff;
+      }
+
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+
+      return a.name.localeCompare(b.name, 'tr');
+    });
+  }, [allProducts, fallbackConversations, isRemoteMode, remoteConversations, user?.id]);
+
+  const filteredDmCandidates = useMemo(() => {
+    const query = newDmQuery.trim().toLocaleLowerCase('tr-TR');
+    if (!query) {
+      return dmCandidates;
+    }
+
+    return dmCandidates.filter((item) => item.name.toLocaleLowerCase('tr-TR').includes(query));
+  }, [dmCandidates, newDmQuery]);
+
+  const recentDmCandidates = useMemo(() => {
+    if (recentDmIds.length === 0) {
+      return [] as typeof dmCandidates;
+    }
+
+    const byId = new Map(dmCandidates.map((item) => [item.id, item]));
+    return recentDmIds
+      .map((id) => byId.get(id))
+      .filter((item): item is (typeof dmCandidates)[number] => Boolean(item));
+  }, [dmCandidates, recentDmIds]);
+
+  const suggestedDmCandidates = useMemo(() => {
+    if (newDmQuery.trim()) {
+      return filteredDmCandidates;
+    }
+
+    const recentIdSet = new Set(recentDmIds);
+    return dmCandidates.filter((item) => !recentIdSet.has(item.id));
+  }, [dmCandidates, filteredDmCandidates, newDmQuery, recentDmIds]);
+
+  // Batch-fetch presence for top DM modal candidates when modal opens
+  useEffect(() => {
+    if (!showNewDmModal || !isRemoteMode) return;
+    const targets = dmCandidates.slice(0, 15);
+    targets.forEach((c) => {
+      if (!c.profileId) return;
+      fetchProfilePresence(c.profileId)
+        .then((p) => {
+          if (!p) return;
+          setCandidatePresence((prev) => ({ ...prev, [c.id]: p.is_online }));
+        })
+        .catch(() => undefined);
+    });
+  }, [showNewDmModal]);
+
+  // Batch-fetch presence for inbox conversation rows when conversations list loads
+  useEffect(() => {
+    if (!isRemoteMode || remoteConversations.length === 0) return;
+    remoteConversations.slice(0, 20).forEach((conv) => {
+      const profileId = user?.id === conv.buyer_id ? conv.seller_id : conv.buyer_id;
+      if (!profileId) return;
+      fetchProfilePresence(profileId)
+        .then((p) => {
+          if (!p) return;
+          setInboxPresence((prev) => ({ ...prev, [conv.id]: p.is_online }));
+        })
+        .catch(() => undefined);
+    });
+  }, [remoteConversations.length, isRemoteMode]);
+
+  useEffect(() => {
+    if (!recentDmCacheKey) {
+      setRecentDmIds([]);
+      return;
+    }
+
+    AsyncStorage.getItem(recentDmCacheKey)
+      .then((serialized) => {
+        if (!serialized) {
+          setRecentDmIds([]);
+          return;
+        }
+
+        const parsed = JSON.parse(serialized) as string[];
+        setRecentDmIds(Array.isArray(parsed) ? parsed.slice(0, 20) : []);
+      })
+      .catch(() => setRecentDmIds([]));
+  }, [recentDmCacheKey]);
+
+  function rememberRecentDm(candidateId: string) {
+    setRecentDmIds((current) => {
+      const next = [candidateId, ...current.filter((id) => id !== candidateId)].slice(0, 20);
+      if (recentDmCacheKey) {
+        AsyncStorage.setItem(recentDmCacheKey, JSON.stringify(next)).catch(() => undefined);
+      }
+      return next;
+    });
+  }
+
+  async function handleStartConversation(candidate: DmCandidate) {
+    if (startingDmCandidateId) {
+      return;
+    }
+
+    setStartingDmCandidateId(candidate.id);
+    try {
+      if (isRemoteMode && candidate.profileId) {
+        const thread = await getOrCreateConversation(candidate.profileId);
+        setRemoteConversations((current) => {
+          if (current.some((item) => item.id === thread.id)) {
+            return current;
+          }
+          return [thread, ...current];
+        });
+        setSelectedConversationId(thread.id);
+      } else {
+        const conversationId = openOrCreateConversation(candidate.fallbackSellerKey ?? candidate.id, candidate.name, candidate.avatar);
+        setSelectedConversationId(conversationId);
+      }
+
+      rememberRecentDm(candidate.id);
+      setShowNewDmModal(false);
+      setNewDmQuery('');
+    } catch (error) {
+      captureError(error as Error, { scope: 'messages_start_conversation' });
+      Alert.alert('Hata', 'Konuşma başlatılamadı. Lütfen tekrar dene.');
+    } finally {
+      setStartingDmCandidateId(null);
+    }
+  }
  
   const currentDraft = conversation ? (drafts[conversation.id] ?? '').trim() : '';
+  const totalUnread = useMemo(() => conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0), [conversations]);
  
   // ─── Presence ─────────────────────────────────────────────
 
@@ -857,10 +1452,22 @@ export default function MessagesScreen() {
     const normalizedBody = body.trim();
 
     if (editTarget) {
-      setEditedMessageTexts((current) => ({ ...current, [editTarget.id]: normalizedBody }));
+      const targetId = editTarget.id;
       setEditTarget(null);
       setReplyTarget(null);
       setCurrentDraft('');
+      if (conversation) {
+        patchRemoteMessage(conversation.id, targetId, {
+          body: normalizedBody,
+          text: normalizedBody,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      if (isRemoteMode) {
+        updateMessageBody(targetId, normalizedBody).catch((err) =>
+          captureError(err instanceof Error ? err : new Error(String(err)), { scope: 'messages.editTarget' })
+        );
+      }
       return;
     }
 
@@ -893,10 +1500,45 @@ export default function MessagesScreen() {
     if (!conversation) return;
     await sendText(`TEKLIF:${amount}:${activeProductCard?.price ?? 0}`);
   }
- 
-  function handleOfferAccept(msgId: string) { setLocalOfferStatuses((s) => ({ ...s, [msgId]: 'accepted' })); }
-  function handleOfferReject(msgId: string) { setLocalOfferStatuses((s) => ({ ...s, [msgId]: 'rejected' })); }
-  function handleOfferCounter(msgId: string) { setLocalOfferStatuses((s) => ({ ...s, [msgId]: 'countered' })); }
+  function handleOfferAccept(msgId: string) {
+    if (conversation) {
+      patchRemoteMessage(conversation.id, msgId, {
+        offer_status: 'accepted',
+        updated_at: new Date().toISOString(),
+      });
+    }
+    if (isRemoteMode) {
+      updateOfferStatus(msgId, 'accepted').catch((err) =>
+        captureError(err instanceof Error ? err : new Error(String(err)), { scope: 'messages.offerAccept' })
+      );
+    }
+  }
+  function handleOfferReject(msgId: string) {
+    if (conversation) {
+      patchRemoteMessage(conversation.id, msgId, {
+        offer_status: 'rejected',
+        updated_at: new Date().toISOString(),
+      });
+    }
+    if (isRemoteMode) {
+      updateOfferStatus(msgId, 'rejected').catch((err) =>
+        captureError(err instanceof Error ? err : new Error(String(err)), { scope: 'messages.offerReject' })
+      );
+    }
+  }
+  function handleOfferCounter(msgId: string) {
+    if (conversation) {
+      patchRemoteMessage(conversation.id, msgId, {
+        offer_status: 'countered',
+        updated_at: new Date().toISOString(),
+      });
+    }
+    if (isRemoteMode) {
+      updateOfferStatus(msgId, 'countered').catch((err) =>
+        captureError(err instanceof Error ? err : new Error(String(err)), { scope: 'messages.offerCounter' })
+      );
+    }
+  }
  
   async function handlePickAndSendImage() {
     setShowAttachMenu(false);
@@ -929,7 +1571,25 @@ export default function MessagesScreen() {
   }
 
   function openModerationActions() {
-    if (!counterpartyProfileId) {
+    if (!conversation || !counterpartyProfileId) {
+      Alert.alert('Mesaj Yardımı', 'Ne yapmak istersin?', [
+        {
+          text: 'Konuşmaları Yenile',
+          onPress: () => {
+            void handleRefreshConversations();
+          },
+        },
+        {
+          text: 'Yeni Mesaj Başlat',
+          onPress: () => {
+            setShowNewDmModal(true);
+          },
+        },
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+      ]);
       return;
     }
 
@@ -974,10 +1634,47 @@ export default function MessagesScreen() {
   }
  
   function openWhatsApp() {
-    if (!contactWhatsapp) return;
+    if (!contactWhatsapp) {
+      Alert.alert('Bilgi', 'Bu konuşma için WhatsApp numarası bulunamadı.');
+      return;
+    }
     const normalized = contactWhatsapp.replace(/\D/g, '');
     const message = encodeURIComponent(relatedProductTitle ? `${relatedProductTitle} ürünü hakkında bilgi alabilir miyim?` : 'Merhaba, ürün hakkında bilgi alabilir miyim?');
     Linking.openURL(`https://wa.me/${normalized}?text=${message}`);
+  }
+
+  function openVideoMeeting() {
+    if (!conversation) {
+      Alert.alert('Bilgi', 'Once bir konusma secmelisin.');
+      return;
+    }
+
+    const roomKey = `sipariskutusu-${conversation.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'room'}`;
+    const meetingUrl = `https://meet.jit.si/${roomKey}`;
+
+    Alert.alert(
+      'Goruntulu gorusme',
+      'Toplanti baglantisi acilacak. Karsi tarafla paylasarak gorusmeyi baslatabilirsin.',
+      [
+        {
+          text: 'Linki Paylas',
+          onPress: () => {
+            Share.share({
+              message: `Goruntulu gorusme baglantisi: ${meetingUrl}`,
+            }).catch(() => undefined);
+          },
+        },
+        {
+          text: 'Toplantiyi Ac',
+          onPress: () => {
+            Linking.openURL(meetingUrl).catch(() => {
+              Alert.alert('Hata', 'Toplanti baglantisi acilamadi.');
+            });
+          },
+        },
+        { text: 'Vazgec', style: 'cancel' },
+      ],
+    );
   }
 
   function openMessageActions(item: Extract<MsgItem, { kind: 'message' }>) {
@@ -1044,16 +1741,67 @@ export default function MessagesScreen() {
 
     await sendText(pendingMsg.text);
   }
+
+  function handleCopyMessage() {
+    if (!activeMessageAction) return;
+    Share.share({ message: activeMessageAction.text }).catch(() => undefined);
+  }
  
   // ─── Parse mesaj ───────────────────────────────────────────
  
-  function parseMsg(m: { id: string; sender: string; text: string; createdAt: string }): Extract<MsgItem, { kind: 'message' }> {
-    if (m.text.startsWith('TEKLIF:')) {
-      const parts = m.text.split(':');
-      const amount = parseFloat(parts[1] ?? '0');
-      const originalPrice = parseFloat(parts[2] ?? '0') || undefined;
-      const status = localOfferStatuses[m.id] ?? 'pending';
-      return { kind: 'message', id: m.id, sender: m.sender, text: m.text, createdAt: m.createdAt, status: 'sent', msgKind: 'offer', offerData: { amount, originalPrice, status } };
+  function parseMsg(m: { id: string; sender: string; text: string; createdAt: string; updatedAt?: string; msgKind?: MessageKind; imageUri?: string; offerData?: OfferData; orderData?: OrderDraftData; orderConfirmData?: OrderConfirmData; orderStatusData?: OrderStatusData }): Extract<MsgItem, { kind: 'message' }> {
+    if (m.msgKind === 'offer' || m.offerData || m.text.startsWith('TEKLIF:')) {
+      const parsedOffer = m.offerData ?? (() => {
+        const parts = m.text.split(':');
+        return {
+          amount: parseFloat(parts[1] ?? '0') || 0,
+          originalPrice: parseFloat(parts[2] ?? '0') || undefined,
+          status: 'pending' as OfferData['status'],
+        };
+      })();
+      return { kind: 'message', id: m.id, sender: m.sender, text: m.text, createdAt: m.createdAt, updatedAt: m.updatedAt, status: 'sent', msgKind: 'offer', offerData: parsedOffer };
+    }
+    if (m.msgKind === 'order' || m.orderData || m.text.startsWith('Sipariş Taslağı #')) {
+      const parsedOrder = m.orderData ?? parseOrderDraftMessage(m.text);
+      return {
+        kind: 'message',
+        id: m.id,
+        sender: m.sender,
+        text: m.text,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        status: 'sent',
+        msgKind: 'order',
+        orderData: parsedOrder ?? undefined,
+      };
+    }
+    if (m.msgKind === 'order_confirm' || m.orderConfirmData || m.text.startsWith('SIPARIS_ONAY:')) {
+      const parsedConfirm = m.orderConfirmData ?? parseOrderConfirmMessage(m.text);
+      return {
+        kind: 'message',
+        id: m.id,
+        sender: m.sender,
+        text: m.text,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        status: 'sent',
+        msgKind: 'order_confirm',
+        orderConfirmData: parsedConfirm ?? undefined,
+      };
+    }
+    if (m.msgKind === 'order_status' || m.orderStatusData || m.text.startsWith('SIPARIS_DURUM:')) {
+      const parsedStatus = m.orderStatusData ?? parseOrderStatusMessage(m.text);
+      return {
+        kind: 'message',
+        id: m.id,
+        sender: m.sender,
+        text: m.text,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        status: 'sent',
+        msgKind: 'order_status',
+        orderStatusData: parsedStatus ?? undefined,
+      };
     }
     if (m.text.startsWith('GORSEL:')) {
       return { kind: 'message', id: m.id, sender: m.sender, text: '📷 Görsel', createdAt: m.createdAt, status: 'sent', msgKind: 'image', imageUri: m.text.slice(7) };
@@ -1068,13 +1816,14 @@ export default function MessagesScreen() {
         sender: m.sender,
         text: parsed.imageUri ? '📷 Görsel' : parsedReply.body,
         createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
         status: 'sent',
         msgKind: 'image',
         imageUri: parsed.imageUri,
         replyToText: parsedReply.replyToText,
       };
     }
-    return { kind: 'message', id: m.id, sender: m.sender, text: parsedReply.body, createdAt: m.createdAt, status: 'sent', msgKind: 'text', reactions: localReactions[m.id], replyToText: parsedReply.replyToText };
+    return { kind: 'message', id: m.id, sender: m.sender, text: parsedReply.body, createdAt: m.createdAt, updatedAt: m.updatedAt, status: 'sent', msgKind: 'text', reactions: localReactions[m.id], replyToText: parsedReply.replyToText };
   }
  
   const flatListData = useMemo((): MsgItem[] => {
@@ -1089,75 +1838,94 @@ export default function MessagesScreen() {
       result.push(item);
     }
     return result;
-  }, [conversation, pendingMsg, localReactions, localOfferStatuses]);
+  }, [conversation, pendingMsg, localReactions]);
  
   // ─── Render ────────────────────────────────────────────────
  
   return (
-    <SafeAreaView className="flex-1 bg-[#F7F7F7]" edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.screenBg }} edges={['top']}>
  
       {/* Başlık */}
-      <View className="bg-white px-4 pt-3 pb-3 border-b border-[#33333315]">
+      <View className="px-4 pt-3 pb-3 border-b" style={{ backgroundColor: palette.headerBg, borderBottomColor: palette.border }}>
         <View className="flex-row items-center justify-between">
-          <Pressable onPress={() => { if (conversation) { if (routeConversationId) { router.back(); return; } setSelectedConversationId(null); return; } router.back(); }} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center">
-            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <Pressable
+            onPress={() => {
+              if (conversation) {
+                setSelectedConversationId(null);
+                return;
+              }
+              router.back();
+            }}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: palette.headerChipBg }}
+            accessibilityRole="button"
+            accessibilityLabel={conversation ? 'Konusma listesine don' : 'Mesajlardan geri don'}
+          >
+            <Ionicons name="arrow-back" size={20} color={palette.textPrimary} />
           </Pressable>
           {conversation ? (
             <View className="flex-1 px-3 flex-row items-center">
               <View style={{ position: 'relative' }}>
-                <Image source={{ uri: conversation.avatar || storeData.avatar }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                <Image source={{ uri: conversation.avatar || storeData.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
                 <View
                   style={{
                     position: 'absolute',
-                    bottom: 0,
-                    right: 0,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
+                    bottom: 1,
+                    right: 1,
+                    width: 11,
+                    height: 11,
+                    borderRadius: 6,
                     backgroundColor: counterpartyPresence?.isOnline ? '#22C55E' : '#9CA3AF',
-                    borderWidth: 1.5,
+                    borderWidth: 2,
                     borderColor: '#fff',
                   }}
                 />
               </View>
               <View className="ml-2.5 flex-1">
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{conversation.title}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: palette.textPrimary }} numberOfLines={1}>{conversation.title}</Text>
                 {isRemoteMode ? (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: counterpartyPresence?.isOnline ? '#22C55E' : colors.textSecondary }}>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: counterpartyPresence?.isOnline ? '#22C55E' : palette.textSecondary }}>
                     {counterpartyPresence?.isOnline ? 'Çevrimiçi' : formatLastSeenLabel(counterpartyPresence?.lastSeenAt)}
                   </Text>
                 ) : (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>Demo sohbet</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>Demo sohbet</Text>
                 )}
               </View>
             </View>
           ) : (
-            <Text style={{ fontFamily: fonts.headingBold, fontSize: 20, color: colors.textPrimary }}>Mesajlar</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: palette.textPrimary }}>Mesajlar</Text>
+              {totalUnread > 0 ? (
+                <View style={{ backgroundColor: colors.primary, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{totalUnread > 99 ? '99+' : totalUnread}</Text>
+                </View>
+              ) : null}
+            </View>
           )}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {conversation ? (
               <>
-                <Pressable onPress={openWhatsApp} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center">
-                  <Ionicons name="call-outline" size={18} color={colors.textSecondary} />
+                <Pressable onPress={openWhatsApp} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="WhatsApp aramasi baslat">
+                  <Ionicons name="call-outline" size={18} color={palette.textSecondary} />
                 </Pressable>
-                <Pressable onPress={() => Alert.alert('Yakında', 'Görüntülü görüşme yakında aktif olacak.')} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center">
-                  <Ionicons name="videocam-outline" size={18} color={colors.textSecondary} />
+                <Pressable onPress={openVideoMeeting} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Goruntulu gorusme baslat">
+                  <Ionicons name="videocam-outline" size={18} color={palette.textSecondary} />
                 </Pressable>
-                <Pressable onPress={openModerationActions} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center">
+                <Pressable onPress={openModerationActions} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Sohbet islemlerini ac">
                   <Ionicons name="ellipsis-horizontal" size={19} color={colors.primary} />
                 </Pressable>
               </>
             ) : (
-              <Pressable onPress={openModerationActions} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center">
+              <Pressable onPress={openModerationActions} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Mesaj yardim menusu">
                 <Ionicons name="help-circle-outline" size={19} color={colors.primary} />
               </Pressable>
             )}
           </View>
         </View>
         {!conversation ? (
-          <View className="mt-3 flex-row items-center bg-[#F7F7F7] rounded-xl px-3 h-11 border border-[#33333315]">
-            <Ionicons name="search" size={18} color={colors.textMuted} />
-            <TextInput value={searchText} onChangeText={setSearchText} placeholder="Konuşmalarda ara" placeholderTextColor={colors.textMuted} style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary }} className="ml-2 flex-1" />
+          <View className="mt-3 flex-row items-center rounded-xl px-3 h-11 border" style={{ backgroundColor: palette.headerChipBg, borderColor: palette.border }}>
+            <Ionicons name="search" size={18} color={palette.textMuted} />
+            <TextInput value={searchText} onChangeText={setSearchText} placeholder="Konuşmalarda ara" placeholderTextColor={palette.textMuted} style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textPrimary }} className="ml-2 flex-1" accessibilityLabel="Konusmalarda ara" />
           </View>
         ) : null}
         {!conversation ? (
@@ -1188,7 +1956,7 @@ export default function MessagesScreen() {
       {!conversation ? (
         <View className="flex-1">
           <ScrollView
-            className="flex-1 px-3 pt-3"
+            className="flex-1"
             contentContainerStyle={{ paddingBottom: 96 }}
             showsVerticalScrollIndicator={false}
             refreshControl={isRemoteMode ? <RefreshControl refreshing={isRefreshingConversations} onRefresh={handleRefreshConversations} tintColor={colors.primary} /> : undefined}
@@ -1206,34 +1974,35 @@ export default function MessagesScreen() {
                 const listingImage = item.listing?.image;
                 const listingPrice = formatPrice(item.listing?.price);
                 return (
-                  <Pressable key={item.id} onPress={() => openConversationThread(item.id)} className="rounded-2xl border border-[#33333315] bg-white px-3 py-3 mb-2">
+                  <Pressable key={item.id} onPress={() => openConversationThread(item.id)} style={{ backgroundColor: '#fff', paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 0.5, borderBottomColor: '#F2F2F2' }}>
                     <View className="flex-row items-center">
                       <View style={{ position: 'relative' }}>
-                        <Image source={{ uri: item.avatar || storeData.avatar }} style={{ width: 46, height: 46, borderRadius: 23 }} />
-                        {item.unreadCount > 0 ? <View style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 1.5, borderColor: '#fff' }} /> : null}
-                      </View>
-                      <View className="flex-1 ml-3 pr-2">
-                        <View className="flex-row items-center justify-between">
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, maxWidth: '72%' }} numberOfLines={1}>{item.title}</Text>
-                          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textMuted }}>{formatTime(item.lastMessageAt)}</Text>
+                        <View style={item.unreadCount > 0 ? { borderWidth: 2.5, borderColor: colors.primary, borderRadius: 30, padding: 2 } : { borderWidth: 2.5, borderColor: 'transparent', borderRadius: 30, padding: 2 }}>
+                          <Image source={{ uri: item.avatar || storeData.avatar }} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: item.unreadCount > 0 ? 2 : 0, borderColor: '#fff' }} />
                         </View>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 4 }} numberOfLines={1}>{lastMessage}</Text>
+                        {item.unreadCount > 0 ? null : null}
+                        <View style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: inboxPresence[item.id] ? '#22C55E' : 'transparent', borderWidth: inboxPresence[item.id] ? 2 : 0, borderColor: '#fff' }} />
                       </View>
-                      <View className="items-end">
-                        {item.unreadCount > 0 ? (
-                          <View style={{ backgroundColor: colors.primary }} className="min-w-[20px] h-5 px-1 rounded-full items-center justify-center">
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{item.unreadCount}</Text>
-                          </View>
-                        ) : null}
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, flex: 1, marginRight: 8 }} numberOfLines={1}>{item.title}</Text>
+                          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: item.unreadCount > 0 ? colors.primary : colors.textMuted }}>{formatTime(item.lastMessageAt)}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ fontFamily: item.unreadCount > 0 ? fonts.medium : fonts.regular, fontSize: 13, color: item.unreadCount > 0 ? colors.textPrimary : colors.textSecondary, flex: 1, marginRight: 8 }} numberOfLines={1}>{lastMessage}</Text>
+                          {item.unreadCount > 0 ? (
+                            <View style={{ backgroundColor: colors.primary, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+                              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{item.unreadCount}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
                     </View>
                     {listingImage || listingPrice ? (
-                      <View className="mt-3 pt-3 border-t border-[#33333310] flex-row items-center justify-between">
-                        <View className="flex-row items-center flex-1">
-                          {listingImage ? <Image source={{ uri: listingImage }} style={{ width: 42, height: 42, borderRadius: 10 }} /> : <View className="w-[42px] h-[42px] rounded-[10px] bg-[#F3F4F6] items-center justify-center"><Ionicons name="image-outline" size={16} color={colors.textMuted} /></View>}
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginLeft: 8, flex: 1 }} numberOfLines={1}>{item.listing?.title || 'İlgili ürün'}</Text>
-                        </View>
-                        {listingPrice ? <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>{listingPrice}</Text> : null}
+                      <View style={{ marginTop: 10, marginLeft: 74, backgroundColor: '#F7F9FF', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', borderWidth: 0.5, borderColor: '#DCE8FF' }}>
+                        {listingImage ? <Image source={{ uri: listingImage }} style={{ width: 32, height: 32, borderRadius: 7 }} /> : <View style={{ width: 32, height: 32, borderRadius: 7, backgroundColor: '#E8EEF8', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={14} color={colors.textMuted} /></View>}
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginLeft: 8, flex: 1 }} numberOfLines={1}>{item.listing?.title || 'İlgili ürün'}</Text>
+                        {listingPrice ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginLeft: 8 }}>{listingPrice}</Text> : null}
                       </View>
                     ) : null}
                   </Pressable>
@@ -1242,16 +2011,13 @@ export default function MessagesScreen() {
             )}
           </ScrollView>
 
-          <NewMessageButton onPress={() => router.push('/(tabs)/store')} />
+          <NewMessageButton onPress={() => setShowNewDmModal(true)} />
         </View>
       ) : null}
  
       {/* Sohbet */}
       {conversation ? (
-        <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}>
-          <ImageBackground source={{ uri: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200&q=60' }} resizeMode="cover" style={{ flex: 1 }}>
-          <View style={{ ...{ position: 'absolute', top: 70, right: -30, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(255,255,255,0.18)' } }} />
-          <View style={{ ...{ position: 'absolute', bottom: 180, left: -45, width: 210, height: 210, borderRadius: 105, backgroundColor: 'rgba(255,255,255,0.14)' } }} />
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.threadBg }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}>
           <FlatList
             ref={messagesListRef}
             className="flex-1 px-4 pt-3"
@@ -1262,26 +2028,37 @@ export default function MessagesScreen() {
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => messagesListRef.current?.scrollToEnd({ animated: false })}
             onLayout={() => messagesListRef.current?.scrollToEnd({ animated: false })}
+            scrollEventThrottle={100}
+            onScroll={(e) => {
+              const y = e.nativeEvent.contentOffset.y;
+              const contentH = e.nativeEvent.contentSize.height;
+              const layoutH = e.nativeEvent.layoutMeasurement.height;
+              setShowScrollFab(contentH - y - layoutH > 200);
+            }}
             ListHeaderComponent={
-              <View className="mb-3">
-                <View className="bg-[#FEF9C3E6] border border-[#FDE68A] rounded-2xl px-3 py-2.5 mb-2">
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#92400E' }}>Bu platform ödeme ve kargo sürecine dahil değildir. Ödeme, teslimat ve kargo detaylarını satıcı ile görüşerek netleştirin.</Text>
+              <View style={{ marginBottom: 12 }}>
+                <View style={{ backgroundColor: '#FFFBEB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="information-circle-outline" size={14} color="#92400E" style={{ marginRight: 6 }} />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#92400E', flex: 1 }}>Ödeme ve kargo sürecine müddahil olunmaz. Detayları satıcı ile görüşün.</Text>
                 </View>
                 {activeProductCard ? (
-                  <View className="bg-[#FFFFFFE8] border border-[#33333315] rounded-2xl px-3 py-3 flex-row items-center">
-                    {activeProductCard.image ? <Image source={{ uri: activeProductCard.image }} style={{ width: 56, height: 56, borderRadius: 12 }} /> : <View className="w-14 h-14 rounded-xl bg-[#F3F4F6] items-center justify-center"><Ionicons name="image-outline" size={18} color={colors.textMuted} /></View>}
-                    <View className="flex-1 ml-3">
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }} numberOfLines={1}>{activeProductCard.title}</Text>
-                      {activeProductCard.priceLabel ? <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.primary, marginTop: 2 }}>{activeProductCard.priceLabel}</Text> : null}
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>Durum: {activeProductCard.status}</Text>
+                  <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}>
+                    {activeProductCard.image ? <Image source={{ uri: activeProductCard.image }} style={{ width: 60, height: 60, borderRadius: 12 }} /> : <View style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: '#F0F4F8', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={20} color={colors.textMuted} /></View>}
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{activeProductCard.title}</Text>
+                      {activeProductCard.priceLabel ? <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.primary, marginTop: 2 }}>{activeProductCard.priceLabel}</Text> : null}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginRight: 5 }} />
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}>{activeProductCard.status}</Text>
+                      </View>
                     </View>
-                    <View style={{ gap: 6 }}>
+                    <View style={{ gap: 6, alignItems: 'flex-end' }}>
                       {activeProductCard.id ? (
-                        <Pressable onPress={() => router.push(`/product/${activeProductCard.id}`)} style={{ backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }} className="h-8 rounded-full border px-3 items-center justify-center">
+                        <Pressable onPress={() => router.push(`/product/${activeProductCard.id}`)} style={{ backgroundColor: '#EFF6FF', borderRadius: 20, paddingHorizontal: 12, height: 30, alignItems: 'center', justifyContent: 'center' }}>
                           <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>İlana Git</Text>
                         </Pressable>
                       ) : null}
-                      <Pressable onPress={() => setShowOfferModal(true)} style={{ backgroundColor: colors.primary }} className="h-8 rounded-full px-3 items-center justify-center">
+                      <Pressable onPress={() => setShowOfferModal(true)} style={{ backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 12, height: 30, alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>💰 Teklif Ver</Text>
                       </Pressable>
                     </View>
@@ -1306,13 +2083,29 @@ export default function MessagesScreen() {
               const statusIcon = mine && item.status === 'sending' ? '🕐' : mine && item.status === 'failed' ? '⚠' : mine ? '✓✓' : null;
               const statusColor = mine && item.status === 'failed' ? '#EF4444' : mine && item.status === 'sent' ? colors.primary : colors.textMuted;
                       const reactions = isRemoteMode ? (remoteReactions[item.id] ?? []) : (localReactions[item.id] ?? item.reactions ?? []);
-                      const visibleText = editedMessageTexts[item.id] ?? item.text;
-                      const isEdited = Boolean(editedMessageTexts[item.id]);
+                      const visibleText = item.text;
+                      const isEdited = Boolean(item.updatedAt && item.updatedAt !== item.createdAt);
  
               return (
                 <View className={`mb-3 ${mine ? 'items-end' : 'items-start'}`}>
                   {item.msgKind === 'offer' && item.offerData ? (
-                    <OfferBubble offer={{ ...item.offerData, status: localOfferStatuses[item.id] ?? item.offerData.status }} isMine={mine} onAccept={() => handleOfferAccept(item.id)} onReject={() => handleOfferReject(item.id)} onCounter={() => handleOfferCounter(item.id)} />
+                    <OfferBubble offer={item.offerData} isMine={mine} onAccept={() => handleOfferAccept(item.id)} onReject={() => handleOfferReject(item.id)} onCounter={() => handleOfferCounter(item.id)} />
+                  ) : item.msgKind === 'order' && item.orderData ? (
+                    <OrderDraftBubble
+                      draft={item.orderData}
+                      isMine={mine}
+                      onEditDraft={() => {
+                        const orderText = item.text;
+                        setCurrentDraft(orderText);
+                        setEditTarget(null);
+                        setReplyTarget(null);
+                        composerInputRef.current?.focus();
+                      }}
+                    />
+                  ) : item.msgKind === 'order_confirm' && item.orderConfirmData ? (
+                    <OrderConfirmBubble data={item.orderConfirmData} />
+                  ) : item.msgKind === 'order_status' && item.orderStatusData ? (
+                    <OrderStatusBubble data={item.orderStatusData} />
                   ) : item.msgKind === 'image' && item.imageUri ? (
                     <Pressable onLongPress={() => openMessageActions(item)} delayLongPress={320}>
                       <Image source={{ uri: item.imageUri }} style={{ width: 200, height: 200, borderRadius: 14, opacity: item.status === 'sending' ? 0.6 : 1 }} />
@@ -1321,7 +2114,7 @@ export default function MessagesScreen() {
                     <Pressable onLongPress={() => openMessageActions(item)} delayLongPress={320}>
                       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
                         {!mine ? <Image source={{ uri: conversation.avatar || storeData.avatar }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 7, marginBottom: 2 }} /> : null}
-                        <View style={{ backgroundColor: mine ? '#2E62E8' : '#FFFFFFE8', borderColor: mine ? '#2E62E8' : colors.borderLight, opacity: item.status === 'sending' ? 0.7 : 1, shadowColor: '#111827', shadowOpacity: mine ? 0.2 : 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 }} className="max-w-[82%] rounded-[18px] px-4 py-2.5 border">
+                        <View style={{ backgroundColor: mine ? '#1E5FC6' : '#FFFFFF', opacity: item.status === 'sending' ? 0.7 : 1, shadowColor: '#111827', shadowOpacity: mine ? 0.18 : 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: mine ? 3 : 2, maxWidth: '82%', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 }}>
                         {item.replyToText ? (
                           <View style={{ borderLeftWidth: 2, borderLeftColor: mine ? '#BFDBFE' : colors.primary, paddingLeft: 8, marginBottom: 6, opacity: 0.9 }}>
                             <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: mine ? '#DBEAFE' : colors.textSecondary }} numberOfLines={2}>{truncateText(item.replyToText, 60)}</Text>
@@ -1366,9 +2159,19 @@ export default function MessagesScreen() {
               onReply={handleReplyToMessage}
               onEdit={handleEditMessage}
               canEdit={activeMessageAction.mine}
+              onCopy={handleCopyMessage}
               onReport={openModerationActions}
               onDismiss={() => setActiveMessageAction(null)}
             />
+          ) : null}
+
+          {showScrollFab ? (
+            <Pressable
+              onPress={() => messagesListRef.current?.scrollToEnd({ animated: true })}
+              style={{ position: 'absolute', bottom: 88, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, borderWidth: 0.5, borderColor: '#E5E7EB' }}
+            >
+              <Ionicons name="chevron-down" size={20} color={colors.primary} />
+            </Pressable>
           ) : null}
  
           {showAttachMenu ? (
@@ -1385,7 +2188,7 @@ export default function MessagesScreen() {
           ) : null}
  
           {/* Composer */}
-          <View className="bg-[#FFFFFFF2] px-3 pt-2 pb-3 border-t border-[#33333315]">
+          <View style={{ backgroundColor: palette.composerBg, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 14, borderTopWidth: 0.5, borderTopColor: palette.border }}>
             {replyTarget ? (
               <View className="mb-2 rounded-xl bg-[#F7F7F7] border border-[#33333315] px-3 py-2 flex-row items-center justify-between">
                 <View className="flex-1 pr-2">
@@ -1408,9 +2211,19 @@ export default function MessagesScreen() {
                 </Pressable>
               </View>
             ) : null}
- 
+
+            {!currentDraft && !replyTarget && !editTarget ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6, gap: 8 }} style={{ marginBottom: 8 }}>
+                {QUICK_REPLIES.map((qr) => (
+                  <Pressable key={qr} onPress={() => handleQuickReply(qr)} style={{ backgroundColor: '#F0F4FF', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 0.5, borderColor: '#C7D7F9', marginRight: 6 }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>{qr}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
+
             <View className="flex-row items-center">
-              <Pressable onPress={handlePickAndSendImage} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center mr-2">
+              <Pressable onPress={handlePickAndSendImage} className="w-10 h-10 rounded-full items-center justify-center mr-2" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Galeriden gorsel gonder">
                 <Ionicons name="camera" size={18} color={colors.primary} />
               </Pressable>
               <TextInput
@@ -1419,36 +2232,167 @@ export default function MessagesScreen() {
                 onChangeText={handleDraftChanged}
                 onFocus={() => messagesListRef.current?.scrollToEnd({ animated: true })}
                 placeholder="Mesaj yaz..."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={palette.textMuted}
                 multiline editable showSoftInputOnFocus autoCorrect autoCapitalize="sentences" blurOnSubmit={false}
-                style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, maxHeight: 96, minHeight: 42 }}
-                className="flex-1 bg-[#F7F7F7] rounded-2xl px-4 py-2.5 border border-[#33333315]"
+                style={{ fontFamily: fonts.regular, fontSize: 14, color: palette.textPrimary, maxHeight: 96, minHeight: 44, flex: 1, backgroundColor: palette.inputBg, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 0.5, borderColor: palette.border }}
+                accessibilityLabel="Mesaj yazma alani"
               />
               {currentDraft ? (
-                <Pressable onPress={handleSend} disabled={!currentDraft || isSending} style={{ backgroundColor: currentDraft && !isSending ? colors.primary : '#AFC7ED' }} className="w-11 h-11 rounded-full items-center justify-center ml-2">
-                  <Ionicons name="send" size={18} color="#fff" />
+                <Pressable onPress={handleSend} disabled={!currentDraft || isSending} style={{ backgroundColor: currentDraft && !isSending ? colors.primary : '#AFC7ED', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }} accessibilityRole="button" accessibilityLabel="Mesaji gonder">
+                  <Ionicons name="send" size={19} color="#fff" />
                 </Pressable>
               ) : (
-                <View className="flex-row items-center ml-2" style={{ gap: 8 }}>
-                  <Pressable className="w-8 h-8 rounded-full items-center justify-center bg-[#F7F7F7] border border-[#33333315]">
-                    <Ionicons name="mic-outline" size={15} color={colors.textSecondary} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8, gap: 6 }}>
+                  <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' }}>
+                    <Ionicons name="mic-outline" size={17} color={colors.primary} />
                   </Pressable>
-                  <Pressable onPress={handlePickAndSendImage} className="w-8 h-8 rounded-full items-center justify-center bg-[#F7F7F7] border border-[#33333315]">
-                    <Ionicons name="image-outline" size={15} color={colors.textSecondary} />
+                  <Pressable onPress={handlePickAndSendImage} style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' }}>
+                    <Ionicons name="image-outline" size={17} color={colors.primary} />
                   </Pressable>
-                  <Pressable onPress={() => setShowOfferModal(true)} className="w-8 h-8 rounded-full items-center justify-center bg-[#F7F7F7] border border-[#33333315]">
-                    <Ionicons name="pricetag-outline" size={15} color={colors.textSecondary} />
+                  <Pressable onPress={() => setShowOfferModal(true)} style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' }}>
+                    <Ionicons name="pricetag-outline" size={17} color={colors.primary} />
                   </Pressable>
                 </View>
               )}
             </View>
           </View>
-          </ImageBackground>
         </KeyboardAvoidingView>
-      ) : (
-        <View className="flex-1" />
-      )}
+      ) : null}
  
+      <Modal visible={showNewDmModal} transparent animationType="slide" onRequestClose={() => setShowNewDmModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' }} pointerEvents="box-none">
+          <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <Pressable style={{ flex: 1 }} onPress={() => setShowNewDmModal(false)} />
+            <Pressable onPress={() => {}} style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '82%', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: colors.textPrimary }}>Yeni Mesaj</Text>
+              <Pressable onPress={() => setShowNewDmModal(false)} className="w-9 h-9 rounded-full bg-[#F7F7F7] items-center justify-center">
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+
+            <View className="mt-3 flex-row items-center bg-[#F7F7F7] rounded-xl px-3 h-11 border border-[#33333315]">
+              <Ionicons name="search" size={18} color={colors.textMuted} />
+              <TextInput
+                value={newDmQuery}
+                onChangeText={setNewDmQuery}
+                placeholder="Kişi veya satıcı ara"
+                placeholderTextColor={colors.textMuted}
+                style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary }}
+                className="ml-2 flex-1"
+                autoFocus
+              />
+              {newDmQuery.trim() ? (
+                <Pressable onPress={() => setNewDmQuery('')} className="w-7 h-7 rounded-full bg-[#E5E7EB] items-center justify-center">
+                  <Ionicons name="close" size={14} color={colors.textSecondary} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {!newDmQuery.trim() && recentDmCandidates.length > 0 ? (
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>Hızlı Başlat</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 8 }}>
+                  {recentDmCandidates.slice(0, 8).map((candidate) => (
+                    <Pressable
+                      key={`quick-${candidate.id}`}
+                      onPress={() => { void handleStartConversation(candidate); }}
+                      disabled={Boolean(startingDmCandidateId)}
+                      style={{ alignItems: 'center', marginRight: 12, opacity: startingDmCandidateId ? 0.7 : 1 }}
+                    >
+                      <View style={{ position: 'relative' }}>
+                        <Image source={{ uri: candidate.avatar || storeData.avatar }} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#F1F5F9' }} />
+                        {/* Online dot */}
+                        <View style={{ position: 'absolute', bottom: 1, right: 1, width: 13, height: 13, borderRadius: 7, backgroundColor: candidatePresence[candidate.id] ? '#22C55E' : '#D1D5DB', borderWidth: 2, borderColor: '#fff' }} />
+                        {(candidate.unreadCount ?? 0) > 0 ? (
+                          <View style={{ position: 'absolute', right: -2, top: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{Math.min(candidate.unreadCount ?? 0, 99)}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textPrimary, marginTop: 6, maxWidth: 64, textAlign: 'center' }} numberOfLines={1}>{candidate.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            <ScrollView className="mt-3" contentContainerStyle={{ paddingBottom: 10 }} keyboardShouldPersistTaps="handled">
+              {filteredDmCandidates.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textMuted} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginTop: 10 }}>Sohbet bulunamadı</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>
+                    Ürünlerden bir satıcıya mesaj atarak yeni konuşma başlatabilirsin.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {!newDmQuery.trim() && recentDmCandidates.length > 0 ? (
+                    <>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>Son Görüştüklerin</Text>
+                      {recentDmCandidates.slice(0, 6).map((candidate) => (
+                        <Pressable
+                          key={`recent-${candidate.id}`}
+                          onPress={() => { void handleStartConversation(candidate); }}
+                          disabled={Boolean(startingDmCandidateId)}
+                          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#EEF2F7', opacity: startingDmCandidateId ? 0.7 : 1 }}
+                        >
+                          <View style={{ position: 'relative' }}>
+                            <View style={(candidate.unreadCount ?? 0) > 0 ? { borderWidth: 2.5, borderColor: colors.primary, borderRadius: 25, padding: 2 } : { borderWidth: 2.5, borderColor: 'transparent', borderRadius: 25, padding: 2 }}>
+                              <Image source={{ uri: candidate.avatar || storeData.avatar }} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#F1F5F9' }} />
+                            </View>
+                            <View style={{ position: 'absolute', bottom: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: candidatePresence[candidate.id] ? '#22C55E' : '#D1D5DB', borderWidth: 2, borderColor: '#fff' }} />
+                          </View>
+                          <View style={{ marginLeft: 10, flex: 1 }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{candidate.name}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                              {candidate.lastMessage ? truncateText(candidate.lastMessage, 38) : (candidatePresence[candidate.id] ? 'Çevrimiçi' : 'Son konuştuğun kişi')}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            {candidate.lastMessageAt ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted }}>{formatTime(candidate.lastMessageAt)}</Text> : null}
+                            {startingDmCandidateId === candidate.id ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
+                          </View>
+                        </Pressable>
+                      ))}
+                    </>
+                  ) : null}
+
+                  {!newDmQuery.trim() ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginTop: 8, marginBottom: 4 }}>Önerilen Kişiler</Text> : null}
+                  {suggestedDmCandidates.map((candidate) => (
+                    <Pressable
+                      key={candidate.id}
+                      onPress={() => { void handleStartConversation(candidate); }}
+                      disabled={Boolean(startingDmCandidateId)}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#EEF2F7', opacity: startingDmCandidateId ? 0.7 : 1 }}
+                    >
+                      <View style={{ position: 'relative' }}>
+                        <View style={(candidate.unreadCount ?? 0) > 0 ? { borderWidth: 2.5, borderColor: colors.primary, borderRadius: 25, padding: 2 } : { borderWidth: 2.5, borderColor: 'transparent', borderRadius: 25, padding: 2 }}>
+                          <Image source={{ uri: candidate.avatar || storeData.avatar }} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#F1F5F9' }} />
+                        </View>
+                        <View style={{ position: 'absolute', bottom: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: candidatePresence[candidate.id] ? '#22C55E' : '#D1D5DB', borderWidth: 2, borderColor: '#fff' }} />
+                      </View>
+                      <View style={{ marginLeft: 10, flex: 1 }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{candidate.name}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                          {candidate.lastMessage ? truncateText(candidate.lastMessage, 38) : (candidatePresence[candidate.id] ? 'Çevrimiçi' : 'Mesajlaşmaya başla')}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        {candidate.lastMessageAt ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted }}>{formatTime(candidate.lastMessageAt)}</Text> : null}
+                        {startingDmCandidateId === candidate.id ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
+                      </View>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+            </ScrollView>
+          </Pressable>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
       <OfferModal visible={showOfferModal} originalPrice={activeProductCard?.price} onClose={() => setShowOfferModal(false)} onSend={handleSendOffer} />
     </SafeAreaView>
   );

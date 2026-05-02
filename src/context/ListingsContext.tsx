@@ -45,6 +45,7 @@ type CreateListingInput = {
   mediaUris?: string[];
   availableSizes?: string[];
   availableColors?: string[];
+  freeShipping?: boolean;
   attributes?: Array<{ label: string; value: string }>;
 };
 
@@ -163,7 +164,7 @@ type ListingsContextValue = {
   updateListing: (id: string, updates: Partial<{ title: string; description: string; price: number; mediaUris: string[]; videoUri: string | null }>) => Promise<void>;
   removeListing: (id: string) => Promise<void>;
   createStore: (store: CreateStoreInput) => Promise<SellerStoreProfile>;
-  updateStoreProfile: (updates: Partial<{ name: string; description: string; city: string; avatar: string; coverImage: string; whatsapp: string; instagramHandle: string; website: string }>) => Promise<void>;
+  updateStoreProfile: (updates: Partial<{ name: string; description: string; city: string; avatar: string; coverImage: string; whatsapp: string; instagramHandle: string; website: string; phone: string; email: string; deliveryInfo: string }>) => Promise<void>;
   shareHomeStory: (story: CreateStoryInput) => { post: StorePost; product: Product };
   addStoryToHighlights: (postId: string) => void;
   updateHighlightTitle: (highlightId: string, nextTitle: string) => void;
@@ -859,9 +860,49 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     () => (backendProducts.length > 0 ? backendProducts : [...initialStoreProducts, ...initialSellerProducts, ...products]),
     [backendProducts],
   );
+
+  // Ana sayfada her satıcıdan max 2 ürün çıkacak şekilde round-robin karıştırma
+  const diversifyFeed = useCallback((items: Product[]): Product[] => {
+    const MAX_PER_SELLER = 2;
+    const buckets = new Map<string, Product[]>();
+    const noSellerId: Product[] = [];
+
+    for (const item of items) {
+      const key = item.sellerId ?? item.storeId ?? null;
+      if (!key) {
+        noSellerId.push(item);
+        continue;
+      }
+      if (!buckets.has(key)) buckets.set(key, []);
+      const bucket = buckets.get(key)!;
+      if (bucket.length < MAX_PER_SELLER) bucket.push(item);
+    }
+
+    // Round-robin: sırayla her satıcıdan 1'er ürün al
+    const sellerQueues = Array.from(buckets.values());
+    const result: Product[] = [];
+    let round = 0;
+    let added = true;
+    while (added) {
+      added = false;
+      for (const queue of sellerQueues) {
+        if (round < queue.length) {
+          result.push(queue[round]);
+          added = true;
+        }
+      }
+      round++;
+    }
+
+    return [...result, ...noSellerId];
+  }, []);
+
   const homeProducts = useMemo(
-    () => [...publishedListings, ...storyLinkedProducts, ...baseMarketplaceProducts],
-    [baseMarketplaceProducts, publishedListings, storyLinkedProducts],
+    () => {
+      const combined = [...publishedListings, ...storyLinkedProducts, ...baseMarketplaceProducts];
+      return diversifyFeed(combined);
+    },
+    [baseMarketplaceProducts, publishedListings, storyLinkedProducts, diversifyFeed],
   );
   const allProducts = useMemo(
     () => [...publishedListings, ...storyLinkedProducts, ...baseMarketplaceProducts],
@@ -960,7 +1001,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       image: listing.imageUri?.trim() || resolveListingImage(listing.categoryId),
       mediaUris,
       badge: 'Yeni İlan',
-      freeShipping: listing.delivery.includes('Kargo'),
+      freeShipping: Boolean(listing.freeShipping),
       category: resolveMarketplaceCategory(listing.categoryId),
       condition: listing.condition,
       location: listing.location,
@@ -1114,7 +1155,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     return localProfile;
   }
 
-  async function updateStoreProfile(updates: Partial<{ name: string; description: string; city: string; avatar: string; coverImage: string; whatsapp: string; instagramHandle: string; website: string }>) {
+  async function updateStoreProfile(updates: Partial<{ name: string; description: string; city: string; avatar: string; coverImage: string; whatsapp: string; instagramHandle: string; website: string; phone: string; email: string; deliveryInfo: string }>) {
     if (!sellerStore) return;
 
     const updatedProfile: SellerStoreProfile = {
@@ -1127,6 +1168,9 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       whatsapp: updates.whatsapp ?? sellerStore.whatsapp,
       instagramHandle: updates.instagramHandle ?? sellerStore.instagramHandle,
       website: updates.website ?? sellerStore.website,
+      phone: updates.phone ?? sellerStore.phone,
+      email: updates.email ?? sellerStore.email,
+      deliveryInfo: updates.deliveryInfo ?? sellerStore.deliveryInfo,
     };
 
     setSellerStore(updatedProfile);
@@ -1143,6 +1187,9 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
           whatsapp: updates.whatsapp,
           instagramHandle: updates.instagramHandle,
           website: updates.website,
+          phone: updates.phone,
+          email: updates.email,
+          deliveryInfo: updates.deliveryInfo,
         });
 
         setSellerStore((current) => current ? {
@@ -1156,6 +1203,9 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
           whatsapp: remote.whatsapp || '',
           instagramHandle: remote.instagram_handle || '',
           website: remote.website || '',
+          phone: remote.phone || '',
+          email: remote.email || '',
+          deliveryInfo: remote.delivery_info || '',
           verified: Boolean(remote.is_verified),
         } : current);
       } catch (error) {

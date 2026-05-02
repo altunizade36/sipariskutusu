@@ -92,8 +92,37 @@ export async function fetchDiscoverStores(limit = 24): Promise<DiscoverStore[]> 
   }));
 }
 
+export async function fetchStoreBySellerIdOrKey(sellerIdOrKey: string): Promise<DiscoverStore | null> {
+  if (!isSupabaseConfigured || !sellerIdOrKey) return null;
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('stores')
+    .select('id,name,username,avatar_url,cover_url,city,category_id,follower_count,rating,description,is_verified,seller_id')
+    .or(`seller_id.eq.${sellerIdOrKey},id.eq.${sellerIdOrKey}`)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    username: data.username ? `@${String(data.username).replace(/^@+/, '')}` : '@magaza',
+    avatar: data.avatar_url || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&q=80',
+    coverImage: data.cover_url || 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80',
+    city: data.city || 'Türkiye',
+    category: data.category_id || 'Genel',
+    followers: formatFollowers(Number(data.follower_count ?? 0)),
+    rating: Number(data.rating ?? 0),
+    headline: data.description || 'Güncel vitrinimizi incele ve yeni ürünleri keşfet.',
+    tags: [data.category_id || 'Genel', 'Pazaryeri'],
+    weeklyDrop: '3 yeni ürün',
+    featured: Boolean(data.is_verified) || Number(data.follower_count ?? 0) > 1000,
+  };
+}
+
 export async function fetchMyStore(): Promise<SellerStoreRow | null> {
-  if (!isSupabaseConfigured) return null;
   const supabase = getSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;

@@ -76,6 +76,11 @@ export function mapListingToProduct(listing: Listing): Product {
     'Sipariş Kutusu';
 
   const favoriteCount = listing.like_count ?? listing.favorite_count ?? 0;
+  const normalizedDescription = (listing.description ?? '').toLocaleLowerCase('tr-TR');
+  const hasFreeShippingTag =
+    normalizedDescription.includes('#ucretsizkargo') ||
+    normalizedDescription.includes('ucretsiz kargo') ||
+    normalizedDescription.includes('ücretsiz kargo');
 
   return {
     id: listing.id,
@@ -102,7 +107,7 @@ export function mapListingToProduct(listing: Listing): Product {
     mediaUris: orderedMedia.length > 0 ? orderedMedia : [coverImage],
     videoUri,
     badge: listing.status === 'active' ? 'Yeni İlan' : undefined,
-    freeShipping: listing.delivery === 'shipping' || listing.delivery === 'both',
+    freeShipping: hasFreeShippingTag,
     category: resolveMarketplaceCategory(listing.category_id ?? 'women'),
     condition: listing.condition,
     location: listing.city ?? undefined,

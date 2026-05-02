@@ -111,3 +111,42 @@ export async function unfollowStore(storeId: string) {
 
   await supabase.rpc('decrement_store_followers', { store_id: storeId });
 }
+
+export interface FollowedStoreInfo {
+  id: string;
+  name: string;
+  username: string | null;
+  avatar_url: string | null;
+  city: string | null;
+  follower_count: number;
+  is_verified: boolean;
+  listing_count: number;
+}
+
+export async function fetchMyFollowedStores(): Promise<FollowedStoreInfo[]> {
+  const supabase = getSupabaseClient();
+  const userId = await getUserId();
+
+  const { data, error } = await supabase
+    .from('store_follows')
+    .select(`store_id, stores!inner(id, name, username, avatar_url, city, follower_count, is_verified, listing_count)`)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => {
+    const s = row.stores;
+    return {
+      id: s.id,
+      name: s.name ?? '',
+      username: s.username ?? null,
+      avatar_url: s.avatar_url ?? null,
+      city: s.city ?? null,
+      follower_count: Number(s.follower_count ?? 0),
+      is_verified: Boolean(s.is_verified),
+      listing_count: Number(s.listing_count ?? 0),
+    };
+  });
+}

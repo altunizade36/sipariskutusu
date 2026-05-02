@@ -1,10 +1,11 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
+import BoxMascot from '../src/components/BoxMascot';
 import {
   fetchMyNotifications,
   markAllNotificationsRead,
@@ -104,6 +105,7 @@ export default function NotificationsScreen() {
 
   const handleMarkAllRead = useCallback(async () => {
     if (unreadCount === 0) {
+      Alert.alert('Bilgi', 'Okunmamis bildirimin bulunmuyor.');
       return;
     }
 
@@ -124,9 +126,13 @@ export default function NotificationsScreen() {
         <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary }} className="flex-1 ml-2">
           Bildirimler
         </Text>
+        {unreadCount > 0 ? (
+          <View style={{ backgroundColor: colors.primary, borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginRight: 8 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{Math.min(unreadCount, 99)}</Text>
+          </View>
+        ) : null}
         <Pressable
           onPress={handleMarkAllRead}
-          disabled={unreadCount === 0}
           className="px-2 py-1 rounded-md"
           style={{ opacity: unreadCount === 0 ? 0.45 : 1 }}
         >
@@ -139,15 +145,21 @@ export default function NotificationsScreen() {
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 12, gap: 10 }}>
         {loading ? (
           <View className="items-center justify-center mt-10">
-            <ActivityIndicator color={colors.primary} />
+            <BoxMascot variant="loading" size={90} animated />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 8 }}>
               Bildirimler yükleniyor...
             </Text>
           </View>
         ) : items.length === 0 ? (
-          <View className="rounded-2xl border border-dashed border-[#D1D5DB] bg-white px-4 py-6 items-center">
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
-              Henüz bildirimin yok.
+          <View className="rounded-2xl border border-dashed border-[#D1D5DB] bg-white px-4 py-10 items-center">
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="notifications-off-outline" size={26} color={colors.primary} />
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
+              Bildirim Yok
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>
+              Henüz bir bildirim almadın.
             </Text>
           </View>
         ) : (
@@ -156,6 +168,7 @@ export default function NotificationsScreen() {
               key={item.id}
               onPress={() => handleOpenNotification(item)}
               className="rounded-xl border border-[#33333315] bg-white p-3 active:opacity-75"
+              style={!item.isRead ? { borderLeftWidth: 3, borderLeftColor: colors.primary } : undefined}
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center flex-1 pr-2">

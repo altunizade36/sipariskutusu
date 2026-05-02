@@ -1,9 +1,13 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
+import BoxMascot from './BoxMascot';
+
+type MascotVariant = 'welcome' | 'loading' | 'order' | 'success';
 
 interface EmptyStateProps {
-  icon: string;
+  icon?: string;
+  mascot?: MascotVariant;
   title: string;
   description: string;
   action?: {
@@ -12,38 +16,55 @@ interface EmptyStateProps {
   };
 }
 
-export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon, mascot, title, description, action }: EmptyStateProps) {
   return (
-    <View className="flex-1 items-center justify-center p-6">
-      <View className="items-center mb-6">
-        <View
-          className="w-16 h-16 rounded-full items-center justify-center mb-4"
-          style={{ backgroundColor: '#F3F4F6' }}
-        >
-          <Ionicons name={icon as any} size={32} color={colors.textSecondary} />
-        </View>
-
-        <Text
-          style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, textAlign: 'center' }}
-          className="mb-2"
-        >
-          {title}
-        </Text>
-
-        <Text
-          style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}
-          className="max-w-xs"
-        >
-          {description}
-        </Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      {/* Visual */}
+      <View style={{ marginBottom: 20, alignItems: 'center' }}>
+        {mascot ? (
+          <BoxMascot variant={mascot} size={96} animated />
+        ) : icon ? (
+          <View
+            style={{
+              width: 72, height: 72, borderRadius: 36,
+              backgroundColor: '#EFF6FF',
+              borderWidth: 1, borderColor: '#DBEAFE',
+              alignItems: 'center', justifyContent: 'center',
+              marginBottom: 4,
+            }}
+          >
+            <Ionicons name={icon as any} size={34} color={colors.primary} />
+          </View>
+        ) : null}
       </View>
+
+      {/* Text */}
+      <Text
+        style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginBottom: 8 }}
+      >
+        {title}
+      </Text>
+
+      <Text
+        style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, maxWidth: 280 }}
+      >
+        {description}
+      </Text>
 
       {action && (
         <Pressable
           onPress={action.onPress}
-          className="rounded-lg bg-blue-50 px-6 py-3 border border-blue-200"
+          style={{
+            marginTop: 20,
+            height: 44,
+            paddingHorizontal: 28,
+            borderRadius: 12,
+            backgroundColor: colors.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary, textAlign: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>
             {action.label}
           </Text>
         </Pressable>

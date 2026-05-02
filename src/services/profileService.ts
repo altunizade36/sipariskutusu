@@ -15,6 +15,8 @@ export interface Profile {
   phone?: string | null;
   city?: string | null;
   bio?: string | null;
+  gender?: string | null;
+  birth_date?: string | null;
   role?: UserRole | null;
   is_seller: boolean;
   is_verified: boolean;
@@ -134,6 +136,9 @@ export interface UpdateProfileInput {
   phone?: string;
   city?: string;
   bio?: string;
+  gender?: string;
+  birth_date?: string;
+  avatar_url?: string;
 }
 
 export async function updateProfile(updates: UpdateProfileInput): Promise<void> {
@@ -147,6 +152,27 @@ export async function updateProfile(updates: UpdateProfileInput): Promise<void> 
     .eq('id', user.id);
 
   if (error) throw error;
+}
+
+export async function updateProfileEmail(nextEmail: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const normalizedEmail = nextEmail.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error('E-posta boş bırakılamaz.');
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+    email: normalizedEmail,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data.user) {
+    throw new Error('E-posta güncellenemedi.');
+  }
 }
 
 export async function uploadAvatar(uri: string): Promise<string> {
@@ -173,8 +199,7 @@ export async function uploadAvatar(uri: string): Promise<string> {
   const { data } = supabase.storage.from('profile-images').getPublicUrl(path);
   const avatarUrl = data.publicUrl;
 
-  await updateProfile({ ...{}, ...{} });
-  await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
+  await updateProfile({ avatar_url: avatarUrl });
 
   return avatarUrl;
 }

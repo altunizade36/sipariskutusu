@@ -15,9 +15,9 @@ const CARD_WIDTH = (SCREEN_WIDTH - 32 - 10) / 2;
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<'sort' | 'refine' | 'price' | 'rating' | null>(null);
-  const [onlyFreeShipping, setOnlyFreeShipping] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'sort' | 'price' | 'rating' | 'shipping' | null>(null);
   const [sortBy, setSortBy] = useState<'default' | 'priceAsc' | 'priceDesc' | 'rating'>('default');
+  const [onlyFreeShipping, setOnlyFreeShipping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const category = getMarketplaceCategory(slug ?? MARKETPLACE_CATEGORIES[0].id);
@@ -34,34 +34,35 @@ export default function CategoryScreen() {
     }, [refresh]);
 
   const visibleItems = useMemo(() => {
-    const source = products.filter((item) => item.category === category.id);
-    const filtered = onlyFreeShipping ? source.filter((item) => Boolean(item.freeShipping)) : source;
+    const source = products
+      .filter((item) => item.category === category.id)
+      .filter((item) => (onlyFreeShipping ? Boolean(item.freeShipping) : true));
 
     if (sortBy === 'priceAsc') {
-      return [...filtered].sort((a, b) => a.price - b.price);
+      return [...source].sort((a, b) => a.price - b.price);
     }
 
     if (sortBy === 'priceDesc') {
-      return [...filtered].sort((a, b) => b.price - a.price);
+      return [...source].sort((a, b) => b.price - a.price);
     }
 
     if (sortBy === 'rating') {
-      return [...filtered].sort((a, b) => b.rating - a.rating);
+      return [...source].sort((a, b) => b.rating - a.rating);
     }
 
-    return filtered;
+    return source;
   }, [products, category.id, onlyFreeShipping, sortBy]);
 
-  function handleFilterAction(action: 'sort' | 'refine' | 'price' | 'rating') {
+  function handleFilterAction(action: 'sort' | 'price' | 'rating' | 'shipping') {
     setActiveFilter(action);
 
-    if (action === 'sort') {
-      setSortBy((current) => (current === 'priceAsc' ? 'priceDesc' : 'priceAsc'));
+    if (action === 'shipping') {
+      setOnlyFreeShipping((current) => !current);
       return;
     }
 
-    if (action === 'refine') {
-      setOnlyFreeShipping((current) => !current);
+    if (action === 'sort') {
+      setSortBy((current) => (current === 'priceAsc' ? 'priceDesc' : 'priceAsc'));
       return;
     }
 
@@ -107,11 +108,11 @@ export default function CategoryScreen() {
         >
           {[
             { icon: 'swap-vertical' as const, label: 'Sırala', key: 'sort' as const },
-            { icon: 'options-outline' as const, label: 'Bedava Kargo', key: 'refine' as const },
             { icon: 'pricetag-outline' as const, label: 'Fiyata Göre', key: 'price' as const },
             { icon: 'star-outline' as const, label: 'Puana Göre', key: 'rating' as const },
+            { icon: 'car-outline' as const, label: 'Ücretsiz Kargo', key: 'shipping' as const },
           ].map((f) => {
-            const selected = f.key === 'refine' ? onlyFreeShipping : activeFilter === f.key;
+            const selected = f.key === 'shipping' ? onlyFreeShipping : activeFilter === f.key;
             return (
               <Pressable
                 key={f.label}
@@ -156,13 +157,13 @@ export default function CategoryScreen() {
               Eşleşen ürün yok
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
-              Seçili filtrelere uygun ürün bulunamadı.{onlyFreeShipping ? '\nBedava kargo filtresini kaldırarak daha fazla seçenek görebilirsin.' : ''}
+              Seçili filtrelere uygun ürün bulunamadı.
             </Text>
             <Pressable 
               onPress={() => {
                 setSortBy('default');
-                setOnlyFreeShipping(false);
                 setActiveFilter(null);
+                setOnlyFreeShipping(false);
               }}
               className="mt-4 px-4 py-2 rounded-full" 
               style={{ backgroundColor: colors.primary }}

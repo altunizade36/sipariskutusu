@@ -5,16 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../src/constants/theme';
+import { CategoryPicker } from '../src/components/CategoryPicker';
+import { MARKETPLACE_CATEGORIES, OTHER_SUBCATEGORY_ID } from '../src/constants/marketplaceCategories';
 import { useListings } from '../src/context/ListingsContext';
 import { useAuth } from '../src/context/AuthContext';
-
-const CATEGORY_OPTIONS = [
-  { id: 'women', label: 'Moda' },
-  { id: 'electronics', label: 'Elektronik' },
-  { id: 'home', label: 'Ev & Yaşam' },
-  { id: 'shoes-bags', label: 'Ayakkabı' },
-  { id: 'cosmetics', label: 'Kozmetik' },
-] as const;
 
 const ONBOARDING_STAGES = [
   { id: 'identity', title: 'Kimlik', subtitle: 'Mağaza adı, görseller ve kategori' },
@@ -83,7 +77,9 @@ export default function StoreSetupScreen() {
   const [instagramHandle, setInstagramHandle] = useState('');
   const [instagramError, setInstagramError] = useState('');
   const [deliveryInfo, setDeliveryInfo] = useState('Aynı gün kargo');
-  const [categoryId, setCategoryId] = useState<string>('women');
+  const [categoryId, setCategoryId] = useState<string>(MARKETPLACE_CATEGORIES[0]?.id ?? 'women');
+  const [subCategoryId, setSubCategoryId] = useState<string>('all');
+  const [customSubCategory, setCustomSubCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState('');
   const [profileImage, setProfileImage] = useState('');
@@ -149,14 +145,21 @@ export default function StoreSetupScreen() {
     setTimeout(() => setInfo(''), 2000);
   }
 
-  const identityComplete = Boolean(name.trim() && username.trim() && city.trim() && description.trim() && categoryId);
+  const identityComplete = Boolean(
+    name.trim() &&
+    username.trim() &&
+    city.trim() &&
+    description.trim() &&
+    categoryId &&
+    (subCategoryId !== OTHER_SUBCATEGORY_ID || customSubCategory.trim()),
+  );
   const contactComplete = Boolean(email.trim() && phone.trim() && (whatsapp.trim() || instagramHandle.trim() || website.trim()));
   const complianceComplete = acceptedTermsOfService && acceptedPrivacyPolicy && acceptedKVKK && acceptedPlatformLiability;
 
   function goToNextStage() {
     if (setupStage === 'identity') {
       if (!identityComplete) {
-        showInfo('Kimlik adımı için mağaza adı, açıklama, şehir ve kategori gerekli.');
+        showInfo('Kimlik adımı için mağaza adı, açıklama, şehir, kategori ve gerekliyse özel alt kategori gerekli.');
         return;
       }
       setSetupStage('contact');
@@ -263,6 +266,8 @@ export default function StoreSetupScreen() {
     setProfileImage(template.avatar);
     setCoverImage(template.coverImage);
     setCategoryId(template.data.categoryId);
+    setSubCategoryId('all');
+    setCustomSubCategory('');
     setCity(template.data.city);
     setDeliveryInfo(template.data.deliveryInfo);
     setShowTemplates(false);
@@ -469,25 +474,24 @@ export default function StoreSetupScreen() {
 
         <View className="rounded-xl border border-[#33333315] bg-white p-3">
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>Kategori</Text>
-          <View className="mt-2 flex-row flex-wrap" style={{ gap: 8 }}>
-            {CATEGORY_OPTIONS.map((item) => {
-              const active = categoryId === item.id;
-              return (
-                <Pressable
-                  key={item.id}
-                  onPress={() => setCategoryId(item.id)}
-                  style={{
-                    backgroundColor: active ? '#EFF6FF' : '#F7F7F7',
-                    borderColor: active ? '#BFDBFE' : colors.borderLight,
-                  }}
-                  className="rounded-full border px-3 py-2"
-                >
-                  <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 12, color: active ? colors.primary : colors.textPrimary }}>
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View className="mt-2">
+            <CategoryPicker
+              selectedCategoryId={categoryId}
+              selectedSubCategoryId={subCategoryId}
+              customSubCategory={customSubCategory}
+              onChangeCategory={(nextCategoryId) => {
+                setCategoryId(nextCategoryId);
+                setSubCategoryId('all');
+                setCustomSubCategory('');
+              }}
+              onChangeSubCategory={(nextSubCategoryId) => {
+                setSubCategoryId(nextSubCategoryId);
+                if (nextSubCategoryId !== OTHER_SUBCATEGORY_ID) {
+                  setCustomSubCategory('');
+                }
+              }}
+              onChangeCustomSubCategory={setCustomSubCategory}
+            />
           </View>
         </View>
 
@@ -607,38 +611,60 @@ export default function StoreSetupScreen() {
             {
               value: acceptedTermsOfService,
               setValue: setAcceptedTermsOfService,
-              label: 'Satış Sözleşmesini Kabul Ediyorum',
+              label: 'Satış Sözleşmesini kabul ediyorum',
+              linkLabel: 'Satış Sözleşmesi',
+              doc: 'terms-of-use' as const,
             },
             {
               value: acceptedPrivacyPolicy,
               setValue: setAcceptedPrivacyPolicy,
-              label: 'Gizlilik Politikasını Kabul Ediyorum',
+              label: 'Gizlilik Politikasını kabul ediyorum',
+              linkLabel: 'Gizlilik Politikası',
+              doc: 'privacy-kvkk' as const,
             },
             {
               value: acceptedKVKK,
               setValue: setAcceptedKVKK,
-              label: 'KVKK (Kişisel Verileri Koruma) Onayı',
+              label: 'KVKK onayını kabul ediyorum',
+              linkLabel: 'KVKK (Kişisel Verileri Koruma)',
+              doc: 'privacy-kvkk' as const,
             },
             {
               value: acceptedPlatformLiability,
               setValue: setAcceptedPlatformLiability,
-              label: 'Alıcı-Satıcı Arası İşlemlerden Platform Sorumlu Değildir',
+              label: 'Platform sorumluluk reddi beyanını kabul ediyorum',
+              linkLabel: 'Sorumluluk Reddi Beyanı',
+              doc: 'platform-liability' as const,
             },
           ].map((item, index) => (
-            <Pressable
-              key={item.label}
-              onPress={() => item.setValue(!item.value)}
-              className={`flex-row items-center gap-3 ${index < 3 ? 'mb-4' : ''}`}
-            >
-              <View
-                className={`w-6 h-6 rounded border-2 items-center justify-center ${item.value ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'}`}
+            <View key={item.label} style={{ marginBottom: index < 3 ? 14 : 0 }}>
+              <Pressable
+                onPress={() => item.setValue(!item.value)}
+                style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}
               >
-                {item.value ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
-              </View>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, flex: 1 }}>
-                {item.label}
-              </Text>
-            </Pressable>
+                <View
+                  style={{ marginTop: 2 }}
+                  className={`w-6 h-6 rounded border-2 items-center justify-center ${item.value ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'}`}
+                >
+                  {item.value ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary }}>
+                    {item.label}
+                  </Text>
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: item.doc } })}
+                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 3 }}
+                    hitSlop={8}
+                  >
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
+                      {item.linkLabel}
+                    </Text>
+                    <Ionicons name="open-outline" size={12} color={colors.primary} />
+                  </Pressable>
+                </View>
+              </Pressable>
+            </View>
           ))}
 
           <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 12 }}>

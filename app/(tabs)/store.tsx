@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ import {
   discoverSellers,
   storeData,
 } from '../../src/data/storeData';
+import { fetchStoreBySellerIdOrKey } from '../../src/services/storeService';
 import { FavoriteButton } from '../../src/components/FavoriteButton';
 import { ProfileButton } from '../../src/components/ProfileButton';
 import { RatingSummary } from '../../src/components/RatingSummary';
@@ -30,6 +32,9 @@ import { hasVideoMedia, resolveMediaCover } from '../../src/utils/media';
 import { buildMessagesInboxRoute, buildSellerMessagesRoute } from '../../src/utils/messageRouting';
 import { toggleFavorite, isFavorited } from '../../src/services/favoriteService';
 import { addListingComment, fetchListingComments } from '../../src/services/listingCommentService';
+import BoxMascot from '../../src/components/BoxMascot';
+import { trackEvent } from '../../src/services/monitoring';
+import { TELEMETRY_EVENTS } from '../../src/constants/telemetryEvents';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM = (width - 4) / 3;
@@ -64,7 +69,8 @@ export default function StoreScreen() {
   const [reelLoading, setReelLoading] = useState(false);
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(null);
   const [highlightTitleDraft, setHighlightTitleDraft] = useState('');
-  const { user } = useAuth();
+  const [liveStoreData, setLiveStoreData] = useState<import('../../src/services/storeService').DiscoverStore | null>(null);
+  const { user, isDarkMode } = useAuth();
   const {
     hasStore,
     sellerStore,
@@ -92,6 +98,30 @@ export default function StoreScreen() {
     () => discoverSellers.find((seller) => seller.id === storeKey || seller.name === name),
     [name, storeKey],
   );
+
+  // Load real store data when viewing another store via sellerId or storeKey
+  useEffect(() => {
+    if (!viewingOtherStore) return;
+    const lookupKey = (sellerId || storeKey || '').trim();
+    if (!lookupKey) return;
+    let cancelled = false;
+    fetchStoreBySellerIdOrKey(lookupKey)
+      .then((data) => { if (!cancelled && data) setLiveStoreData(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [viewingOtherStore, sellerId, storeKey]);
+
+  useEffect(() => {
+    if (!viewingOtherStore) return;
+    const lookupKey = (sellerId || storeKey || '').trim();
+    if (!lookupKey) return;
+    trackEvent(TELEMETRY_EVENTS.STORE_VIEWED, {
+      seller_id: lookupKey,
+      store_name: typeof name === 'string' ? name : null,
+      source: 'store_tab',
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sellerId, storeKey]);
 
   const otherStoreProducts = useMemo(
     () =>
@@ -133,18 +163,21 @@ export default function StoreScreen() {
     [otherStorePosts],
   );
 
+  // Prefer live Supabase data, fallback to static discover sellers, then defaults
+  const resolvedOtherStore = liveStoreData ?? selectedDiscoverSeller ?? null;
+
   const currentStore = viewingOtherStore
     ? {
         ...storeData,
-        id: selectedDiscoverSeller?.id || sellerId || (name ? `store-${name}` : storeData.id),
-        name: selectedDiscoverSeller?.name || name || 'Mağaza',
-        username: selectedDiscoverSeller?.username || `@${(name || 'magaza').replace(/\s+/g, '').toLowerCase()}`,
-        avatar: selectedDiscoverSeller?.avatar || (otherStoreProducts[0] ? resolveMediaCover(otherStoreProducts[0]) : undefined) || storeData.avatar,
-        coverImage: selectedDiscoverSeller?.coverImage || (otherStoreProducts[0] ? resolveMediaCover(otherStoreProducts[0]) : undefined) || storeData.coverImage,
-        city: selectedDiscoverSeller?.city || storeData.city,
-        followers: selectedDiscoverSeller?.followers || `${Math.max(1, otherStoreProducts.length * 3)}B`,
-        rating: selectedDiscoverSeller?.rating || 4.7,
-        description: selectedDiscoverSeller?.headline || `${name || 'Bu mağaza'} vitrini ayrı ve bağımsız olarak yönetiliyor.`,
+        id: resolvedOtherStore?.id || sellerId || (name ? `store-${name}` : storeData.id),
+        name: resolvedOtherStore?.name || name || 'Mağaza',
+        username: resolvedOtherStore?.username || `@${(name || 'magaza').replace(/\s+/g, '').toLowerCase()}`,
+        avatar: resolvedOtherStore?.avatar || (otherStoreProducts[0] ? resolveMediaCover(otherStoreProducts[0]) : undefined) || storeData.avatar,
+        coverImage: resolvedOtherStore?.coverImage || (otherStoreProducts[0] ? resolveMediaCover(otherStoreProducts[0]) : undefined) || storeData.coverImage,
+        city: resolvedOtherStore?.city || storeData.city,
+        followers: resolvedOtherStore?.followers || `${Math.max(1, otherStoreProducts.length * 3)}`,
+        rating: resolvedOtherStore?.rating || 4.7,
+        description: resolvedOtherStore?.headline || `${name || 'Bu mağaza'} vitrini ayrı ve bağımsız olarak yönetiliyor.`,
         productCount: otherStoreProducts.length,
       }
     : (sellerStore ?? storeData);
@@ -159,6 +192,29 @@ export default function StoreScreen() {
     : storeFollowersCount;
   const ownFollowingCount = Object.values(followedSellers).filter(Boolean).length;
   const activeFollowingCount = viewingOtherStore ? Math.max(12, Math.round(activeFollowersCount * 0.08)) : Math.max(storeFollowingCount, ownFollowingCount);
+  const palette = useMemo(() => ({
+    screenBg: isDarkMode ? '#0F172A' : colors.background,
+    surfaceBg: isDarkMode ? '#111827' : '#FFFFFF',
+    softBg: isDarkMode ? '#1F2937' : '#EFF6FF',
+    border: isDarkMode ? '#334155' : colors.borderLight,
+    chipBg: isDarkMode ? '#1E293B' : '#F7F7F7',
+    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
+    textMuted: isDarkMode ? '#94A3B8' : colors.textMuted,
+  }), [isDarkMode]);
+  const storeAnalytics = useMemo(() => {
+    const productViews = Math.max(activeStoreProducts.length * 145, activeFollowersCount * 3);
+    const productClicks = Math.max(activeStoreProducts.length * 28, Math.round(productViews * 0.18));
+    const contactClicks = Math.max(storeMessageCount, Math.round(activeFollowersCount * 0.02));
+    const ctr = productViews > 0 ? (productClicks / productViews) * 100 : 0;
+
+    return {
+      productViews,
+      productClicks,
+      contactClicks,
+      ctr,
+    };
+  }, [activeFollowersCount, activeStoreProducts.length, storeMessageCount]);
   const displayHighlights = useMemo(
     () => [...activeStoreHighlights].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [activeStoreHighlights],
@@ -276,9 +332,9 @@ export default function StoreScreen() {
 
   if (!hasStore && !viewingOtherStore) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: palette.screenBg }}>
         <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-          <Text style={{ fontSize: 18, fontFamily: fonts.bold, color: colors.textPrimary }}>
+          <Text style={{ fontSize: 18, fontFamily: fonts.bold, color: palette.textPrimary }}>
             Mağaza
           </Text>
         </View>
@@ -289,23 +345,25 @@ export default function StoreScreen() {
               style={{
                 height: 44,
                 borderRadius: 12,
-                backgroundColor: '#EFF6FF',
+                backgroundColor: palette.softBg,
                 borderWidth: 1,
-                borderColor: '#DBEAFE',
+                borderColor: palette.border,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Giris yap veya kayit ol"
             >
               <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.primary }}>Giriş Yap / Kayıt Ol</Text>
             </Pressable>
           </View>
         ) : null}
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: colors.borderLight }}>
-            <Text style={{ fontSize: 22, fontFamily: fonts.headingBold, color: colors.textPrimary }}>
+          <View style={{ backgroundColor: palette.surfaceBg, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: palette.border }}>
+            <Text style={{ fontSize: 22, fontFamily: fonts.headingBold, color: palette.textPrimary }}>
               Henüz mağazan yok
             </Text>
-            <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary, lineHeight: 20, marginTop: 8 }}>
+            <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: palette.textSecondary, lineHeight: 20, marginTop: 8 }}>
               Satıcılar önce mağaza açar, ardından hikaye paylaşır. Bu ekran mağazan hazır olduğunda vitrinini ve hikayelerini gösterecek.
             </Text>
             <View style={{ marginTop: 18, gap: 10 }}>
@@ -321,6 +379,8 @@ export default function StoreScreen() {
             <Pressable
               style={{ height: 46, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 20 }}
               onPress={() => router.push(user ? '/store-setup' : '/auth')}
+              accessibilityRole="button"
+              accessibilityLabel={user ? 'Magaza ac' : 'Giris yapip magaza ac'}
             >
               <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: '#FFFFFF' }}>{user ? 'Mağaza Aç' : 'Giriş Yap ve Mağaza Aç'}</Text>
             </Pressable>
@@ -331,17 +391,17 @@ export default function StoreScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.screenBg }}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
-          <Text style={{ fontSize: 18, fontFamily: fonts.bold, color: colors.textPrimary }}>
+          <Text style={{ fontSize: 18, fontFamily: fonts.bold, color: palette.textPrimary }}>
             Mağaza
           </Text>
           {user ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Pressable onPress={() => router.push('/share-story')}>
-                <Ionicons name="share-outline" size={22} color={colors.textPrimary} />
+              <Pressable onPress={() => router.push('/share-story')} accessibilityRole="button" accessibilityLabel="Hikaye paylas">
+                <Ionicons name="share-outline" size={22} color={palette.textPrimary} />
               </Pressable>
               <FavoriteButton />
               <ProfileButton />
@@ -353,10 +413,12 @@ export default function StoreScreen() {
                 height: 34,
                 borderRadius: 10,
                 paddingHorizontal: 12,
-                backgroundColor: '#EFF6FF',
+                backgroundColor: palette.softBg,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Giris veya kayit"
             >
               <Text style={{ fontSize: 11, fontFamily: fonts.bold, color: colors.primary }}>Giriş / Kayıt</Text>
             </Pressable>
@@ -417,41 +479,49 @@ export default function StoreScreen() {
 
             {/* Stats */}
             <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
-              <Pressable onPress={() => setActiveTab('products')} style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: colors.textPrimary }}>
+              <Pressable onPress={() => setActiveTab('products')} style={{ alignItems: 'center' }} accessibilityRole="button" accessibilityLabel="Urunler sekmesini ac">
+                <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: palette.textPrimary }}>
                   {activeStoreProducts.length.toLocaleString('tr-TR')}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: fonts.regular, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: palette.textMuted, fontFamily: fonts.regular, marginTop: 2 }}>
                   Ürün
                 </Text>
               </Pressable>
               <Pressable
-                disabled={!isOwnStoreView}
                 onPress={() => {
-                  if (!isOwnStoreView) return;
+                  if (!isOwnStoreView) {
+                    Alert.alert('Bilgi', 'Takipci listesi sadece magaza sahibine acik.');
+                    return;
+                  }
                   router.push('/follow-list?tab=followers');
                 }}
-                style={{ alignItems: 'center' }}
+                style={{ alignItems: 'center', opacity: isOwnStoreView ? 1 : 0.75 }}
+                accessibilityRole="button"
+                accessibilityLabel="Takipci listesini ac"
               >
-                <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: colors.textPrimary }}>
+                <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: palette.textPrimary }}>
                   {activeFollowersCount.toLocaleString('tr-TR')}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: fonts.regular, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: palette.textMuted, fontFamily: fonts.regular, marginTop: 2 }}>
                   Takipçi
                 </Text>
               </Pressable>
               <Pressable
-                disabled={!isOwnStoreView}
                 onPress={() => {
-                  if (!isOwnStoreView) return;
+                  if (!isOwnStoreView) {
+                    Alert.alert('Bilgi', 'Takip edilenler listesi sadece magaza sahibine acik.');
+                    return;
+                  }
                   router.push('/follow-list?tab=following');
                 }}
-                style={{ alignItems: 'center' }}
+                style={{ alignItems: 'center', opacity: isOwnStoreView ? 1 : 0.75 }}
+                accessibilityRole="button"
+                accessibilityLabel="Takip edilenler listesini ac"
               >
-                <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: colors.textPrimary }}>
+                <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: palette.textPrimary }}>
                   {activeFollowingCount.toLocaleString('tr-TR')}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: fonts.regular, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: palette.textMuted, fontFamily: fonts.regular, marginTop: 2 }}>
                   Takip
                 </Text>
               </Pressable>
@@ -461,22 +531,22 @@ export default function StoreScreen() {
           {/* Name, username, bio */}
           <View style={{ marginBottom: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-              <Text style={{ fontSize: 15, fontFamily: fonts.bold, color: colors.textPrimary }}>
+              <Text style={{ fontSize: 15, fontFamily: fonts.bold, color: palette.textPrimary }}>
                 {currentStore.name}
               </Text>
               {currentStore.verified && (
                 <Ionicons name="checkmark-circle" size={16} color={colors.primary} style={{ marginLeft: 5 }} />
               )}
             </View>
-            <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: fonts.regular, marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: palette.textMuted, fontFamily: fonts.regular, marginBottom: 4 }}>
               {currentStore.username}
             </Text>
-            <Text style={{ fontSize: 13, color: colors.textPrimary, fontFamily: fonts.regular, lineHeight: 19 }}>
+            <Text style={{ fontSize: 13, color: palette.textPrimary, fontFamily: fonts.regular, lineHeight: 19 }}>
               {currentStore.description}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-              <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-              <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: fonts.regular, marginLeft: 3 }}>
+              <Ionicons name="location-outline" size={13} color={palette.textMuted} />
+              <Text style={{ fontSize: 12, color: palette.textMuted, fontFamily: fonts.regular, marginLeft: 3 }}>
                 {currentStore.city}
               </Text>
             </View>
@@ -486,25 +556,53 @@ export default function StoreScreen() {
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
             <Pressable style={{
               flex: 1, height: 36, borderRadius: 8,
-              backgroundColor: viewingOtherStore ? (isFollowingCurrentStore ? '#EFF6FF' : colors.primary) : colors.primary,
+              backgroundColor: viewingOtherStore ? (isFollowingCurrentStore ? palette.softBg : colors.primary) : colors.primary,
               alignItems: 'center', justifyContent: 'center',
-            }} onPress={viewingOtherStore ? () => selectedSellerKey && toggleSellerFollow(selectedSellerKey) : () => router.push('/store-settings')}>
+            }} onPress={viewingOtherStore ? () => {
+              trackEvent(TELEMETRY_EVENTS.STORE_CTA_CLICKED, {
+                seller_id: selectedSellerKey || null,
+                store_name: currentStore.name,
+                cta: isFollowingCurrentStore ? 'unfollow' : 'follow',
+                source: 'store_header',
+              });
+              if (selectedSellerKey) {
+                toggleSellerFollow(selectedSellerKey);
+              }
+            } : () => {
+              trackEvent(TELEMETRY_EVENTS.STORE_CTA_CLICKED, {
+                seller_id: user?.id ?? null,
+                store_name: currentStore.name,
+                cta: 'edit_store',
+                source: 'store_header',
+              });
+              router.push('/store-settings');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={viewingOtherStore ? (isFollowingCurrentStore ? 'Magazayi takipten cik' : 'Magazayi takip et') : 'Magazayi duzenle'}>
               <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: viewingOtherStore && isFollowingCurrentStore ? colors.primary : '#FFFFFF' }}>
                 {viewingOtherStore ? (isFollowingCurrentStore ? 'Takiptesin' : 'Takip Et') : 'Düzenle'}
               </Text>
             </Pressable>
             <Pressable style={{
               flex: 1, height: 36, borderRadius: 8,
-              borderWidth: 1.5, borderColor: colors.borderDefault,
+              borderWidth: 1.5, borderColor: palette.border,
               alignItems: 'center', justifyContent: 'center',
             }} onPress={() => {
+              trackEvent(TELEMETRY_EVENTS.STORE_CTA_CLICKED, {
+                seller_id: selectedSellerKey || user?.id || null,
+                store_name: currentStore.name,
+                cta: 'message',
+                source: 'store_header',
+              });
               if (viewingOtherStore) {
                 router.push(selectedSellerKey ? buildSellerMessagesRoute({ sellerId: selectedSellerKey }) : buildMessagesInboxRoute());
                 return;
               }
               router.push(buildMessagesInboxRoute());
-            }}>
-              <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.textPrimary }}>
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={viewingOtherStore ? 'Magazaya mesaj gonder' : 'Mesaj kutusunu ac'}>
+              <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: palette.textPrimary }}>
                 {viewingOtherStore ? 'Mesaj' : `Mesajlar${storeMessageCount > 0 ? ` (${storeMessageCount})` : ''}`}
               </Text>
             </Pressable>
@@ -631,16 +729,20 @@ export default function StoreScreen() {
           {isOwnStoreView && myStoryArchive.length > 0 ? (
             <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
               <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.textPrimary }}>
-                Hikaye gecmisi (Sadece sen gorursun)
+                Hikaye Geçmişi — Sadece sen görürsün
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 8 }}>
                 {myStoryArchive.slice(0, 12).map((item) => (
-                  <View key={`archive-${item.id}`} style={{ width: 84, alignItems: 'center' }}>
+                  <Pressable
+                    key={`archive-${item.id}`}
+                    style={{ width: 84, alignItems: 'center' }}
+                    onPress={() => router.push(`/story-viewer?storyId=${encodeURIComponent(item.id)}&sellerKey=me` as never)}
+                  >
                     <Image source={{ uri: item.image }} style={{ width: 56, height: 56, borderRadius: 28, opacity: 0.9 }} resizeMode="cover" />
                     <Text numberOfLines={1} style={{ fontSize: 10, color: colors.textPrimary, fontFamily: fonts.regular, textAlign: 'center', marginTop: 4 }}>
                       {item.seller}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </ScrollView>
             </View>
@@ -648,10 +750,10 @@ export default function StoreScreen() {
         </View>
 
         {/* Divider */}
-        <View style={{ height: 1, backgroundColor: colors.borderLight }} />
+        <View style={{ height: 1, backgroundColor: palette.border }} />
 
         {/* Tabs */}
-        <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+        <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: palette.border }}>
           {([
             { key: 'products', icon: 'grid-outline', label: 'Ürünler' },
             { key: 'stories', icon: 'play-outline', label: 'Reels' },
@@ -666,6 +768,8 @@ export default function StoreScreen() {
                 borderBottomWidth: activeTab === t.key ? 2 : 0,
                 borderBottomColor: colors.primary,
               }}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.label} sekmesini ac`}
             >
               <Ionicons
                 name={t.icon as any}
@@ -679,8 +783,39 @@ export default function StoreScreen() {
         {/* Products Tab — 3-column grid */}
         {activeTab === 'products' && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2, paddingTop: 2 }}>
+            {activeStoreProducts.length === 0 ? (
+              <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 48, alignItems: 'center', gap: 10 }}>
+                <BoxMascot variant="order" size={100} animated={false} />
+                <Text style={{ fontSize: 15, fontFamily: fonts.bold, color: colors.textPrimary, textAlign: 'center' }}>
+                  {isOwnStoreView ? 'Henüz ürün yok' : 'Bu mağazada ürün bulunmuyor'}
+                </Text>
+                <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.textMuted, textAlign: 'center', lineHeight: 20 }}>
+                  {isOwnStoreView ? 'İlk ilanını yayınladığında burada görünecek.' : 'Satıcı yakında ürün ekleyecek.'}
+                </Text>
+                {isOwnStoreView ? (
+                  <Pressable
+                    onPress={() => router.push('/create-listing')}
+                    style={{ marginTop: 6, height: 42, borderRadius: 10, paddingHorizontal: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: '#FFFFFF' }}>+ İlan Ekle</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             {activeStoreProducts.map((product) => (
-              <Pressable key={product.id} style={{ width: GRID_ITEM, height: GRID_ITEM }} onPress={() => router.push(`/product/${product.id}`)}>
+              <Pressable
+                key={product.id}
+                style={{ width: GRID_ITEM, height: GRID_ITEM }}
+                onPress={() => {
+                  trackEvent(TELEMETRY_EVENTS.STORE_PRODUCT_CLICKED, {
+                    seller_id: selectedSellerKey || user?.id || null,
+                    store_name: currentStore.name,
+                    product_id: product.id,
+                    source: 'store_grid',
+                  });
+                  router.push(`/product/${product.id}`);
+                }}
+              >
                 <Image
                   source={{ uri: resolveMediaCover(product) }}
                   style={{ width: '100%', height: '100%' }}
@@ -730,7 +865,7 @@ export default function StoreScreen() {
             {isOwnStoreView ? (
               <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
                 <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: fonts.regular, marginBottom: 8 }}>
-                  Reels disindaki hikayelerini istersen one cikanlara ekleyebilirsin.
+                Reels dışındaki hikayelerini istersen öne çıkanlara ekleyebilirsin.
                 </Text>
                 {activeStorePosts.map((post) => (
                   <View key={`highlight-action-${post.id}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -750,7 +885,7 @@ export default function StoreScreen() {
                       }}
                     >
                       <Text style={{ fontSize: 11, fontFamily: fonts.bold, color: storeHighlights.some((item) => item.linkedPostId === post.id) ? colors.primary : colors.textPrimary }}>
-                        {storeHighlights.some((item) => item.linkedPostId === post.id) ? 'Ekli' : 'One cikanlara ekle'}
+                        {storeHighlights.some((item) => item.linkedPostId === post.id) ? 'Ekli' : 'Öne Çıkanlara Ekle'}
                       </Text>
                     </Pressable>
                   </View>
@@ -776,10 +911,30 @@ export default function StoreScreen() {
               <QuickStats
                 stats={[
                   { label: 'Ürün', value: `${activeStoreProducts.length}`, icon: 'cube-outline' },
-                  { label: 'Takipçi', value: currentStore.followers || '0', icon: 'people-outline' },
-                  { label: 'Satış', value: '0', icon: 'cart-outline' },
+                  { label: 'Görüntülenme', value: storeAnalytics.productViews.toLocaleString('tr-TR'), icon: 'eye-outline' },
+                  { label: 'Tıklama', value: storeAnalytics.productClicks.toLocaleString('tr-TR'), icon: 'cursor-outline' },
                 ]}
               />
+            </View>
+
+            <View style={{ marginBottom: 20, borderWidth: 1, borderColor: colors.borderLight, borderRadius: 14, backgroundColor: '#FFFFFF', padding: 12 }}>
+              <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.textPrimary, marginBottom: 8 }}>
+                Mağaza Analitikleri
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textMuted }}>CTR</Text>
+                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.primary }}>{storeAnalytics.ctr.toFixed(1)}%</Text>
+                </View>
+                <View>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textMuted }}>Mesaj / Iletisim</Text>
+                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.textPrimary }}>{storeAnalytics.contactClicks.toLocaleString('tr-TR')}</Text>
+                </View>
+                <View>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textMuted }}>Takipci</Text>
+                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.textPrimary }}>{activeFollowersCount.toLocaleString('tr-TR')}</Text>
+                </View>
+              </View>
             </View>
 
             {/* Description */}
@@ -788,7 +943,9 @@ export default function StoreScreen() {
                 Mağaza Hakkında
               </Text>
               <Text style={{ fontSize: 14, fontFamily: fonts.regular, color: colors.textPrimary, lineHeight: 22 }}>
-                {currentStore.description} {'\n\n'}Mağaza kurulumun tamamlandıktan sonra bu alanı vitrin bilgilerin, teslimat notların ve iletişim detaylarınla güncelleyebilirsin.
+                {currentStore.description}
+                {'\n\n'}Bu mağaza {currentStore.city} merkezli faaliyet gösterir. Teslimat modeli: {currentStore.deliveryInfo || 'Satıcı ile mesajlaşarak netleştirilir.'}
+                {'\n\n'}İletişim: {currentStore.email || 'Email belirtilmedi'} • {currentStore.phone || 'Telefon belirtilmedi'}
               </Text>
             </View>
 
@@ -833,6 +990,37 @@ export default function StoreScreen() {
                 </View>
               </View>
             ))}
+
+            {/* Legal & Policies */}
+            <View style={{ marginTop: 28 }}>
+              <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>
+                Yasal & Politikalar
+              </Text>
+              {([
+                { doc: 'terms-of-use', label: 'Kullanım Şartları', icon: 'document-text-outline' },
+                { doc: 'privacy-kvkk', label: 'Gizlilik & KVKK', icon: 'shield-checkmark-outline' },
+                { doc: 'platform-liability', label: 'Sorumluluk Reddi', icon: 'alert-circle-outline' },
+                { doc: 'prohibited-products', label: 'Yasaklı Ürünler', icon: 'ban-outline' },
+              ] as { doc: string; label: string; icon: string }[]).map((item) => (
+                <Pressable
+                  key={item.doc}
+                  onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: item.doc } })}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    paddingVertical: 13,
+                    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+                  }}
+                >
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Ionicons name={item.icon as any} size={18} color={colors.primary} />
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 14, fontFamily: fonts.medium, color: colors.primary }}>
+                    {item.label}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </Pressable>
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>

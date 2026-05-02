@@ -7,17 +7,24 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../src/constants/theme';
 import { MARKETPLACE_CATEGORIES } from '../src/constants/marketplaceCategories';
 import SkeletonCard from '../src/components/SkeletonCard';
+import BoxMascot from '../src/components/BoxMascot';
 import { useListings } from '../src/context/ListingsContext';
+import { useAuth } from '../src/context/AuthContext';
 import { useProducts } from '../src/hooks/useProducts';
 import { useSearchHistory } from '../src/hooks/useSearchHistory';
 import { isSupabaseConfigured } from '../src/services/supabase';
 import { unifiedSearch, StoreSearchResult, isInstagramQuery, SearchSortOption, StoreSortOption } from '../src/services/advancedSearchService';
+import { performVisualSearchBackend, VisualSearchBackendResult } from '../src/services/visualSearchService';
+import { trackEvent, trackSearch } from '../src/services/monitoring';
+import { TELEMETRY_EVENTS } from '../src/constants/telemetryEvents';
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { isDarkMode } = useAuth();
   const { allProducts } = useListings();
   const searchHistory = useSearchHistory();
   const mainScrollRef = useRef<ScrollView | null>(null);
+  const lastTrackedSearchKeyRef = useRef<string | null>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -26,20 +33,33 @@ export default function SearchScreen() {
   const [visualSearchActive, setVisualSearchActive] = useState(false);
   const [visualSearchUri, setVisualSearchUri] = useState<string | null>(null);
   const [visualSearchLoading, setVisualSearchLoading] = useState(false);
+  const [visualSearchBackendResult, setVisualSearchBackendResult] = useState<VisualSearchBackendResult | null>(null);
+  const [visualSearchMode, setVisualSearchMode] = useState<'backend' | 'fallback' | null>(null);
+
+  const theme = useMemo(() => ({
+    screenBg: isDarkMode ? '#0F172A' : '#FFFFFF',
+    surfaceBg: isDarkMode ? '#111827' : '#FFFFFF',
+    inputBg: isDarkMode ? '#1F2937' : '#F7F7F7',
+    mutedBg: isDarkMode ? '#1F2937' : '#F1F5F9',
+    border: isDarkMode ? '#334155' : '#33333315',
+    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
+    textMuted: isDarkMode ? '#94A3B8' : colors.textMuted,
+  }), [isDarkMode]);
 
   // Advanced search state
   const [sortOption, setSortOption] = useState<SearchSortOption>('newest');
   const [storeSort, setStoreSort] = useState<StoreSortOption>('relevance');
   const [filterVisible, setFilterVisible] = useState(false);
+  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [cityFilter, setCityFilter] = useState<string>('');
+  const [onlyFreeShipping, setOnlyFreeShipping] = useState(false);
   const [storeResults, setStoreResults] = useState<StoreSearchResult[]>([]);
   const [storeLoading, setStoreLoading] = useState(false);
   const [hasMoreStores, setHasMoreStores] = useState(false);
   const [storePage, setStorePage] = useState(1);
-  const [hasMoreProducts, setHasMoreProducts] = useState(false);
-  const [productPage, setProductPage] = useState(1);
 
   // Load search history on mount
   useEffect(() => {
@@ -66,7 +86,13 @@ export default function SearchScreen() {
   }, [query, searchHistory]);
 
   // Sunucu tarafi arama (Supabase varsa)
-  const { products: serverResults, loading: serverLoading, refresh: serverRefresh } = useProducts({
+  const {
+    products: serverResults,
+    loading: serverLoading,
+    refresh: serverRefresh,
+    loadMore: loadMoreServerProducts,
+    hasMore: serverHasMore,
+  } = useProducts({
     filters: {
       query: debouncedQuery || undefined,
       category_id: selectedCategory ?? undefined,
@@ -96,7 +122,6 @@ export default function SearchScreen() {
       });
       if (page === 1) {
         setStoreResults(result.stores);
-        setHasMoreProducts(result.hasMoreProducts);
       } else {
         setStoreResults((prev) => [...prev, ...result.stores]);
       }
@@ -164,9 +189,12 @@ export default function SearchScreen() {
       .map((entry) => entry.item);
 
     if (selectedCategory) results = results.filter((item) => item.category === selectedCategory);
+    if (onlyFreeShipping) results = results.filter((item) => Boolean(item.freeShipping));
 
     return results.slice(0, 20);
-  }, [allProducts, query, selectedCategory]);
+  }, [allProducts, onlyFreeShipping, query, selectedCategory]);
+
+  const isServerTextSearch = isSupabaseConfigured && debouncedQuery.length >= 2;
 
   const visualSearchResults = useMemo(() => {
     let source = [...allProducts];
@@ -175,25 +203,30 @@ export default function SearchScreen() {
       source = source.filter((item) => item.category === selectedCategory);
     }
 
+    if (onlyFreeShipping) {
+      source = source.filter((item) => Boolean(item.freeShipping));
+    }
+
+    if (visualSearchBackendResult) {
+      const ranking = new Map(visualSearchBackendResult.productIds.map((id, index) => [id, index]));
+      const matched = source
+        .filter((item) => ranking.has(item.id))
+        .sort((a, b) => (ranking.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (ranking.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+
+      return matched.slice(0, 20);
+    }
+
     return source
       .sort((a, b) => {
-        const scoreA = a.rating * 5 + (a.reviewCount ?? 0) + (a.discount ?? 0) + (a.freeShipping ? 8 : 0);
-        const scoreB = b.rating * 5 + (b.reviewCount ?? 0) + (b.discount ?? 0) + (b.freeShipping ? 8 : 0);
+        const scoreA = a.rating * 5 + (a.reviewCount ?? 0) + (a.discount ?? 0);
+        const scoreB = b.rating * 5 + (b.reviewCount ?? 0) + (b.discount ?? 0);
         return scoreB - scoreA;
       })
       .slice(0, 20);
-  }, [allProducts, selectedCategory]);
+  }, [allProducts, onlyFreeShipping, selectedCategory, visualSearchBackendResult]);
 
   const mergedTextSearchResults = useMemo(() => {
-    const fromServer = isSupabaseConfigured && debouncedQuery.length >= 2 ? serverResults : [];
-    const dedupedMap = new Map<string, (typeof allProducts)[number]>();
-
-    fromServer.forEach((item) => dedupedMap.set(item.id, item));
-    clientResults.forEach((item) => {
-      if (!dedupedMap.has(item.id)) dedupedMap.set(item.id, item);
-    });
-
-    const merged = Array.from(dedupedMap.values());
+    const merged = isServerTextSearch ? serverResults : clientResults;
     const tokens = query
       .trim()
       .toLocaleLowerCase('tr-TR')
@@ -201,7 +234,7 @@ export default function SearchScreen() {
       .filter(Boolean);
 
     if (tokens.length === 0) {
-      return merged.slice(0, 20);
+      return isServerTextSearch ? merged : merged.slice(0, 20);
     }
 
     const strict = merged.filter((item) => {
@@ -211,8 +244,12 @@ export default function SearchScreen() {
       return tokens.every((token) => searchable.includes(token));
     });
 
-    return (strict.length > 0 ? strict : merged).slice(0, 20);
-  }, [allProducts, clientResults, serverResults, debouncedQuery.length, query]);
+    const selected = strict.length > 0 ? strict : merged;
+    const filtered = onlyFreeShipping
+      ? selected.filter((item) => Boolean(item.freeShipping))
+      : selected;
+    return isServerTextSearch ? filtered : filtered.slice(0, 20);
+  }, [clientResults, isServerTextSearch, onlyFreeShipping, query, serverResults]);
 
   const searchResults =
     query.trim().length > 0
@@ -221,8 +258,50 @@ export default function SearchScreen() {
         ? visualSearchResults
         : [];
 
+  const hasMoreProducts = isServerTextSearch ? serverHasMore : false;
+
+  const selectedCategoryName = useMemo(
+    () => MARKETPLACE_CATEGORIES.find((cat) => cat.id === selectedCategory)?.name ?? null,
+    [selectedCategory],
+  );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedCategory) count += 1;
+    if (minPrice.trim()) count += 1;
+    if (maxPrice.trim()) count += 1;
+    if (cityFilter.trim()) count += 1;
+    if (onlyFreeShipping) count += 1;
+    if (sortOption !== 'newest') count += 1;
+    if (storeSort !== 'relevance') count += 1;
+    return count;
+  }, [selectedCategory, minPrice, maxPrice, cityFilter, onlyFreeShipping, sortOption, storeSort]);
+
   const searchLoading =
     visualSearchLoading || (query.trim().length > 0 && isSupabaseConfigured && debouncedQuery.length >= 2 && serverLoading);
+
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    if (trimmed.length < 2 || searchLoading) {
+      return;
+    }
+
+    const trackingKey = `${trimmed}::${selectedCategory ?? 'all'}::${visualSearchActive ? 'visual' : 'text'}`;
+    if (lastTrackedSearchKeyRef.current === trackingKey) {
+      return;
+    }
+    lastTrackedSearchKeyRef.current = trackingKey;
+
+    trackSearch(trimmed, searchResults.length);
+    trackEvent(TELEMETRY_EVENTS.SEARCH_RESULTS_LOADED, {
+      source: visualSearchActive ? 'visual_search' : 'text_search',
+      query: trimmed,
+      category_id: selectedCategory ?? null,
+      result_count: searchResults.length,
+      has_more_products: hasMoreProducts,
+      has_more_stores: hasMoreStores,
+    });
+  }, [debouncedQuery, hasMoreProducts, hasMoreStores, searchLoading, searchResults.length, selectedCategory, visualSearchActive]);
 
   const autoSuggestTerms = useMemo(() => {
     const termSet = new Set<string>();
@@ -271,7 +350,7 @@ export default function SearchScreen() {
     [allProducts],
   );
 
-  function applySearch(term: string) {
+  function applySearch(term: string, source = 'search_input') {
     const clean = term.trim();
 
     if (!clean) {
@@ -281,7 +360,14 @@ export default function SearchScreen() {
     setQuery(clean);
     setSelectedCategory(null);
     setVisualSearchActive(false);
+    setVisualSearchBackendResult(null);
+    setVisualSearchMode(null);
     setRecentSearches((current) => [clean, ...current.filter((item) => item !== clean)].slice(0, 8));
+    trackEvent(TELEMETRY_EVENTS.SEARCH_SUBMITTED, {
+      source,
+      query: clean,
+      is_instagram_query: isInstagramQuery(clean),
+    });
 
     requestAnimationFrame(() => {
       mainScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -291,6 +377,14 @@ export default function SearchScreen() {
   async function launchVisualSearch(source: 'camera' | 'gallery') {
     try {
       setVisualSearchLoading(true);
+      setVisualSearchBackendResult(null);
+      setVisualSearchMode(null);
+      trackEvent(TELEMETRY_EVENTS.VISUAL_SEARCH_STARTED, {
+        source: 'search_camera_button',
+        picker_source: source,
+      });
+
+      let pickedUri: string | null = null;
 
       if (source === 'camera') {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -306,8 +400,7 @@ export default function SearchScreen() {
         });
 
         if (result.canceled || !result.assets?.length) return;
-
-        setVisualSearchUri(result.assets[0].uri);
+        pickedUri = result.assets[0].uri;
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
@@ -322,13 +415,33 @@ export default function SearchScreen() {
         });
 
         if (result.canceled || !result.assets?.length) return;
-
-        setVisualSearchUri(result.assets[0].uri);
+        pickedUri = result.assets[0].uri;
       }
+
+      if (!pickedUri) {
+        return;
+      }
+
+      setVisualSearchUri(pickedUri);
+
+      const backendResult = await performVisualSearchBackend(pickedUri, 20);
+      const completedMode: 'backend' | 'fallback' = backendResult ? 'backend' : 'fallback';
+
+      if (backendResult) {
+        setVisualSearchBackendResult(backendResult);
+      }
+      setVisualSearchMode(completedMode);
 
       setQuery('');
       setDebouncedQuery('');
       setVisualSearchActive(true);
+      trackEvent(TELEMETRY_EVENTS.VISUAL_SEARCH_COMPLETED, {
+        source: 'search_camera_button',
+        picker_source: source,
+        mode: completedMode,
+        backend_source: backendResult?.sourceName ?? null,
+        result_count: backendResult?.productIds.length,
+      });
     } finally {
       setVisualSearchLoading(false);
     }
@@ -357,6 +470,23 @@ export default function SearchScreen() {
     { label: 'Çok Yorumlanan', value: 'most_commented' },
   ];
 
+  const STORE_SORT_OPTIONS: { label: string; value: StoreSortOption }[] = [
+    { label: 'İlgiye Göre', value: 'relevance' },
+    { label: 'Puana Göre', value: 'rating' },
+    { label: 'En Çok Takipçi', value: 'most_followers' },
+    { label: 'En Çok Ürün', value: 'most_products' },
+  ];
+
+  function clearAllFilters() {
+    setSelectedCategory(null);
+    setMinPrice('');
+    setMaxPrice('');
+    setCityFilter('');
+    setOnlyFreeShipping(false);
+    setSortOption('newest');
+    setStoreSort('relevance');
+  }
+
   useEffect(() => {
     if (!isSearching) return;
 
@@ -366,16 +496,23 @@ export default function SearchScreen() {
   }, [isSearching, query, selectedCategory, visualSearchActive]);
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.screenBg }} edges={['top']}>
       {/* Filter Modal */}
       <Modal visible={filterVisible} animationType="slide" transparent onRequestClose={() => setFilterVisible(false)}>
         <Pressable className="flex-1 bg-black/40" onPress={() => setFilterVisible(false)} />
         <View className="bg-white rounded-t-3xl px-5 pt-5 pb-8" style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
           <View className="flex-row items-center justify-between mb-4">
             <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Filtrele ve Sırala</Text>
-            <Pressable onPress={() => setFilterVisible(false)}>
-              <Ionicons name="close" size={22} color={colors.textMuted} />
-            </Pressable>
+            <View className="flex-row items-center" style={{ gap: 10 }}>
+              {activeFilterCount > 0 ? (
+                <Pressable onPress={clearAllFilters}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#DC2626' }}>Temizle</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={() => setFilterVisible(false)}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Sort options */}
@@ -387,6 +524,23 @@ export default function SearchScreen() {
                 <Pressable
                   key={opt.value}
                   onPress={() => setSortOption(opt.value)}
+                  style={{ backgroundColor: active ? colors.primary : '#F1F5F9', borderColor: active ? colors.primary : '#E2E8F0' }}
+                  className="px-4 h-8 rounded-full border items-center justify-center"
+                >
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: active ? '#fff' : colors.textPrimary }}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Mağaza Sıralama</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
+            {STORE_SORT_OPTIONS.map((opt) => {
+              const active = storeSort === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setStoreSort(opt.value)}
                   style={{ backgroundColor: active ? colors.primary : '#F1F5F9', borderColor: active ? colors.primary : '#E2E8F0' }}
                   className="px-4 h-8 rounded-full border items-center justify-center"
                 >
@@ -427,8 +581,49 @@ export default function SearchScreen() {
             style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12, marginBottom: 20 }}
           />
 
+          <View className="flex-row items-center justify-between mb-5 px-1">
+            <View className="pr-3 flex-1">
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
+                Ücretsiz Kargo etiketi
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                Sadece etikete göre filtreler, kargo takip süreci başlatmaz.
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setOnlyFreeShipping((current) => !current)}
+              style={{
+                width: 46,
+                height: 28,
+                borderRadius: 999,
+                padding: 3,
+                backgroundColor: onlyFreeShipping ? colors.primary : '#CBD5E1',
+                justifyContent: 'center',
+              }}
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: '#fff',
+                  alignSelf: onlyFreeShipping ? 'flex-end' : 'flex-start',
+                }}
+              />
+            </Pressable>
+          </View>
+
           <Pressable
-            onPress={() => setFilterVisible(false)}
+            onPress={() => {
+              trackEvent(TELEMETRY_EVENTS.SEARCH_FILTERS_APPLIED, {
+                source: 'search_filter_modal',
+                sort_option: sortOption,
+                min_price: minPrice || null,
+                max_price: maxPrice || null,
+                city: cityFilter || null,
+              });
+              setFilterVisible(false);
+            }}
             style={{ backgroundColor: colors.primary }}
             className="h-12 rounded-2xl items-center justify-center"
           >
@@ -437,18 +632,67 @@ export default function SearchScreen() {
         </View>
       </Modal>
 
-      <View className="flex-row items-center px-3 py-2 border-b border-[#33333315]">
-        <Pressable onPress={() => router.back()} className="w-9 h-9 items-center justify-center">
-          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+      <Modal visible={categoryPickerVisible} animationType="slide" transparent onRequestClose={() => setCategoryPickerVisible(false)}>
+        <Pressable className="flex-1 bg-black/40" onPress={() => setCategoryPickerVisible(false)} />
+        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-8" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '72%' }}>
+          <View className="flex-row items-center justify-between mb-3">
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Kategori Seç</Text>
+            <Pressable onPress={() => setCategoryPickerVisible(false)}>
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Pressable
+              onPress={() => {
+                setSelectedCategory(null);
+                setCategoryPickerVisible(false);
+              }}
+              className="h-11 rounded-xl px-3 mb-2 flex-row items-center justify-between"
+              style={{ borderWidth: 1, borderColor: selectedCategory === null ? '#93C5FD' : '#E2E8F0', backgroundColor: selectedCategory === null ? '#EFF6FF' : '#fff' }}
+            >
+              <Text style={{ fontFamily: selectedCategory === null ? fonts.bold : fonts.regular, fontSize: 13, color: colors.textPrimary }}>Tüm Kategoriler</Text>
+              {selectedCategory === null ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
+            </Pressable>
+            {MARKETPLACE_CATEGORIES.map((cat) => {
+              const active = selectedCategory === cat.id;
+              return (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => {
+                    setSelectedCategory(cat.id);
+                    setCategoryPickerVisible(false);
+                  }}
+                  className="h-11 rounded-xl px-3 mb-2 flex-row items-center justify-between"
+                  style={{ borderWidth: 1, borderColor: active ? '#93C5FD' : '#E2E8F0', backgroundColor: active ? '#EFF6FF' : '#fff' }}
+                >
+                  <Text style={{ fontFamily: active ? fonts.bold : fonts.regular, fontSize: 13, color: colors.textPrimary }}>{cat.name}</Text>
+                  {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <View className="flex-row items-center px-3 py-2 border-b" style={{ borderBottomColor: theme.border, backgroundColor: theme.surfaceBg }}>
+        <Pressable
+          onPress={() => router.back()}
+          className="w-9 h-9 items-center justify-center"
+          accessibilityRole="button"
+          accessibilityLabel="Aramadan geri don"
+        >
+          <Ionicons name="arrow-back" size={22} color={theme.textPrimary} />
         </Pressable>
-        <View className="flex-1 flex-row items-center bg-[#F7F7F7] rounded-xl px-3 h-10 border border-[#33333315]">
-          <Ionicons name="search" size={16} color={colors.textMuted} />
+        <View className="flex-1 flex-row items-center rounded-xl px-3 h-10 border" style={{ backgroundColor: theme.inputBg, borderColor: theme.border }}>
+          <Ionicons name="search" size={16} color={theme.textMuted} />
           <TextInput
             value={query}
             onChangeText={(value) => {
               if (visualSearchActive) {
                 setVisualSearchActive(false);
                 setVisualSearchUri(null);
+                setVisualSearchBackendResult(null);
+                setVisualSearchMode(null);
               }
 
               setQuery(value);
@@ -460,12 +704,13 @@ export default function SearchScreen() {
             autoCorrect
             autoCapitalize="none"
             placeholder="Ürün, marka veya kategori ara"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
+            accessibilityLabel="Urun arama metin kutusu"
             style={{
               fontFamily: fonts.regular,
               fontSize: 14,
               lineHeight: 18,
-              color: colors.textPrimary,
+              color: theme.textPrimary,
               paddingVertical: 0,
               textAlignVertical: 'center',
               includeFontPadding: false,
@@ -473,8 +718,8 @@ export default function SearchScreen() {
             className="flex-1 ml-2"
           />
           {query.length > 0 ? (
-            <Pressable onPress={() => setQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel="Arama metnini temizle">
+              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </Pressable>
           ) : (
             <Pressable
@@ -482,6 +727,9 @@ export default function SearchScreen() {
               disabled={visualSearchLoading}
               style={{ opacity: visualSearchLoading ? 0.5 : 1 }}
               className="w-8 h-8 items-center justify-center"
+              accessibilityRole="button"
+              accessibilityLabel="Gorsel arama ac"
+              accessibilityHint="Kamera veya galeriden gorsel secerek arama yapar"
             >
               {visualSearchLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -494,11 +742,52 @@ export default function SearchScreen() {
         {/* Filter button */}
         <Pressable
           onPress={() => setFilterVisible(true)}
-          className="w-10 h-10 items-center justify-center rounded-xl bg-[#F1F5F9] border border-[#E2E8F0] ml-2"
+          className="w-10 h-10 items-center justify-center rounded-xl border ml-2"
+          style={{ backgroundColor: theme.mutedBg, borderColor: theme.border }}
+          accessibilityRole="button"
+          accessibilityLabel="Arama filtrelerini ac"
         >
-          <Ionicons name="options-outline" size={20} color={colors.textPrimary} />
+          <Ionicons name="options-outline" size={20} color={theme.textPrimary} />
+          {activeFilterCount > 0 ? (
+            <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
+
+      {activeFilterCount > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingTop: 8 }}>
+          {selectedCategoryName ? (
+            <View className="px-3 h-8 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex-row items-center">
+              <Ionicons name="grid-outline" size={12} color={colors.primary} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary, marginLeft: 5 }}>{selectedCategoryName}</Text>
+            </View>
+          ) : null}
+          {cityFilter.trim() ? (
+            <View className="px-3 h-8 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] flex-row items-center">
+              <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginLeft: 5 }}>{cityFilter.trim()}</Text>
+            </View>
+          ) : null}
+          {(minPrice.trim() || maxPrice.trim()) ? (
+            <View className="px-3 h-8 rounded-full bg-[#FFF7ED] border border-[#FED7AA] flex-row items-center">
+              <Ionicons name="pricetag-outline" size={12} color="#C2410C" />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#C2410C', marginLeft: 5 }}>{minPrice || '0'} - {maxPrice || '∞'} ₺</Text>
+            </View>
+          ) : null}
+          {onlyFreeShipping ? (
+            <View className="px-3 h-8 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex-row items-center">
+              <Ionicons name="car-outline" size={12} color={colors.primary} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary, marginLeft: 5 }}>Ücretsiz Kargo</Text>
+            </View>
+          ) : null}
+          <Pressable onPress={clearAllFilters} className="px-3 h-8 rounded-full bg-[#FEF2F2] border border-[#FECACA] flex-row items-center">
+            <Ionicons name="close-circle-outline" size={12} color="#DC2626" />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#DC2626', marginLeft: 5 }}>Temizle</Text>
+          </Pressable>
+        </ScrollView>
+      ) : null}
 
       {query.trim().length > 0 && querySuggestions.length > 0 ? (
         <ScrollView
@@ -509,7 +798,7 @@ export default function SearchScreen() {
           {querySuggestions.map((suggestion) => (
             <Pressable
               key={suggestion}
-              onPress={() => applySearch(suggestion)}
+              onPress={() => applySearch(suggestion, 'search_suggestion_chip')}
               className="px-3 h-8 rounded-full border border-[#33333322] bg-[#F8FAFC] flex-row items-center"
             >
               <Ionicons name="sparkles-outline" size={13} color={colors.primary} />
@@ -552,15 +841,21 @@ export default function SearchScreen() {
                     Görsel arama açık
                   </Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                    Uygun ürünler puan, yorum ve kategoriye göre sıralandı.
+                    {visualSearchMode === 'backend'
+                      ? `Sonuclar backend ile eslestirildi (${visualSearchBackendResult?.sourceName ?? 'visual-search'}).`
+                      : 'Backend kullanilamadi, yerel benzerlik fallback modu calisiyor.'}
                   </Text>
                 </View>
                 <Pressable
                   onPress={() => {
                     setVisualSearchActive(false);
                     setVisualSearchUri(null);
+                    setVisualSearchBackendResult(null);
+                    setVisualSearchMode(null);
                   }}
                   className="px-2 py-1"
+                  accessibilityRole="button"
+                  accessibilityLabel="Gorsel aramayi kapat"
                 >
                   <Ionicons name="close" size={18} color={colors.textMuted} />
                 </Pressable>
@@ -615,6 +910,24 @@ export default function SearchScreen() {
                   </Pressable>
                 );
               })}
+              <Pressable
+                onPress={() => setCategoryPickerVisible(true)}
+                className="px-3 h-8 rounded-full border items-center justify-center flex-row"
+                style={{ borderColor: '#D1D5DB', backgroundColor: '#FFFFFF' }}
+              >
+                <Ionicons name="apps-outline" size={12} color={colors.textSecondary} />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginLeft: 5 }}>Tüm Kategoriler</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setOnlyFreeShipping((current) => !current)}
+                className="px-3 h-8 rounded-full border items-center justify-center flex-row"
+                style={{ borderColor: onlyFreeShipping ? '#BFDBFE' : '#D1D5DB', backgroundColor: onlyFreeShipping ? '#EFF6FF' : '#FFFFFF' }}
+              >
+                <Ionicons name="car-outline" size={12} color={onlyFreeShipping ? colors.primary : colors.textSecondary} />
+                <Text style={{ fontFamily: onlyFreeShipping ? fonts.bold : fonts.medium, fontSize: 11, color: onlyFreeShipping ? colors.primary : colors.textSecondary, marginLeft: 5 }}>
+                  Ücretsiz Kargo
+                </Text>
+              </Pressable>
             </ScrollView>
 
             {searchResults.length > 0 ? (
@@ -632,9 +945,18 @@ export default function SearchScreen() {
                   : searchResults.map((item) => (
                       <Pressable
                         key={item.id}
-                        onPress={() => router.push(`/product/${item.id}`)}
+                        onPress={() => {
+                          trackEvent(TELEMETRY_EVENTS.SEARCH_RESULT_PRODUCT_CLICKED, {
+                            source: visualSearchActive ? 'visual_search_results' : 'text_search_results',
+                            product_id: item.id,
+                            query: debouncedQuery || null,
+                          });
+                          router.push(`/product/${item.id}`);
+                        }}
                         style={{ borderColor: colors.borderLight }}
                         className="bg-white border rounded-2xl px-3 py-3 flex-row items-center active:opacity-80"
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.brand} ${item.title} urun detayini ac`}
                       >
                         <View
                           style={{ backgroundColor: '#F1F5F9' }}
@@ -658,19 +980,40 @@ export default function SearchScreen() {
                     <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                   </Pressable>
                 ))}
+
+                {hasMoreProducts ? (
+                  <Pressable
+                    onPress={() => {
+                      if (searchLoading) {
+                        return;
+                      }
+                      loadMoreServerProducts();
+                    }}
+                    disabled={searchLoading}
+                    className="h-10 rounded-xl border border-[#E2E8F0] items-center justify-center"
+                    style={{ opacity: searchLoading ? 0.6 : 1 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Daha fazla urun yukle"
+                  >
+                    {searchLoading ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>
+                        Daha fazla ürün
+                      </Text>
+                    )}
+                  </Pressable>
+                ) : null}
               </View>
             ) : (
               <View
-                style={{ backgroundColor: '#F8FAFC', borderColor: colors.borderLight }}
-                className="border border-dashed rounded-2xl p-6 items-center"
+                style={{ backgroundColor: '#F8FAFC', borderColor: colors.borderLight, borderWidth: 1, borderStyle: 'dashed', borderRadius: 20, padding: 32, alignItems: 'center' }}
               >
-                <View style={{ backgroundColor: '#FEF08A' }} className="w-16 h-16 rounded-full items-center justify-center mb-3">
-                  <Ionicons name="search-outline" size={28} color="#CA8A04" />
-                </View>
-                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
+                <BoxMascot variant="order" size={88} animated />
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary, marginTop: 14 }}>
                   Sonuç bulunamadı
                 </Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6, textAlign: 'center', lineHeight: 18, maxWidth: 240 }}>
                   {visualSearchActive
                     ? 'Görsel için uygun ürün bulunamadı. Farklı bir görsel dene veya kategori seçimini temizle.'
                     : `"${query}" ${selectedCategory ? 'bu kategoride' : ''} için eşleşen ürün yok.${selectedCategory ? '\nFarklı kategori seç.' : '\nFarklı bir kelime dene.'}`}
@@ -699,9 +1042,18 @@ export default function SearchScreen() {
                 {storeResults.map((store) => (
                   <Pressable
                     key={store.store_id}
-                    onPress={() => router.push(`/store/${store.store_id}` as any)}
+                    onPress={() => {
+                      trackEvent(TELEMETRY_EVENTS.SEARCH_RESULT_STORE_CLICKED, {
+                        source: 'search_store_results',
+                        store_id: store.store_id,
+                        query: debouncedQuery || null,
+                      });
+                      router.push(`/store/${store.store_id}` as any);
+                    }}
                     style={{ borderColor: colors.borderLight }}
                     className="bg-white border rounded-2xl px-3 py-3 flex-row items-center mb-2 active:opacity-80"
+                    accessibilityRole="button"
+                    accessibilityLabel={`${store.store_name ?? 'Magaza'} sayfasini ac`}
                   >
                     {store.avatar_url ? (
                       <Image source={{ uri: store.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
@@ -747,18 +1099,34 @@ export default function SearchScreen() {
                 {hasMoreStores ? (
                   <Pressable
                     onPress={() => {
+                      if (storeLoading) {
+                        return;
+                      }
                       const next = storePage + 1;
                       setStorePage(next);
-                      runStoreSearch(debouncedQuery, next);
+                      trackEvent(TELEMETRY_EVENTS.SEARCH_STORES_LOAD_MORE_CLICKED, {
+                        source: 'search_store_results',
+                        query: debouncedQuery,
+                        next_page: next,
+                        current_count: storeResults.length,
+                      });
+                      void runStoreSearch(debouncedQuery, next);
                     }}
+                    disabled={storeLoading}
                     className="h-10 rounded-xl border border-[#E2E8F0] items-center justify-center mt-1"
+                    style={{ opacity: storeLoading ? 0.6 : 1 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Daha fazla magaza yukle"
                   >
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>Daha fazla mağaza</Text>
+                    {storeLoading ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>Daha fazla mağaza</Text>
+                    )}
                   </Pressable>
                 ) : null}
               </View>
             ) : null}
-
           </View>
         ) : (
           <>
@@ -769,14 +1137,22 @@ export default function SearchScreen() {
                   <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
                     Son Aramalar
                   </Text>
-                  <Pressable onPress={() => setRecentSearches([])}>
+                  <Pressable
+                    onPress={() => {
+                      setRecentSearches([]);
+                      searchHistory.clear().catch(() => undefined);
+                      trackEvent(TELEMETRY_EVENTS.SEARCH_HISTORY_CLEARED, {
+                        source: 'search_screen',
+                      });
+                    }}
+                  >
                     <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
                       Tümünü Temizle
                     </Text>
                   </Pressable>
                 </View>
                 {recentSearches.map((s) => (
-                  <Pressable key={s} onPress={() => applySearch(s)} className="flex-row items-center py-2.5">
+                  <Pressable key={s} onPress={() => applySearch(s, 'search_recent_history')} className="flex-row items-center py-2.5">
                     <Ionicons name="time-outline" size={16} color={colors.textMuted} />
                     <Text
                       style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary }}
@@ -805,7 +1181,7 @@ export default function SearchScreen() {
                 {trendingSearches.map((t, i) => (
                   <Pressable
                     key={t}
-                    onPress={() => applySearch(t)}
+                    onPress={() => applySearch(t, 'search_trending_chip')}
                     className="flex-row items-center bg-[#F7F7F7] px-3 h-9 rounded-full border border-[#33333315]"
                   >
                     <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>{i + 1}</Text>
@@ -829,7 +1205,7 @@ export default function SearchScreen() {
                 {popularBrands.map((b) => (
                   <Pressable
                     key={b}
-                    onPress={() => applySearch(b)}
+                    onPress={() => applySearch(b, 'search_popular_brand_chip')}
                     className="bg-white border border-[#33333322] px-4 h-10 rounded-xl items-center justify-center"
                   >
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>{b}</Text>

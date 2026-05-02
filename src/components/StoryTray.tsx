@@ -1,11 +1,10 @@
-import { View, Text, ScrollView, Pressable, Image, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { colors, fonts } from '../constants/theme';
 import type { Story } from '../data/mockData';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export interface StoryTrayProps {
   stories: Story[];
@@ -72,36 +71,22 @@ export function StoryTray({
     return addStory && showAddButton ? [addStory, ...sellerPreviews] : sellerPreviews;
   }, [stories, showAddButton, autoGroupBySeller]);
 
-  const containerSize = isCommerce ? 84 : layout === 'compact' ? 64 : 72;
-  const itemWidth = isCommerce ? Math.min(104, Math.max(94, SCREEN_WIDTH / 4.1)) : containerSize + 8;
-  const labelSize = isCommerce ? 11 : layout === 'compact' ? 9 : 10;
-  const subtextSize = isCommerce ? 9 : layout === 'compact' ? 8 : 9;
-  const imageInset = isCommerce ? 3 : 0;
+  const AVATAR = 62;
+  const ITEM_W = 76;
+  const LABEL_SIZE = 11;
 
   const getBadgeMeta = (badge?: string) => {
     const normalized = badge?.trim().toLocaleLowerCase('tr-TR');
-
-    if (normalized === 'canlı' || normalized === 'canli') {
-      return { label: 'CANLI', color: colors.danger };
-    }
-
-    if (normalized === 'yeni') {
-      return { label: 'YENI', color: colors.primary };
-    }
-
+    if (normalized === 'canlı' || normalized === 'canli') return { label: '● CANLI', color: '#EF4444' };
+    if (normalized === 'yeni') return { label: 'YENİ', color: colors.primary };
     return badge ? { label: badge, color: '#0F766E' } : null;
   };
 
   const handleStoryPress = (story: GroupedStory) => {
     if (story.isAdd) {
-      if (onAddPress) {
-        onAddPress();
-      } else {
-        router.push('/share-story');
-      }
+      if (onAddPress) { onAddPress(); } else { router.push('/share-story'); }
       return;
     }
-
     if (onStoryPress) {
       onStoryPress(story.id, story.sellerKey);
     } else {
@@ -111,128 +96,171 @@ export function StoryTray({
     }
   };
 
+  // App blue gradient for unseen stories
+  const GRADIENT_UNSEEN: [string, string, string] = ['#1E5FC6', '#3B82F6', '#60A5FA'];
+  const GRADIENT_SEEN: [string, string] = ['#D1D5DB', '#9CA3AF'];
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: isCommerce ? 14 : 12, gap: isCommerce ? 14 : 12, paddingBottom: isCommerce ? 2 : 0 }}
+      contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}
     >
       {groupedStories.map((s) => {
         const badgeMeta = getBadgeMeta(s.badge);
         const storyCount = Number(s.sellerStoryCount ?? 0);
-        const hasProductInfo = Boolean(s.productTitle || s.priceTag);
 
         return (
           <Pressable
             key={s.id}
-            className="items-center"
-            style={{ width: itemWidth }}
+            style={{ width: ITEM_W, alignItems: 'center' }}
             onPress={() => handleStoryPress(s)}
           >
+            {/* Avatar ring */}
             {s.isAdd ? (
-            <View
-              style={{
-                backgroundColor: isCommerce ? '#EFF6FF' : '#F7F7F7',
-                borderColor: isCommerce ? colors.primary : colors.borderLight,
-                width: containerSize,
-                height: containerSize,
-              }}
-              className="rounded-full items-center justify-center border-2 border-dashed"
-            >
-              <View
-                className="rounded-full items-center justify-center"
-                style={{ width: isCommerce ? 34 : 28, height: isCommerce ? 34 : 28, backgroundColor: '#fff' }}
-              >
-                <Ionicons name="add" size={layout === 'compact' ? 18 : 22} color={colors.primary} />
-              </View>
-            </View>
-          ) : (
-            <View className="relative">
               <View
                 style={{
-                  borderColor: s.seen ? colors.borderDefault : colors.primary,
-                  borderWidth: isCommerce ? 2.5 : 2,
-                  width: containerSize,
-                  height: containerSize,
-                  padding: imageInset,
-                  backgroundColor: s.seen ? '#F7F7F7' : '#EFF6FF',
+                  width: AVATAR + 6,
+                  height: AVATAR + 6,
+                  borderRadius: (AVATAR + 6) / 2,
+                  borderWidth: 2,
+                  borderColor: '#E5E7EB',
+                  borderStyle: 'dashed',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#F9FAFB',
                 }}
-                className="rounded-full overflow-hidden"
               >
-                <Image
-                  source={{ uri: s.image }}
-                  className="w-full h-full rounded-full"
-                  resizeMode="cover"
-                />
+                <View
+                  style={{
+                    width: AVATAR,
+                    height: AVATAR,
+                    borderRadius: AVATAR / 2,
+                    backgroundColor: '#EEF4FF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="add" size={28} color={colors.primary} />
+                </View>
               </View>
-              {badgeMeta ? (
+            ) : (
+              <View style={{ position: 'relative' }}>
+              <LinearGradient
+                colors={s.seen ? GRADIENT_SEEN : GRADIENT_UNSEEN}
+                start={{ x: 0.15, y: 1 }}
+                end={{ x: 0.85, y: 0 }}
+                style={{
+                  width: AVATAR + 6,
+                  height: AVATAR + 6,
+                  borderRadius: (AVATAR + 6) / 2,
+                  padding: 2.5,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {/* White gap ring */}
                 <View
-                  className="absolute -bottom-1 self-center px-2 py-[2px] rounded-full"
-                  style={{ backgroundColor: badgeMeta.color }}
+                  style={{
+                    width: AVATAR + 1,
+                    height: AVATAR + 1,
+                    borderRadius: (AVATAR + 1) / 2,
+                    backgroundColor: '#fff',
+                    padding: 2,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff' }}>
-                    {badgeMeta.label}
-                  </Text>
+                  <Image
+                    source={{ uri: s.image }}
+                    style={{ width: AVATAR - 3, height: AVATAR - 3, borderRadius: (AVATAR - 3) / 2 }}
+                    resizeMode="cover"
+                  />
                 </View>
-              ) : null}
-              {isCommerce && storyCount > 1 ? (
-                <View
-                  className="absolute -right-1 top-1 rounded-full items-center justify-center border border-white"
-                  style={{ width: 22, height: 22, backgroundColor: colors.textPrimary }}
-                >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{storyCount}</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-          <Text
-            numberOfLines={isCommerce ? 2 : 1}
-            style={{
-              fontFamily: fonts.medium,
-              fontSize: labelSize,
-              color: colors.textPrimary,
-              textAlign: 'center',
-              marginTop: isCommerce ? 7 : 4,
-              maxWidth: itemWidth,
-              lineHeight: isCommerce ? 14 : undefined,
-            }}
-          >
-            {s.seller}
-          </Text>
-          {isCommerce && !s.isAdd && hasProductInfo ? (
-            <View className="items-center mt-1" style={{ maxWidth: itemWidth }}>
-              {s.priceTag ? (
-                <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary }}>
-                  {s.priceTag}
+              </LinearGradient>
+              {/* Fresh story indicator dot — green circle bottom-right */}
+              {(() => {
+                const isFresh = !s.seen && s.createdAt &&
+                  (Date.now() - new Date(s.createdAt).getTime() < 2 * 60 * 60 * 1000);
+                return isFresh ? (
+                  <View style={{
+                    position: 'absolute', bottom: 1, right: 1,
+                    width: 13, height: 13, borderRadius: 6.5,
+                    backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#fff',
+                  }} />
+                ) : null;
+              })()}
+              </View>
+            )}
+
+            {/* Badge pill */}
+            {badgeMeta && !s.isAdd ? (
+              <View
+                style={{
+                  marginTop: -9,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 20,
+                  backgroundColor: badgeMeta.color,
+                  borderWidth: 1.5,
+                  borderColor: '#fff',
+                  zIndex: 1,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 2,
+                  elevation: 3,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff', letterSpacing: 0.4 }}>
+                  {badgeMeta.label}
                 </Text>
-              ) : null}
-              {s.productTitle ? (
-                <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted, maxWidth: itemWidth }}>
-                  {s.productTitle}
-                </Text>
-              ) : null}
-            </View>
-          ) : !s.isAdd && storyCount > 1 ? (
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: subtextSize,
-                color: colors.textMuted,
-                marginTop: 1,
-              }}
-            >
-              {storyCount} hikaye
-            </Text>
-          ) : null}
-          {isCommerce && s.isAdd ? (
+              </View>
+            ) : null}
+
+            {/* Seller name */}
             <Text
               numberOfLines={1}
-              style={{ fontFamily: fonts.regular, fontSize: subtextSize, color: colors.textMuted, marginTop: 1, maxWidth: itemWidth }}
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: LABEL_SIZE,
+                color: s.seen ? '#9CA3AF' : '#111827',
+                textAlign: 'center',
+                marginTop: badgeMeta && !s.isAdd ? 4 : 7,
+                maxWidth: ITEM_W,
+              }}
             >
-              ürün paylaş
+              {s.isAdd ? 'Hikaye ekle' : s.seller}
             </Text>
-          ) : null}
-        </Pressable>
+
+            {/* Price tag or story-count dots */}
+            {!s.isAdd && s.priceTag ? (
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary, marginTop: 1 }}
+              >
+                {s.priceTag}
+              </Text>
+            ) : !s.isAdd && storyCount > 1 ? (
+              <View style={{ flexDirection: 'row', gap: 3, marginTop: 4, alignItems: 'center' }}>
+                {Array.from({ length: Math.min(storyCount, 3) }).map((_, di) => (
+                  <View
+                    key={di}
+                    style={{
+                      width: di === 0 ? 14 : 5,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: s.seen ? '#D1D5DB' : colors.primary,
+                      opacity: di === 0 ? 1 : 0.55,
+                    }}
+                  />
+                ))}
+                {storyCount > 3 && (
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 7, color: colors.primary }}>+</Text>
+                )}
+              </View>
+            ) : null}
+          </Pressable>
         );
       })}
     </ScrollView>
