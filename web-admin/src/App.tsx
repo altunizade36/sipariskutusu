@@ -13,6 +13,8 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import StoresPage from './pages/StoresPage';
 import SettingsPage from './pages/SettingsPage';
 import DiscoverPage from './pages/DiscoverPage';
+import OrdersPage from './pages/OrdersPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 export default function App() {
   return (
@@ -22,17 +24,19 @@ export default function App() {
           <Sidebar />
           <main className="main">
             <Routes>
-              <Route path="/"          element={<DashboardPage />} />
-              <Route path="/listings"  element={<ListingsPage />} />
-              <Route path="/reports"   element={<ReportsPage />} />
-              <Route path="/comments"  element={<CommentsPage />} />
-              <Route path="/users"     element={<UsersPage />} />
-              <Route path="/ops"       element={<OpsPage />} />
-              <Route path="/audit"     element={<AuditLogPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/stores"    element={<StoresPage />} />
-              <Route path="/settings"  element={<SettingsPage />} />
-              <Route path="/discover"  element={<DiscoverPage />} />
+              <Route path="/"              element={<DashboardPage />} />
+              <Route path="/listings"      element={<ListingsPage />} />
+              <Route path="/reports"       element={<ReportsPage />} />
+              <Route path="/comments"      element={<CommentsPage />} />
+              <Route path="/users"         element={<UsersPage />} />
+              <Route path="/ops"           element={<OpsPage />} />
+              <Route path="/audit"         element={<AuditLogPage />} />
+              <Route path="/analytics"     element={<AnalyticsPage />} />
+              <Route path="/stores"        element={<StoresPage />} />
+              <Route path="/settings"      element={<SettingsPage />} />
+              <Route path="/discover"      element={<DiscoverPage />} />
+              <Route path="/orders"        element={<OrdersPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Routes>
           </main>
         </div>
