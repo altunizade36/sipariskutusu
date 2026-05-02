@@ -1,0 +1,127 @@
+Kategori sistemini tüm uygulamada tek ve bağlantılı hale getir. Mevcut ekranları bozma.
+
+AMAÇ:
+Kategoriler ekranında hangi kategoriye tıklanırsa o kategoriye ait yayınlanmış ürünler görünsün. İlan Ver, Mağaza, Ana Sayfa, Keşfet, Instagram’dan Ürüne Çevir ve Arama/Filtre aynı kategori listesini kullansın.
+
+1. TEK KATEGORİ KAYNAĞI
+Tek dosya oluştur/güncelle:
+
+src/constants/categories.ts
+
+Tüm kategori ve alt kategoriler buradan gelsin.
+Aynı kategori listesi şu yerlerde kullanılsın:
+- Kategoriler ekranı
+- İlan Ver ekranı
+- Ürüne Çevir ekranı
+- Mağaza ürünleri
+- Ana sayfa filtreleri
+- Keşfet filtreleri
+- Arama/filtre paneli
+- Admin panel ürün yönetimi
+
+2. KATEGORİLER EKRANI
+- Sol tarafta ana kategoriler listelensin.
+- Üstte seçilen kategoriye göre alt kategori chipleri görünsün.
+- Sağ/orta alanda seçilen kategoriye ait ürünler listelensin.
+- Ürünler 2’li grid olarak görünsün.
+- Ürün kartında:
+  fotoğraf
+  başlık
+  fiyat
+  mağaza adı
+  şehir
+  favori kalbi
+  mesaj/ürünü gör butonu
+- Ürüne tıklayınca ProductDetailScreen açılsın.
+
+3. ÜRÜN FİLTRELEME
+Ürünler şu kurala göre gelsin:
+- product.status === "published"
+- product.categoryId seçilen ana kategoriye eşit
+- alt kategori seçildiyse product.subCategoryId eşit
+- pasif/silinmiş/reddedilmiş ürünler görünmesin
+
+4. INSTAGRAM’DAN GELEN ÜRÜNLER
+Instagram’dan gelen ürünler de aynı kategori sistemine bağlansın.
+- Ürüne Çevir ekranında kategori seçimi categories.ts’den gelsin.
+- Otomatik kategori tahmini categories.ts içindeki isimlere göre yapılsın.
+- Yayınlanan Instagram ürünleri de Kategoriler ekranında görünsün.
+- sourceType manual veya instagram_import fark etmez, published olan ürün kategoride görünür.
+
+5. İLAN VER BAĞLANTISI
+İlan Ver ekranındaki kategori ve alt kategori alanları da aynı categories.ts’den gelsin.
+- Kullanıcı kategori seçince doğru alt kategoriler açılsın.
+- Yayınlanan ürünün categoryId ve subCategoryId değeri kaydedilsin.
+- Boş kategoriyle ürün yayınlanmasın.
+
+6. MAĞAZA BAĞLANTISI
+Mağaza profilindeki ürünler de aynı product.categoryId sistemiyle çalışsın.
+- Mağaza içi kategori filtreleri eklenebilir.
+- Mağaza ürünlerinde kategori/alt kategori bilgisi bozuksa düzelt.
+- Mağaza ürün sayısı sadece published ürünlere göre hesaplansın.
+
+7. ARAMA VE FİLTRE BAĞLANTISI
+Arama/filtre panelindeki kategori seçenekleri de categories.ts’den gelsin.
+- Kategori adıyla arama yapılınca ilgili ürünler çıksın.
+- Alt kategori filtresi çalışsın.
+- Türkçe karakter sorunu olmasın.
+
+8. BOŞ DURUM
+Seçilen kategoride ürün yoksa:
+“Bu kategoride henüz ürün yok.”
+“İlk ilanı sen yayınlayabilirsin.”
+Buton:
+“İlan Ver”
+
+Butona basınca:
+- mağazası varsa İlan Ver ekranına git
+- mağazası yoksa Mağaza Oluştur ekranına git
+
+9. LOADING HATASI
+Şu an kategoride yükleniyor dönüyor veya boş kalıyor. Bunu düzelt.
+- Sonsuz loading kalmasın.
+- Veri yoksa empty state göster.
+- Hata varsa “Ürünler yüklenemedi” mesajı göster.
+- Yenile butonu olsun.
+
+10. KATEGORİ ID STANDARDI
+Kategori isimleri ekranda Türkçe olabilir ama sistemde sabit id kullan:
+
+Örnek:
+kadin
+erkek
+anne_cocuk
+ev_yasam
+elektronik
+ayakkabi_canta
+kozmetik
+saat_aksesuar
+spor_outdoor
+market
+kitap_hobi
+otomotiv
+pet_shop
+
+Alt kategoriler de id ile tutulsun:
+elbise
+bluz_gomlek
+pantolon_jean
+ayakkabi
+canta
+aksesuar
+telefon
+bilgisayar
+ev_dekorasyon
+vb.
+
+11. TEST ET
+- Kadın kategorisine tıklayınca kadın ürünleri geliyor mu?
+- Alt kategori seçince filtreleniyor mu?
+- İlan Ver’den ürün ekleyince ilgili kategoride görünüyor mu?
+- Instagram’dan ürüne çevrilen ürün ilgili kategoride görünüyor mu?
+- Mağaza ürünleri doğru sayılıyor mu?
+- Arama kategoriye göre buluyor mu?
+- Boş kategoride sonsuz loading kalmıyor mu?
+- ProductDetailScreen’e geçiş çalışıyor mu?
+
+Mevcut çalışan tasarım, navigation, ürün, mağaza, ilan ver, Instagram import ve arama sistemini bozma. Eksik import/type/interface/state hatalarını kendin düzelt.

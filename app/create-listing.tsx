@@ -991,126 +991,272 @@ export default function CreateListingScreen() {
 
           {/* 7. ÖNİZLEME */}
           <Section title="Canlı Önizleme" hint={`%${completionPercent} tamamlandı`}>
-            <View
-              style={{
-                flexDirection: 'row',
-                backgroundColor: '#fff',
-                borderRadius: 14,
-                padding: 10,
-                borderWidth: 1,
-                borderColor: '#E2E8F0',
-                gap: 12,
-              }}
-            >
-              <View
-                style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: 10,
-                  backgroundColor: '#F1F5F9',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
-              >
+
+            {/* ── Ana İlan Kartı ── */}
+            <View style={{ borderRadius: 18, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
+
+              {/* Fotoğraf Alanı */}
+              <View style={{ width: '100%', aspectRatio: 4 / 3, backgroundColor: '#F1F5F9', position: 'relative' }}>
                 {coverUri ? (
-                  <Image source={{ uri: coverUri }} style={{ width: 88, height: 88 }} />
+                  <Image source={{ uri: coverUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 ) : (
-                  <Ionicons name="image-outline" size={28} color={colors.textMuted} />
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <View style={{ width: 64, height: 64, borderRadius: 999, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="camera-outline" size={28} color="#94A3B8" />
+                    </View>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#94A3B8' }}>Fotoğraf eklenmedi</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#CBD5E1' }}>Yukarıdan fotoğraf ekleyebilirsin</Text>
+                  </View>
+                )}
+
+                {/* Durum rozeti */}
+                <View style={{ position: 'absolute', top: 10, left: 10 }}>
+                  <View style={{
+                    backgroundColor: canPublish ? '#059669' : '#475569',
+                    borderRadius: 999,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}>
+                    <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: canPublish ? '#A7F3D0' : '#94A3B8' }} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff', letterSpacing: 0.5 }}>
+                      {canPublish ? 'YAYINA HAZIR' : 'TASLAK'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Fotoğraf sayısı */}
+                {photos.length > 0 && (
+                  <View style={{ position: 'absolute', top: 10, right: 10 }}>
+                    <View style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="images-outline" size={11} color="#fff" />
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{photos.length}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Fotoğraf dots */}
+                {photos.length > 1 && (
+                  <View style={{ position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
+                    {photos.slice(0, 6).map((_, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          width: i === coverIndex ? 18 : 6,
+                          height: 6,
+                          borderRadius: 999,
+                          backgroundColor: i === coverIndex ? '#fff' : 'rgba(255,255,255,0.45)',
+                        }}
+                      />
+                    ))}
+                  </View>
                 )}
               </View>
-              <View className="flex-1 justify-between py-1">
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#059669' }}>CANLI</Text>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.textMuted }}>
-                    {photos.length} fotoğraf
-                  </Text>
+
+              {/* Thumbnail şeridi */}
+              {photos.length > 1 && (
+                <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingTop: 10 }}>
+                  {photos.slice(0, 5).map((uri, i) => (
+                    <View
+                      key={i}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        borderWidth: i === coverIndex ? 2 : 1,
+                        borderColor: i === coverIndex ? colors.primary : '#E2E8F0',
+                      }}
+                    >
+                      <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </View>
+                  ))}
+                  {photos.length > 5 && (
+                    <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#94A3B8' }}>+{photos.length - 5}</Text>
+                    </View>
+                  )}
                 </View>
+              )}
+
+              {/* İlan Bilgileri */}
+              <View style={{ padding: 14, paddingTop: photos.length > 1 ? 10 : 14 }}>
+
+                {/* Fiyat + Durum etiketleri */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <View>
+                    <Text style={{ fontFamily: fonts.headingBold, fontSize: 24, color: colors.primary, lineHeight: 28 }}>
+                      {priceValid ? `₺${priceNumber.toLocaleString('tr-TR')}` : '₺—'}
+                    </Text>
+                    {freeShipping && (
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#059669', marginTop: 1 }}>Ücretsiz kargo</Text>
+                    )}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '45%' }}>
+                    {bargaining && (
+                      <View style={{ backgroundColor: '#ECFDF5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#A7F3D0' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#047857' }}>Pazarlık</Text>
+                      </View>
+                    )}
+                    <View style={{ backgroundColor: '#F1F5F9', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: '#475569' }}>{condition}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Başlık */}
                 <Text
                   numberOfLines={2}
-                  style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}
+                  style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, lineHeight: 22, marginBottom: 8 }}
                 >
                   {title.trim() || 'İlan başlığın burada görünür'}
                 </Text>
-                <View>
-                  <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: colors.primary }}>
-                    {priceValid ? `₺${priceNumber.toLocaleString('tr-TR')}` : '₺—'}
+
+                {/* Konum + Teslimat */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted }}>
+                    {locationLabel || 'Konum belirlenmedi'}
                   </Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                    {locationLabel || 'Konum'} · {condition}
-                  </Text>
+                  {delivery.length > 0 && (
+                    <>
+                      <Text style={{ color: '#CBD5E1', fontSize: 14, lineHeight: 14 }}>·</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
+                        {delivery.join(' / ')}
+                      </Text>
+                    </>
+                  )}
+                </View>
+
+                {/* Kategori etiketleri */}
+                {(selectedCategory || selectedSubCategoryName) && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                    {selectedCategory && (
+                      <View style={previewChipStyle}>
+                        <Text style={previewChipTextStyle}>{selectedCategory.name}</Text>
+                      </View>
+                    )}
+                    {selectedSubCategoryName ? (
+                      <View style={previewChipStyle}>
+                        <Text style={previewChipTextStyle}>{selectedSubCategoryName}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* Satıcı Bilgisi */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 11, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                  {sellerAvatar ? (
+                    <Image source={{ uri: sellerAvatar }} style={{ width: 30, height: 30, borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0' }} />
+                  ) : (
+                    <View style={{ width: 30, height: 30, borderRadius: 999, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="person-outline" size={15} color="#94A3B8" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }} numberOfLines={1}>{sellerName}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textMuted }}>Satıcı</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 5 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: '#FFF1F2', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="heart-outline" size={15} color="#FDA4AF" />
+                    </View>
+                    <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: '#F0F9FF', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="chatbubble-outline" size={14} color="#7DD3FC" />
+                    </View>
+                    <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="share-social-outline" size={14} color="#86EFAC" />
+                    </View>
+                  </View>
                 </View>
               </View>
             </View>
 
-            <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
-              <View style={previewChipStyle}>
-                <Text style={previewChipTextStyle}>{selectedCategory?.name || 'Kategori'}</Text>
+            {/* ── Açıklama Önizlemesi ── */}
+            <View style={{ marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', overflow: 'hidden' }}>
+              <View style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: '#E2E8F0',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#fff',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Ionicons name="document-text-outline" size={12} color={colors.textSecondary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary }}>Açıklama</Text>
+                </View>
+                <Text style={{
+                  fontFamily: fonts.medium,
+                  fontSize: 10,
+                  color: description.trim().length >= 20 ? '#059669' : description.trim().length > 0 ? '#D97706' : colors.textMuted,
+                }}>
+                  {description.trim().length > 0
+                    ? `${description.trim().length} karakter${description.trim().length < 20 ? ' (min. 20)' : ''}`
+                    : 'Henüz eklenmedi'}
+                </Text>
               </View>
-              {selectedSubCategoryName ? (
-                <View style={previewChipStyle}>
-                  <Text style={previewChipTextStyle}>{selectedSubCategoryName}</Text>
-                </View>
-              ) : null}
-              {delivery.map((item) => (
-                <View key={item} style={previewChipStyle}>
-                  <Text style={previewChipTextStyle}>{item}</Text>
-                </View>
-              ))}
-              {bargaining ? (
-                <View style={[previewChipStyle, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-                  <Text style={[previewChipTextStyle, { color: '#047857' }]}>Pazarlık Var</Text>
-                </View>
-              ) : null}
+              <View style={{ padding: 12 }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: description.trim() ? colors.textPrimary : '#94A3B8', lineHeight: 20 }} numberOfLines={4}>
+                  {description.trim() || 'Açıklama eklediğinde burada anlık görünecek…'}
+                </Text>
+              </View>
             </View>
 
-            <View className="mt-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary, marginBottom: 4 }}>
-                Açıklama Önizlemesi
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textPrimary }} numberOfLines={3}>
-                {description.trim() || 'Açıklama eklediğinde burada anlık görünecek.'}
-              </Text>
-            </View>
-
-            <View className="mt-3">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>
-                Adım Durumu
-              </Text>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                {completionItems.map((item) => (
-                  <View
-                    key={item.label}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: item.done ? '#A7F3D0' : '#E2E8F0',
-                      backgroundColor: item.done ? '#ECFDF5' : '#fff',
-                    }}
-                  >
-                    <Ionicons
-                      name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={12}
-                      color={item.done ? '#059669' : colors.textMuted}
-                    />
-                    <Text
-                      style={{
-                        fontFamily: item.done ? fonts.bold : fonts.medium,
-                        fontSize: 11,
-                        color: item.done ? '#047857' : colors.textSecondary,
-                        marginLeft: 6,
-                      }}
-                    >
-                      {item.label}
-                    </Text>
+            {/* ── Adım Durumu ── */}
+            <View style={{ marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary }}>Adım Durumu</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: completionPercent === 100 ? '#059669' : colors.primary }}>
+                  {completedCount}/{completionItems.length}
+                </Text>
+              </View>
+              <View style={{ gap: 6 }}>
+                {[0, 3, 6].map((startIdx) => (
+                  <View key={startIdx} style={{ flexDirection: 'row', gap: 6 }}>
+                    {completionItems.slice(startIdx, startIdx + 3).map((item) => (
+                      <View
+                        key={item.label}
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingHorizontal: 8,
+                          paddingVertical: 7,
+                          borderRadius: 9,
+                          backgroundColor: item.done ? '#ECFDF5' : '#F8FAFC',
+                          borderWidth: 1,
+                          borderColor: item.done ? '#A7F3D0' : '#E2E8F0',
+                          gap: 5,
+                        }}
+                      >
+                        <Ionicons
+                          name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={13}
+                          color={item.done ? '#059669' : '#CBD5E1'}
+                        />
+                        <Text
+                          style={{
+                            fontFamily: item.done ? fonts.bold : fonts.regular,
+                            fontSize: 10,
+                            color: item.done ? '#047857' : '#94A3B8',
+                            flex: 1,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {item.label}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 ))}
               </View>
             </View>
+
           </Section>
         </ScrollView>
 
