@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useUnreadMessageCount } from '../../src/hooks/useUnreadMessageCount';
+import { useUnreadNotificationCount } from '../../src/hooks/useUnreadNotificationCount';
 import BoxMascot from '../../src/components/BoxMascot';
 import { t } from '../../src/i18n';
 import { isSmallDevice, clamp, screenHeight } from '../../src/utils/responsive';
@@ -11,6 +12,7 @@ import { isSmallDevice, clamp, screenHeight } from '../../src/utils/responsive';
 export default function TabLayout() {
   const { isLoading, isDarkMode } = useAuth();
   const unreadCount = useUnreadMessageCount();
+  const unreadNotifCount = useUnreadNotificationCount();
 
   const tabBarHeight = Platform.select({
     web: 94,
@@ -128,8 +130,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          href: null,
           title: t.tabs.profile,
+          tabBarBadge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
@@ -144,6 +146,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="store"
         options={{
+          href: null,
           title: t.tabs.store,
           tabBarIcon: ({ color, size }) => <Ionicons name="storefront" size={size} color={color} />,
         }}

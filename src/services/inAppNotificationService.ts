@@ -242,6 +242,59 @@ export async function fetchUnreadNotificationCount(): Promise<number> {
   return Number(count ?? 0);
 }
 
+export async function deleteNotification(notificationId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
+  const userId = await getCurrentUserId();
+  if (!userId) return;
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('id', notificationId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+export async function clearAllNotifications(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
+  const userId = await getCurrentUserId();
+  if (!userId) return;
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+export async function createInAppNotification(
+  targetUserId: string,
+  type: InAppNotificationType,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+): Promise<void> {
+  if (!isSupabaseConfigured || !targetUserId) return;
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from('notifications').insert({
+    user_id: targetUserId,
+    type,
+    title,
+    body,
+    data: data ?? null,
+    is_read: false,
+  });
+
+  if (error) throw error;
+}
+
 export function subscribeToMyNotifications(userId: string, onChange: () => void): () => void {
   if (!isSupabaseConfigured || !userId) {
     return () => undefined;

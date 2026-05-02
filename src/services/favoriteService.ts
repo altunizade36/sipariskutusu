@@ -96,6 +96,12 @@ export async function toggleFavorite(listingId: string): Promise<boolean> {
       invalidateCacheByPrefix(FAVORITES_CACHE_PREFIX),
       invalidateCacheByPrefix(PRODUCTS_CACHE_PREFIX),
     ]).catch(() => undefined);
+
+    // Satıcıya bildirim gönder (fire-and-forget, spam-korumalı)
+    import('../services/notificationDispatchService')
+      .then(({ dispatchFavoriteNotification }) => dispatchFavoriteNotification(listingId))
+      .catch(() => undefined);
+
     return true;
   }
 }

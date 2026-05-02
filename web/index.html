@@ -5,12 +5,16 @@
   <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1.00001,viewport-fit=cover" />
   <script>
-  // Prevent fontfaceobserver timeout from crashing the preview
+  // Prevent fontfaceobserver 6000ms timeout from being captured by Sentry/Expo.
+  // capture:true ensures this fires BEFORE Sentry's listener in bubble phase.
   window.addEventListener('unhandledrejection', function(e) {
-    if (e.reason && e.reason.message && e.reason.message.indexOf('timeout exceeded') !== -1) {
+    var msg = '';
+    try { msg = (e.reason && e.reason.message) ? String(e.reason.message) : ''; } catch(ex) {}
+    if (msg.indexOf('timeout exceeded') !== -1 || msg.indexOf('fontfaceobserver') !== -1) {
       e.preventDefault();
+      e.stopImmediatePropagation();
     }
-  });
+  }, true);
   </script>
 </head>
 <body>

@@ -7,7 +7,10 @@ import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@
 import { Cairo_600SemiBold, Cairo_700Bold } from '@expo-google-fonts/cairo';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { LogBox, Platform } from 'react-native';
+
+// Font yükleme timeout hatalarını tüm ortamlarda gizle
+LogBox.ignoreLogs(['timeout exceeded', 'fontfaceobserver', '6000ms']);
 import * as Sentry from '@sentry/react-native';
 import { PostHogProvider } from 'posthog-react-native';
 import { ListingsProvider } from '../src/context/ListingsContext';
@@ -53,10 +56,35 @@ function RootLayout() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setFontLoadTimedOut(true);
-    }, 2500);
+    }, 1500);
 
     return () => {
       clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const EU = (global as any).ErrorUtils as
+      | { getGlobalHandler: () => ((e: Error, fatal?: boolean) => void) | null; setGlobalHandler: (h: (e: Error, fatal?: boolean) => void) => void }
+      | undefined;
+    if (!EU) return;
+    const prev = EU.getGlobalHandler();
+    if (!prev) return;
+    EU.setGlobalHandler((error: Error, isFatal?: boolean) => {
+      const msg = error?.message ?? '';
+      if (
+        msg.includes('timeout exceeded') ||
+        msg.includes('fontfaceobserver') ||
+        msg.includes('6000')
+      ) {
+        return;
+      }
+      prev(error, isFatal);
+    });
+    return () => {
+      EU.setGlobalHandler(prev);
     };
   }, []);
 

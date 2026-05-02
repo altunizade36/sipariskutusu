@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Dimensions, RefreshControl, Share, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Dimensions, RefreshControl, Share, Image, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -43,6 +43,7 @@ export default function FavoritesScreen() {
   const [columns, setColumns] = useState<1 | 2>(2);
   const [selectedCollectionCategory, setSelectedCollectionCategory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [followedStores, setFollowedStores] = useState<FollowedStoreInfo[]>([]);
   const [followedStoresLoading, setFollowedStoresLoading] = useState(false);
   const cardWidth = columns === 2 ? CARD_WIDTH : SCREEN_WIDTH - 32;
@@ -70,6 +71,16 @@ export default function FavoritesScreen() {
 
   const visibleFavorites = useMemo(() => {
     let source = [...favorites];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      source = source.filter(
+        (item) =>
+          item.title?.toLowerCase().includes(q) ||
+          item.brand?.toLowerCase().includes(q) ||
+          item.category?.toLowerCase().includes(q),
+      );
+    }
 
     if (selectedCollectionCategory) {
       source = source.filter((item) => item.category === selectedCollectionCategory);
@@ -130,6 +141,44 @@ Favorilerim
             <ProfileButton />
           </View>
         </View>
+        {/* Search bar */}
+        {tab === 'products' && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F1F5F9',
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              height: 40,
+              marginTop: 10,
+              marginBottom: 2,
+            }}
+          >
+            <Ionicons name="search-outline" size={16} color={colors.textMuted} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Favorilerde ara..."
+              placeholderTextColor={colors.textMuted}
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                fontSize: 13,
+                fontFamily: fonts.regular,
+                color: colors.textPrimary,
+              }}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
+        )}
+
         <View className="flex-row gap-2 mt-3">
           {[
             { key: 'products', label: `Ürünler (${favorites.length})` },

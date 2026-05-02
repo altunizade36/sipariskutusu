@@ -61,6 +61,24 @@ Configured as a static site deployment:
 
 ## Mobile App Features
 
+### Font Loading & 6000ms Timeout Fix
+- `app/_layout.tsx` — Splashscreen timeout reduced to 1500ms; `LogBox.ignoreLogs(['timeout exceeded', 'fontfaceobserver', '6000ms'])` added at module level; native `ErrorUtils.setGlobalHandler` suppresses font timeouts on Expo Go; web bypasses `useFonts` entirely (`Platform.OS === 'web' ? {}`)
+- `web/index.html` — `unhandledrejection` handler with `capture: true` + `stopImmediatePropagation()` to prevent Sentry/Expo from capturing font timeout errors before our handler
+- `src/services/monitoring.ts` — Sentry `ignoreErrors: ['timeout exceeded', ...]` + `beforeSend` null-return for font errors
+
+### Notification System
+- `src/services/inAppNotificationService.ts` — 15 notification types; added `deleteNotification()`, `clearAllNotifications()`, `createInAppNotification(targetUserId, type, title, body, data?)`; full RPC + direct-table fallback
+- `src/hooks/useUnreadNotificationCount.ts` — Real-time unread notification count hook using Supabase Realtime; auto-refreshes on notification changes
+- `app/notifications.tsx` — Full professional notification center: type-specific icons (15 types mapped to color+icon), relative time formatting ("Az önce", "2 dk önce", "Dün"), filter tabs (Tümü/Okunmamış), swipe/long-press-to-delete with Animated slide, "Tümünü Temizle" with confirmation, "Tümünü oku", pull-to-refresh, unread blue highlight with left border
+- `app/(tabs)/_layout.tsx` — Account tab now visible (removed `href: null`); `useUnreadNotificationCount` badge on Profile tab; Store tab hidden (accessible from Account > Mağazam)
+
+### Notification Dispatch Service
+- `src/services/notificationDispatchService.ts` — 4 dispatch functions: `dispatchFavoriteNotification()`, `dispatchLikeNotification()`, `dispatchFollowNotification()`, `dispatchPriceDropNotification()`; spam-prevention via in-memory throttle (24h window); fire-and-forget pattern; self-notification guard
+- `src/services/favoriteService.ts` — `toggleFavorite()` now dispatches `dispatchFavoriteNotification` on add (fire-and-forget)
+
+### Favorites System
+- `app/(tabs)/favorites.tsx` — Added search bar (searches by title, brand, category); `searchQuery` state with clear button; integrated into `visibleFavorites` useMemo filter chain
+
 ### i18n (TR/EN)
 - `src/i18n/tr.ts`, `src/i18n/en.ts`, `src/i18n/index.ts`
 - Module-level `t` constant — no React hooks needed
