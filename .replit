@@ -105,3 +105,7 @@ EXPO_PUBLIC_BACKEND_API_URL = ""
 
 [objectStorage]
 defaultBucketID = "replit-objstore-8fd55029-9bba-4649-9bd8-4247e58b05c1"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000

@@ -365,7 +365,7 @@ export default function HomeScreen() {
           {cartItemCount > 0 && (
             <Pressable
               onPress={() => router.push('/(tabs)/cart')}
-              style={{ height: 34, borderRadius: 10, borderWidth: 1, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, gap: 5 }}
+              style={{ height: 34, borderRadius: 10, borderWidth: 1, borderColor: isDarkMode ? '#7F1D1D' : '#FCA5A5', backgroundColor: isDarkMode ? '#3F1212' : '#FEF2F2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, gap: 5 }}
             >
               <Ionicons name="cart-outline" size={14} color="#DC2626" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#DC2626' }}>{cartItemCount}</Text>

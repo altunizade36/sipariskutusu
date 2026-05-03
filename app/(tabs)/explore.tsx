@@ -82,7 +82,7 @@ function PulsingDot({ color = '#fff' }: { color?: string }) {
   return <Animated.View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: color, transform: [{ scale }] }} />;
 }
 
-function SkeletonBox({ w, h, radius = 8 }: { w: number | string; h: number; radius?: number }) {
+function SkeletonBox({ w, h, radius = 8, dark = false }: { w: number | string; h: number; radius?: number; dark?: boolean }) {
   const opacity = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     Animated.loop(
@@ -93,7 +93,7 @@ function SkeletonBox({ w, h, radius = 8 }: { w: number | string; h: number; radi
     ).start();
   }, [opacity]);
   return (
-    <Animated.View style={{ width: w as number, height: h, borderRadius: radius, backgroundColor: '#CBD5E1', opacity }} />
+    <Animated.View style={{ width: w as number, height: h, borderRadius: radius, backgroundColor: dark ? '#334155' : '#CBD5E1', opacity }} />
   );
 }
 
@@ -301,7 +301,7 @@ export default function ExploreScreen() {
             <FavoriteButton />
             <Pressable
               onPress={() => router.push('/seller-leaderboard' as never)}
-              style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}
+              style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: isDarkMode ? '#3D2A06' : '#FFFBEB', borderColor: isDarkMode ? '#A16207' : '#FDE68A' }}
             >
               <Ionicons name="trophy-outline" size={18} color="#D97706" />
             </Pressable>
@@ -415,9 +415,9 @@ export default function ExploreScreen() {
             {isLoadingInitial
               ? Array.from({ length: 6 }).map((_, i) => (
                   <View key={`sk-${i}`} style={{ width: 88, alignItems: 'center', gap: 8 }}>
-                    <SkeletonBox w={76} h={76} radius={38} />
-                    <SkeletonBox w={64} h={10} />
-                    <SkeletonBox w={48} h={8} />
+                    <SkeletonBox w={76} h={76} radius={38} dark={isDarkMode} />
+                    <SkeletonBox w={64} h={10} dark={isDarkMode} />
+                    <SkeletonBox w={48} h={8} dark={isDarkMode} />
                   </View>
                 ))
               : popularSellerItems.map((item, idx) => {
@@ -677,7 +677,7 @@ export default function ExploreScreen() {
           {isLoadingInitial ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonBox key={`grid-sk-${i}`} w={GRID_CARD_WIDTH} h={280} radius={20} />
+                <SkeletonBox key={`grid-sk-${i}`} w={GRID_CARD_WIDTH} h={280} radius={20} dark={isDarkMode} />
               ))}
             </View>
           ) : filteredSellers.length === 0 ? (

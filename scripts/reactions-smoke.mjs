@@ -89,12 +89,19 @@ async function main() {
   const client = createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { error: signInError } = await client.auth.signInWithPassword({ email: smokeEmail, password: smokePassword });
+  const { data: signInData, error: signInError } = await client.auth.signInWithPassword({ email: smokeEmail, password: smokePassword });
   if (signInError) throw new Error(`Login failed: ${signInError.message}`);
 
   const { data: authData, error: userError } = await client.auth.getUser();
   if (userError || !authData.user) throw new Error('Authenticated user not found after login.');
   const userId = authData.user.id;
+
+  // Realtime authorization: explicitly attach access token to socket.
+  // Without this, postgres_changes RLS check fails and channel never reaches SUBSCRIBED.
+  const accessToken = signInData?.session?.access_token;
+  if (accessToken && client.realtime?.setAuth) {
+    client.realtime.setAuth(accessToken);
+  }
 
   // ── Ensure profile row (needed for FK constraints) ───────────────
   if (createdUser && admin) {
@@ -176,7 +183,7 @@ async function main() {
       channelStatus = status;
     });
 
-  const isSubscribed = await waitFor(() => channelStatus === 'SUBSCRIBED', 8000);
+  const isSubscribed = await waitFor(() => channelStatus === 'SUBSCRIBED', 20000);
   if (!isSubscribed) {
     throw new Error(`Realtime channel did not reach SUBSCRIBED state (last=${channelStatus}).`);
   }

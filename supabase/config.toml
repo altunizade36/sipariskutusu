@@ -206,10 +206,15 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+# Production hardening: enable captcha to mitigate brute-force / credential-stuffing.
+# To activate:
+#   1) Provision an hCaptcha (or Turnstile) site, store secret in env var SUPABASE_AUTH_CAPTCHA_SECRET
+#   2) Uncomment block below and re-deploy supabase config
+#   3) Add the matching site key to the mobile/web auth screens
 # [auth.captcha]
 # enabled = true
 # provider = "hcaptcha"
-# secret = ""
+# secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
