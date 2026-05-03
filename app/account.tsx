@@ -84,7 +84,7 @@ function SectionRow({
   const iconBg = (item.color ?? colors.primary) + '18';
   return (
     <Pressable
-      onPress={item.onPress}
+      onPress={item.toggle ? () => item.onToggle?.(!item.toggleValue) : item.onPress}
       disabled={!item.onPress && !item.toggle}
       style={{
         flexDirection: 'row',

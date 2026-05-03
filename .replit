@@ -102,3 +102,6 @@ EXPO_PUBLIC_NOTIFICATION_DISPATCH_TIMEOUT_MS = "10000"
 EXPO_PUBLIC_BACKEND_STRICT_MODE = "false"
 EXPO_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.com"
 EXPO_PUBLIC_BACKEND_API_URL = ""
+
+[objectStorage]
+defaultBucketID = "replit-objstore-8fd55029-9bba-4649-9bd8-4247e58b05c1"
