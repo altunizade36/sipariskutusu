@@ -1,6 +1,7 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useUnreadMessageCount } from '../../src/hooks/useUnreadMessageCount';
@@ -8,6 +9,54 @@ import { useUnreadNotificationCount } from '../../src/hooks/useUnreadNotificatio
 import BoxMascot from '../../src/components/BoxMascot';
 import { t } from '../../src/i18n';
 import { isSmallDevice, clamp, screenHeight } from '../../src/utils/responsive';
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+function TabIcon({
+  name,
+  nameFilled,
+  focused,
+  color,
+  size,
+}: {
+  name: IoniconsName;
+  nameFilled: IoniconsName;
+  focused: boolean;
+  color: string;
+  size: number;
+}) {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={focused ? nameFilled : name} size={size} color={color} />
+      {focused ? (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: -6,
+            width: 4,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: colors.primary,
+          }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function SellFabIcon({ focused }: { focused: boolean }) {
+  return (
+    <View style={[styles.sellFab, focused && styles.sellFabFocused]}>
+      <LinearGradient
+        colors={['#3B82F6', '#1E5FC6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: 28 }]}
+      />
+      <Ionicons name="add" size={26} color="#FFFFFF" />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const { isLoading, isDarkMode } = useAuth();
@@ -23,6 +72,9 @@ export default function TabLayout() {
     web: 22,
     default: isSmallDevice ? 18 : 26,
   }) as number;
+
+  const barBg = isDarkMode ? '#0F172A' : '#FFFFFF';
+  const barBorder = isDarkMode ? '#1E293B' : '#E8EEF8';
 
   if (isLoading) {
     return (
@@ -40,29 +92,29 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: isDarkMode ? '#94A3B8' : colors.textMuted,
+        tabBarInactiveTintColor: isDarkMode ? '#64748B' : '#A0ABBF',
         tabBarStyle: {
-          backgroundColor: isDarkMode ? '#0F172A' : '#FFFFFF',
-          borderTopColor: isDarkMode ? '#1E293B' : '#E8EEF8',
+          backgroundColor: barBg,
+          borderTopColor: barBorder,
           borderTopWidth: 1,
           height: tabBarHeight,
           paddingBottom: tabBarPaddingBottom,
           paddingTop: 10,
-          paddingHorizontal: 10,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
+          paddingHorizontal: 4,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
           overflow: 'visible',
-          shadowColor: '#0F172A',
-          shadowOpacity: isDarkMode ? 0.24 : 0.08,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: -4 },
-          elevation: 18,
+          shadowColor: isDarkMode ? '#000' : '#0F172A',
+          shadowOpacity: isDarkMode ? 0.4 : 0.10,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: -6 },
+          elevation: 20,
         },
         tabBarLabelStyle: {
           fontFamily: fonts.medium,
-          fontSize: 9,
-          marginTop: 2,
-          paddingBottom: 2,
+          fontSize: 10,
+          marginTop: 4,
+          letterSpacing: 0.1,
         },
         tabBarItemStyle: {
           paddingTop: 4,
@@ -70,13 +122,18 @@ export default function TabLayout() {
         },
       }}
     >
+      {/* ── Anasayfa ── */}
       <Tabs.Screen
         name="index"
         options={{
           title: t.tabs.home,
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIcon name="home-outline" nameFilled="home" focused={focused} color={color} size={size} />
+          ),
         }}
       />
+
+      {/* ── Gizli: Kategoriler ── */}
       <Tabs.Screen
         name="categories"
         options={{
@@ -85,6 +142,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} />,
         }}
       />
+
+      {/* ── Gizli: Favoriler ── */}
       <Tabs.Screen
         name="favorites"
         options={{
@@ -93,48 +152,70 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
         }}
       />
+
+      {/* ── Keşfet ── */}
       <Tabs.Screen
         name="explore"
         options={{
           title: t.tabs.explore,
-          tabBarIcon: ({ color, size }) => <Ionicons name="compass" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIcon name="compass-outline" nameFilled="compass" focused={focused} color={color} size={size} />
+          ),
         }}
       />
+
+      {/* ── İlan Ver (FAB) ── */}
       <Tabs.Screen
         name="sell"
         options={{
           title: t.tabs.sell,
-          tabBarItemStyle: {
-            paddingTop: 0,
-          },
+          tabBarItemStyle: { paddingTop: 0 },
           tabBarLabelStyle: {
             fontFamily: fonts.bold,
             fontSize: 10,
             marginTop: 8,
+            color: colors.primary,
+            letterSpacing: 0.1,
           },
-          tabBarIcon: ({ focused }) => (
-            <View style={[styles.sellFab, focused && styles.sellFabFocused]}>
-              <Ionicons name="add" size={24} color="#FFFFFF" />
-            </View>
-          ),
+          tabBarIcon: ({ focused }) => <SellFabIcon focused={focused} />,
         }}
       />
+
+      {/* ── Mesajlar ── */}
       <Tabs.Screen
         name="messages"
         options={{
           title: t.tabs.messages,
           tabBarBadge: unreadCount > 0 ? unreadCount : null,
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIcon name="chatbubble-ellipses-outline" nameFilled="chatbubble-ellipses" focused={focused} color={color} size={size} />
+          ),
         }}
       />
+
+      {/* ── Mağaza ── */}
+      <Tabs.Screen
+        name="store"
+        options={{
+          title: t.tabs.store,
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIcon name="storefront-outline" nameFilled="storefront" focused={focused} color={color} size={size} />
+          ),
+        }}
+      />
+
+      {/* ── Gizli: Profil/Hesap ── */}
       <Tabs.Screen
         name="account"
         options={{
+          href: null,
           title: t.tabs.profile,
           tabBarBadge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
+
+      {/* ── Gizli: Sepet ── */}
       <Tabs.Screen
         name="cart"
         options={{
@@ -143,14 +224,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="bag-handle-outline" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="store"
-        options={{
-          href: null,
-          title: t.tabs.store,
-          tabBarIcon: ({ color, size }) => <Ionicons name="storefront" size={size} color={color} />,
-        }}
-      />
+
+      {/* ── Gizli: Siparişler ── */}
       <Tabs.Screen
         name="orders"
         options={{
@@ -179,22 +254,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sellFab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    marginTop: -22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginTop: -24,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderWidth: 4,
+    borderWidth: 3.5,
     borderColor: '#FFFFFF',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 12,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 14,
+    overflow: 'hidden',
   },
   sellFabFocused: {
-    transform: [{ scale: 1.04 }],
+    transform: [{ scale: 1.06 }],
+    shadowOpacity: 0.6,
   },
 });
