@@ -17,6 +17,7 @@ import { ScrollToTopButton } from '../../src/components/ScrollToTopButton';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
+import { useViewedStories } from '../../src/hooks/useViewedStories';
 import { getAlgorithmicExploreSelection, logSellerClick } from '../../src/services/explorePopularityService';
 import {
   fetchExploreFeaturedStories,
@@ -111,6 +112,8 @@ export default function ExploreScreen() {
   const [isRankingLoading, setIsRankingLoading] = useState(false);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [featuredStories, setFeaturedStories] = useState<any[]>([]);
+  const [isLoadingStories, setIsLoadingStories] = useState(true);
+  const { isViewed, markViewed } = useViewedStories();
   const [leaderboardEntries, setLeaderboardEntries] = useState<any[]>([]);
   const [popularPeriod, setPopularPeriod] = useState<LeaderboardPeriod>('weekly');
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
@@ -170,11 +173,13 @@ export default function ExploreScreen() {
 
   // ─── Load featured stories ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!canUseBackend) { setFeaturedStories([]); return; }
+    if (!canUseBackend) { setFeaturedStories([]); setIsLoadingStories(false); return; }
     let active = true;
+    setIsLoadingStories(true);
     fetchExploreFeaturedStories(18)
       .then((stories) => { if (active) setFeaturedStories(stories); })
-      .catch((error) => { captureError(error, { scope: 'explore_featured_stories' }); if (active) setFeaturedStories([]); });
+      .catch((error) => { captureError(error, { scope: 'explore_featured_stories' }); if (active) setFeaturedStories([]); })
+      .finally(() => { if (active) setIsLoadingStories(false); });
     return () => { active = false; };
   }, [canUseBackend]);
 
@@ -450,7 +455,7 @@ export default function ExploreScreen() {
         </View>
 
         {/* ── Editörün Seçimi ──────────────────────────────────────────────── */}
-        {featuredStories.length > 0 && (
+        {(isLoadingStories || featuredStories.length > 0 || canUseBackend) && (
           <View style={{ backgroundColor: pal.card, paddingTop: 16, paddingBottom: 16, marginTop: 6, borderBottomWidth: 1, borderBottomColor: pal.border }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 14 }}>
               <View style={{ flex: 1, paddingRight: 12 }}>
@@ -466,14 +471,50 @@ export default function ExploreScreen() {
               </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: 4 }}>
+              {/* Satıcı için "Hikaye ekle" CTA */}
+              {isSeller && !isLoadingStories && (
+                <Pressable
+                  onPress={() => router.push('/share-story' as never)}
+                  style={{ width: 116, height: 194, borderRadius: 18, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: pal.primaryTint, alignItems: 'center', justifyContent: 'center', padding: 10 }}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <Ionicons name="add" size={26} color="#fff" />
+                  </View>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: pal.textPrimary, textAlign: 'center' }}>Hikayeni Ekle</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: pal.textSecondary, textAlign: 'center', marginTop: 4 }}>Ürününü öne çıkar</Text>
+                </Pressable>
+              )}
+
+              {/* İskelet */}
+              {isLoadingStories && featuredStories.length === 0 && Array.from({ length: 4 }).map((_, i) => (
+                <View key={`story-sk-${i}`} style={{ width: 116, height: 194, borderRadius: 18, overflow: 'hidden', backgroundColor: isDarkMode ? '#1E293B' : '#E5E7EB' }}>
+                  <SkeletonBox w={116} h={194} radius={18} dark={isDarkMode} />
+                </View>
+              ))}
+
+              {/* Boş durum (yükleme bitti, hikaye yok, satıcı değil) */}
+              {!isLoadingStories && featuredStories.length === 0 && !isSeller && (
+                <View style={{ width: 240, height: 194, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: pal.cardAlt, borderWidth: 1, borderColor: pal.border, padding: 16 }}>
+                  <Ionicons name="image-outline" size={32} color={pal.textMuted} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: pal.textPrimary, marginTop: 8, textAlign: 'center' }}>Henüz hikaye yok</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: pal.textSecondary, marginTop: 4, textAlign: 'center' }}>Yakında öne çıkan satıcılar burada</Text>
+                </View>
+              )}
+
+              {/* Hikaye kartları */}
               {featuredStories.slice(0, 12).map((story: any) => {
                 const badgeColor = story.featuredType === 'trending' ? '#EF4444' : story.featuredType === 'weekly' ? '#F59E0B' : colors.primary;
                 const badgeLabel = story.featuredType === 'trending' ? t.explore.badgeTrending : story.featuredType === 'weekly' ? t.explore.badgeWeekly : t.explore.badgePioneer;
+                const viewed = isViewed(story.storyId);
+                const ringColor = viewed ? (isDarkMode ? '#475569' : '#CBD5E1') : colors.primary;
                 return (
                   <Pressable
                     key={story.id}
-                    onPress={() => router.push(`/story-viewer?storyId=${encodeURIComponent(story.storyId)}&sellerKey=${encodeURIComponent(story.sellerId)}` as never)}
-                    style={{ width: 116, height: 194, borderRadius: 18, overflow: 'hidden', borderWidth: 2.5, borderColor: colors.primary }}
+                    onPress={() => {
+                      markViewed(story.storyId);
+                      router.push(`/story-viewer?storyId=${encodeURIComponent(story.storyId)}&sellerKey=${encodeURIComponent(story.sellerId)}` as never);
+                    }}
+                    style={{ width: 116, height: 194, borderRadius: 18, overflow: 'hidden', borderWidth: 2.5, borderColor: ringColor, opacity: viewed ? 0.85 : 1 }}
                   >
                     <Image source={{ uri: story.imageUrl }} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.94)']} locations={[0.3, 0.65, 1]} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, justifyContent: 'flex-end', padding: 10 }}>
@@ -493,12 +534,16 @@ export default function ExploreScreen() {
                       <View style={{ backgroundColor: badgeColor, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 }}>
                         <Text style={{ fontFamily: fonts.bold, fontSize: 7, color: '#fff', letterSpacing: 0.4 }}>{badgeLabel}</Text>
                       </View>
-                      {story.isLive && (
+                      {story.isLive ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(239,68,68,0.88)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 }}>
                           <PulsingDot color="#fff" />
                           <Text style={{ fontFamily: fonts.bold, fontSize: 7, color: '#fff' }}>CANLI</Text>
                         </View>
-                      )}
+                      ) : !viewed ? (
+                        <View style={{ backgroundColor: 'rgba(34,197,94,0.92)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 7, color: '#fff', letterSpacing: 0.4 }}>YENİ</Text>
+                        </View>
+                      ) : null}
                     </View>
                   </Pressable>
                 );
