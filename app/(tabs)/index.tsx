@@ -343,6 +343,33 @@ export default function HomeScreen() {
           <Ionicons name="camera-outline" size={20} color={colors.primary} />
         </Pressable>
 
+        {/* Quick nav */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <Pressable
+            onPress={() => router.push('/(tabs)/categories')}
+            style={{ flex: 1, height: 34, borderRadius: 10, borderWidth: 1, borderColor: colors.primary, backgroundColor: pal.primaryTint, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+          >
+            <Ionicons name="grid-outline" size={14} color={colors.primary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>Kategoriler</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/(tabs)/explore')}
+            style={{ flex: 1, height: 34, borderRadius: 10, borderWidth: 1, borderColor: pal.border, backgroundColor: pal.cardAlt, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+          >
+            <Ionicons name="compass-outline" size={14} color={pal.textSecondary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textPrimary }}>Satıcı Keşfet</Text>
+          </Pressable>
+          {cartItemCount > 0 && (
+            <Pressable
+              onPress={() => router.push('/(tabs)/cart')}
+              style={{ height: 34, borderRadius: 10, borderWidth: 1, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, gap: 5 }}
+            >
+              <Ionicons name="cart-outline" size={14} color="#DC2626" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#DC2626' }}>{cartItemCount}</Text>
+            </Pressable>
+          )}
+        </View>
+
       </View>
 
       <ScrollView
