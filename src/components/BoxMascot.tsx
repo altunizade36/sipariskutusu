@@ -125,7 +125,7 @@ export default function BoxMascot({
       ) : (
         <Image
           source={imageSource}
-          style={{ width: size, height: size }}
+          style={{ width: size, height: size, backgroundColor: 'transparent' }}
           resizeMode="contain"
           onError={() => setHasImageError(true)}
         />
@@ -138,6 +138,7 @@ const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   fallbackCircle: {
     alignItems: 'center',
