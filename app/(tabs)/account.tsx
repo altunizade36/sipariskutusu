@@ -436,8 +436,31 @@ export default function AccountScreen() {
       ],
     },
     {
+      id: 'shopping',
+      title: '2. Teslimat & Ödeme',
+      icon: 'card-outline',
+      color: '#0EA5E9',
+      hidden: !user,
+      items: [
+        {
+          icon: 'location-outline',
+          label: 'Adreslerim',
+          info: 'Teslimat adreslerini yönet',
+          color: '#0EA5E9',
+          onPress: () => router.push('/addresses' as never),
+        },
+        {
+          icon: 'card-outline',
+          label: 'Ödeme Yöntemlerim',
+          info: 'Kart ve cüzdan bilgileri',
+          color: '#6366F1',
+          onPress: () => router.push('/payment-methods' as never),
+        },
+      ],
+    },
+    {
       id: 'store',
-      title: '2. Mağaza Ayarları',
+      title: '3. Mağaza Ayarları',
       icon: 'storefront-outline',
       color: '#10B981',
       hidden: !user,
@@ -488,7 +511,7 @@ export default function AccountScreen() {
     },
     {
       id: 'notifications',
-      title: '3. Bildirim Ayarları',
+      title: '4. Bildirim Ayarları',
       icon: 'notifications-outline',
       color: '#6366F1',
       items: [
@@ -512,7 +535,7 @@ export default function AccountScreen() {
     },
     {
       id: 'privacy',
-      title: '4. Gizlilik ve Güvenlik',
+      title: '5. Gizlilik ve Güvenlik',
       icon: 'shield-checkmark-outline',
       color: '#EF4444',
       items: [
@@ -528,7 +551,7 @@ export default function AccountScreen() {
           label: 'Engellenen Kullanıcılar',
           info: `${preferences.blockedUserIds?.length ?? 0} engellenen kullanıcı`,
           color: '#F97316',
-          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; showToast('Engellenen kullanıcılar yakında burada.'); },
+          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; router.push('/blocked-users' as never); },
         },
         {
           icon: 'flag-outline',
@@ -551,13 +574,13 @@ export default function AccountScreen() {
           label: 'Mesaj Alma İzinleri',
           info: 'Kimlerin mesaj gönderebileceğini belirle',
           color: '#6366F1',
-          onPress: () => showToast('Bu özellik yakında kullanıma açılacak.'),
+          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; router.push('/message-permissions' as never); },
         },
       ],
     },
     {
       id: 'locale',
-      title: '5. Dil ve Bölge',
+      title: '6. Dil ve Bölge',
       icon: 'language-outline',
       color: '#0EA5E9',
       items: [
@@ -573,7 +596,7 @@ export default function AccountScreen() {
     },
     {
       id: 'appearance',
-      title: '6. Görünüm',
+      title: '7. Görünüm',
       icon: 'color-palette-outline',
       color: '#8B5CF6',
       items: [
@@ -598,7 +621,7 @@ export default function AccountScreen() {
     },
     {
       id: 'favorites',
-      title: '7. Favori ve Takip',
+      title: '8. Favori ve Takip',
       icon: 'heart-outline',
       color: '#EF4444',
       items: [
@@ -620,9 +643,9 @@ export default function AccountScreen() {
         {
           icon: 'time-outline',
           label: 'Son Baktığım Ürünler',
-          info: 'Ana sayfada görüntülenebilir',
+          info: 'Geçmiş gezintilerin',
           color: '#F59E0B',
-          onPress: () => router.push('/(tabs)'),
+          onPress: () => router.push('/(tabs)/explore' as never),
         },
         {
           icon: 'search-outline',
@@ -636,7 +659,7 @@ export default function AccountScreen() {
     },
     {
       id: 'support',
-      title: '8. Destek',
+      title: '9. Destek',
       icon: 'help-circle-outline',
       color: '#06B6D4',
       items: [
@@ -652,7 +675,7 @@ export default function AccountScreen() {
           label: 'Yardım Merkezi',
           info: 'Sık sorulan sorular ve kılavuzlar',
           color: '#0EA5E9',
-          onPress: () => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }),
+          onPress: () => openEmail('Sipariş Kutusu Yardım Talebi'),
         },
         {
           icon: 'mail-outline',
@@ -672,7 +695,7 @@ export default function AccountScreen() {
     },
     {
       id: 'legal',
-      title: '9. Yasal',
+      title: '10. Yasal',
       icon: 'document-text-outline',
       color: '#64748B',
       items: [
@@ -704,7 +727,7 @@ export default function AccountScreen() {
     },
     {
       id: 'app',
-      title: '10. Uygulama',
+      title: '11. Uygulama',
       icon: 'apps-outline',
       color: '#94A3B8',
       items: [
