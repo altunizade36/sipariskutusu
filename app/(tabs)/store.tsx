@@ -978,6 +978,48 @@ export default function StoreScreen() {
               />
             </View>
 
+            {/* Stok Yönetimi (yalnız mağaza sahibi görür) */}
+            {isOwnStoreView ? (
+              <Pressable
+                onPress={() => router.push('/inventory')}
+                style={{
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  borderRadius: 14,
+                  backgroundColor: palette.surfaceBg,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Stok yonetimine git"
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: '#DBEAFE',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="cube" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: palette.textPrimary }}>
+                    Stok Yönetimi
+                  </Text>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: palette.textMuted, marginTop: 2 }}>
+                    Ürün stoklarını takip et, az kalan ve tükenenleri yönet.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={palette.textMuted} />
+              </Pressable>
+            ) : null}
+
             <View style={{ marginBottom: 20, borderWidth: 1, borderColor: palette.border, borderRadius: 14, backgroundColor: palette.surfaceBg, padding: 12 }}>
               <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: palette.textPrimary, marginBottom: 8 }}>
                 Mağaza Analitikleri

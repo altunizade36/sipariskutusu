@@ -25,6 +25,10 @@ export type Product = {
   availableColors?: string[];
   attributes?: Array<{ label: string; value: string }>;
   stock?: number;
+  lowStockThreshold?: number;
+  stockTrackingEnabled?: boolean;
+  isSoldOut?: boolean;
+  isVisible?: boolean;
   whatsapp?: string;
   isNegotiable?: boolean;
   createdAt?: string;

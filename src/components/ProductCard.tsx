@@ -10,6 +10,8 @@ import { getOrderedMediaUris, hasVideoMedia, resolveMediaCover } from '../utils/
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { isSupabaseConfigured } from '../services/supabase';
+import { StockStatusBadge } from './inventory/StockStatusBadge';
+import { classifyStock } from '../services/inventoryService';
 
 type Props = {
   product: Product;
@@ -75,6 +77,16 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
   const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   const badge = getBadge(product.badge);
+  const stockTrackingEnabled = product.stockTrackingEnabled === true;
+  const stockStatus = stockTrackingEnabled
+    ? classifyStock({
+        stock: product.stock ?? 0,
+        low_stock_threshold: product.lowStockThreshold ?? 3,
+        stock_tracking_enabled: true,
+        is_sold_out: product.isSoldOut === true,
+      })
+    : 'untracked';
+  const isSoldOut = stockStatus === 'sold_out';
   const discountPct = product.discount ?? 0;
   const mediaCount = getOrderedMediaUris(product).length;
   const hasVideo = hasVideoMedia(product);
@@ -220,6 +232,40 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
           </View>
         ) : null}
 
+        {/* Stok rozeti (Az kaldı / Son N) */}
+        {stockTrackingEnabled && (stockStatus === 'low_stock' || stockStatus === 'in_stock') ? (
+          <View style={{ position: 'absolute', bottom: 8, left: hasVideo ? 40 : 8 }}>
+            <StockStatusBadge status={stockStatus} remaining={product.stock} showRemaining />
+          </View>
+        ) : null}
+
+        {/* Tükendi overlay */}
+        {isSoldOut ? (
+          <View
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(255,255,255,0.55)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: '#B91C1C',
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 999,
+                transform: [{ rotate: '-8deg' }],
+              }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#FFF', letterSpacing: 1 }}>
+                TÜKENDİ
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {/* Demo overlay banner */}
         {product.isDemo ? (
           <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(245,158,11,0.92)', paddingVertical: 4, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4 }}>
@@ -306,5 +352,9 @@ export const ProductCard = memo(ProductCardComponent, (prev, next) => {
     && prev.product.image === next.product.image
     && prev.product.title === next.product.title
     && prev.product.condition === next.product.condition
+    && prev.product.stock === next.product.stock
+    && prev.product.lowStockThreshold === next.product.lowStockThreshold
+    && prev.product.stockTrackingEnabled === next.product.stockTrackingEnabled
+    && prev.product.isSoldOut === next.product.isSoldOut
   );
 });

@@ -1,0 +1,175 @@
+Sipariş Kutusu uygulamasına “Stok / Envanter Takip” sistemi ekle.
+
+AMAÇ:
+Satıcılar mağaza hesaplarından ürün stoklarını kolayca takip edebilsin. Sistem çok karmaşık olmasın ama gerçek uygulamada çalışacak kadar tam olsun.
+
+EKLENECEK YERLER:
+1. Satıcı Profili / Mağaza paneline yeni sekme ekle:
+   - “Stok”
+   - “Envanter”
+   - “Ürün Stokları”
+
+2. Alt menüde Mağaza ekranı varsa, mağaza içine “Stok Yönetimi” kartı ekle.
+
+3. Ürün detaylarında satıcı tarafında stok bilgisi göster:
+   - Stokta var
+   - Son X ürün
+   - Stok tükendi
+
+STOK EKRANI TASARIMI:
+Stok ekranı modern, sade ve mobil uyumlu olsun.
+
+Üst bölüm:
+- Başlık: Stok Yönetimi
+- Açıklama: Ürünlerinin kalan adetlerini takip et, düşük stok uyarılarını gör.
+- Arama kutusu: Ürün adıyla ara
+- Filtre butonları:
+  - Tümü
+  - Stokta Var
+  - Az Kaldı
+  - Tükendi
+
+Her ürün kartında şunlar olsun:
+- Ürün fotoğrafı
+- Ürün adı
+- Kategori
+- Fiyat
+- Mevcut stok adedi
+- Minimum stok uyarı limiti
+- Durum etiketi:
+  - Stokta
+  - Az kaldı
+  - Tükendi
+- “Stok Güncelle” butonu
+- “Ürüne Git” butonu
+
+STOK GÜNCELLEME:
+Satıcı ürüne tıklayınca modal / bottom sheet açılsın.
+
+Alanlar:
+- Mevcut stok adedi
+- Minimum stok uyarı limiti
+- Stok takibi açık / kapalı switch
+- Satışta göster / gizle switch
+
+Butonlar:
+- Kaydet
+- İptal
+
+KURALLAR:
+1. Stok 0 olursa ürün otomatik “Tükendi” durumuna geçsin.
+2. Stok 0 olan ürün satın alınamaz / siparişe eklenemez.
+3. Bizde ödeme sistemi yoksa bile ürün kartında “Tükendi” etiketi görünsün.
+4. Stok, minimum uyarı limitine eşit veya altına düşerse “Az kaldı” uyarısı ver.
+5. Satıcı isterse stok takibini kapatabilsin.
+6. Stok takibi kapalıysa ürün normal ilan gibi çalışsın.
+7. Satıcı sadece kendi ürünlerinin stoklarını görebilsin ve düzenleyebilsin.
+8. Başka satıcının stok bilgisi düzenlenemez.
+9. Kullanıcı tarafında sadece durum görünsün, yönetim alanı görünmesin.
+
+VERİ MODELİ:
+Ürün tablosuna şu alanları ekle:
+
+stock_quantity: number
+low_stock_threshold: number
+stock_tracking_enabled: boolean
+is_sold_out: boolean
+is_visible: boolean
+last_stock_update_at: timestamp
+
+Varsayılan değerler:
+stock_quantity: 1
+low_stock_threshold: 3
+stock_tracking_enabled: false
+is_sold_out: false
+is_visible: true
+
+SUPABASE / BACKEND:
+Supabase kullanılıyorsa gerekli migration dosyasını oluştur.
+Mevcut ürün tablosunu bozmadan bu alanları ekle.
+RLS kuralları ekle:
+- Satıcı kendi ürününün stok bilgisini güncelleyebilir.
+- Diğer kullanıcılar stok yönetim alanına erişemez.
+- Normal kullanıcı ürünün sadece görünür bilgisini okuyabilir.
+
+BİLDİRİM / UYARI:
+Satıcı panelinde küçük uyarı alanı olsun:
+- “3 ürünün stoğu azaldı”
+- “1 ürün tükendi”
+- “Bugün güncellenen stoklar”
+
+Stok azalan ürünlerde kartın üstünde turuncu uyarı:
+“Az kaldı”
+
+Tükenen ürünlerde kırmızı uyarı:
+“Tükendi”
+
+ANA SAYFA / KEŞFET / MAĞAZA:
+Ürün kartlarında stok durumunu göster:
+- Stokta
+- Son 2 ürün
+- Tükendi
+
+Tükenen ürünlerde:
+- Ürün kartı biraz soluk görünsün
+- “Tükendi” etiketi ürün görselinin üstünde dursun
+- Mesaj gönder butonu durabilir ama “ürün tükendi” bilgisi görünmeli
+
+ÜRÜN EKLEME EKRANI:
+İlan ver / ürün ekle ekranına stok alanı ekle:
+
+Stok takibi yapmak istiyor musun?
+Switch: Açık / Kapalı
+
+Açıksa:
+- Stok adedi
+- Az stok uyarı limiti
+
+Kapalıysa:
+- Bu ürün ilan gibi yayınlansın, stok takibi yapılmasın.
+
+PROFİL / MAĞAZA PANELİ:
+Satıcının mağaza yönetiminde şu kutular olsun:
+- Toplam ürün
+- Stokta olan ürün
+- Az kalan ürün
+- Tükenen ürün
+
+ÖRNEK:
+Toplam Ürün: 28
+Stokta: 22
+Az Kalan: 4
+Tükenen: 2
+
+TASARIM:
+Mevcut Sipariş Kutusu tasarımını bozma.
+Mavi-beyaz renk sistemini koru.
+Kartlar yuvarlak köşeli, temiz ve modern olsun.
+Ana sayfadaki mevcut yapıya uyumlu olsun.
+Alt menü, profil ve mağaza ekranları bozulmasın.
+
+HATA KONTROLLERİ:
+- Stok adedi negatif olamaz.
+- Minimum stok limiti negatif olamaz.
+- Boş bırakılırsa varsayılan değer ata.
+- Kaydetmeden çıkarsa uyarı göster.
+- İnternet hatasında kullanıcıya hata mesajı göster.
+- Başarılı kayıtta toast göster: “Stok güncellendi.”
+
+KODLAMA:
+Mevcut yapıyı bozma.
+Var olan Product / Listing modelini kontrol et.
+Eksikse inventory service / hook / store yapısı oluştur.
+React Native kullanılıyorsa ayrı componentler oluştur:
+
+InventoryScreen
+InventoryProductCard
+UpdateStockModal
+InventoryStatsCard
+StockStatusBadge
+
+Gerekirse navigation’a şu ekranı ekle:
+InventoryScreen
+
+Sonuç:
+Satıcı uygulamada kendi ürün stoklarını görebilmeli, arayabilmeli, filtreleyebilmeli, stok güncelleyebilmeli ve az/tükenen stokları net şekilde takip edebilmelidir.
