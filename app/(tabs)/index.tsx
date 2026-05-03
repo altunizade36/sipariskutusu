@@ -455,13 +455,21 @@ export default function HomeScreen() {
         {/* ── Story Bar ─────────────────────────────────────────────────────── */}
         <View style={{ backgroundColor: pal.card, paddingTop: 14, paddingBottom: 16, marginTop: 6, borderBottomWidth: 1, borderBottomColor: pal.border }}>
           <View style={{ paddingHorizontal: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: pal.textPrimary }}>{t.home.stories}</Text>
-              <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textSecondary, marginTop: 2 }}>{t.home.storiesSub}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12, gap: 10 }}>
+              <LinearGradient
+                colors={['#1E5FC6', '#3B82F6']}
+                style={{ width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="camera-outline" size={18} color="#fff" />
+              </LinearGradient>
+              <View>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: pal.textPrimary }}>{t.home.stories}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textSecondary, marginTop: 1 }}>{t.home.storiesSub}</Text>
+              </View>
             </View>
-            <Pressable onPress={() => router.push('/share-story')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <Pressable onPress={() => router.push('/share-story')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary + '12', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: colors.primary + '25' }}>
+              <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>{t.home.addStory}</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </Pressable>
           </View>
           <StoryTray stories={groupedStoryCircles} showAddButton={true} onAddPress={() => router.push('/share-story')} layout="full" variant="commerce" />

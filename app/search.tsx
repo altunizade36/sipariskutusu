@@ -500,32 +500,42 @@ export default function SearchScreen() {
       {/* Filter Modal */}
       <Modal visible={filterVisible} animationType="slide" transparent onRequestClose={() => setFilterVisible(false)}>
         <Pressable className="flex-1 bg-black/40" onPress={() => setFilterVisible(false)} />
-        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-8" style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-          <View className="flex-row items-center justify-between mb-4">
-            <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Filtrele ve Sırala</Text>
-            <View className="flex-row items-center" style={{ gap: 10 }}>
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: isDarkMode ? '#1A2233' : '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 }}>
+          {/* Drag handle */}
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isDarkMode ? '#374151' : '#D1D5DB', alignSelf: 'center', marginBottom: 16 }} />
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="options-outline" size={17} color={colors.primary} />
+              </View>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Filtrele ve Sırala</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {activeFilterCount > 0 ? (
-                <Pressable onPress={clearAllFilters}>
+                <Pressable onPress={clearAllFilters} style={{ backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#DC2626' }}>Temizle</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={() => setFilterVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.textMuted} />
+              <Pressable onPress={() => setFilterVisible(false)} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="close" size={18} color={colors.textMuted} />
               </Pressable>
             </View>
           </View>
 
           {/* Sort options */}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Sıralama</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="swap-vertical-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>Sıralama</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 18 }}>
             {SORT_OPTIONS.map((opt) => {
               const active = sortOption === opt.value;
               return (
                 <Pressable
                   key={opt.value}
                   onPress={() => setSortOption(opt.value)}
-                  style={{ backgroundColor: active ? colors.primary : '#F1F5F9', borderColor: active ? colors.primary : '#E2E8F0' }}
-                  className="px-4 h-8 rounded-full border items-center justify-center"
+                  style={{ backgroundColor: active ? colors.primary : isDarkMode ? '#1E293B' : '#F1F5F9', borderColor: active ? colors.primary : isDarkMode ? '#374151' : '#E2E8F0', borderWidth: 1, paddingHorizontal: 16, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: active ? '#fff' : colors.textPrimary }}>{opt.label}</Text>
                 </Pressable>
@@ -533,16 +543,18 @@ export default function SearchScreen() {
             })}
           </ScrollView>
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Mağaza Sıralama</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="storefront-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>Mağaza Sıralama</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 18 }}>
             {STORE_SORT_OPTIONS.map((opt) => {
               const active = storeSort === opt.value;
               return (
                 <Pressable
                   key={opt.value}
                   onPress={() => setStoreSort(opt.value)}
-                  style={{ backgroundColor: active ? colors.primary : '#F1F5F9', borderColor: active ? colors.primary : '#E2E8F0' }}
-                  className="px-4 h-8 rounded-full border items-center justify-center"
+                  style={{ backgroundColor: active ? colors.primary : isDarkMode ? '#1E293B' : '#F1F5F9', borderColor: active ? colors.primary : isDarkMode ? '#374151' : '#E2E8F0', borderWidth: 1, paddingHorizontal: 16, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: active ? '#fff' : colors.textPrimary }}>{opt.label}</Text>
                 </Pressable>
@@ -551,65 +563,71 @@ export default function SearchScreen() {
           </ScrollView>
 
           {/* Price range */}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Fiyat Aralığı (₺)</Text>
-          <View className="flex-row gap-3 mb-4">
-            <TextInput
-              value={minPrice}
-              onChangeText={setMinPrice}
-              keyboardType="numeric"
-              placeholder="Min"
-              placeholderTextColor={colors.textMuted}
-              style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12 }}
-            />
-            <TextInput
-              value={maxPrice}
-              onChangeText={setMaxPrice}
-              keyboardType="numeric"
-              placeholder="Maks"
-              placeholderTextColor={colors.textMuted}
-              style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12 }}
-            />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="pricetag-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>Fiyat Aralığı (₺)</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 1, borderColor: isDarkMode ? '#374151' : '#E2E8F0', borderRadius: 12, backgroundColor: isDarkMode ? '#111827' : '#F8FAFC', paddingHorizontal: 12, gap: 6 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted }}>Min</Text>
+              <TextInput
+                value={minPrice}
+                onChangeText={setMinPrice}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+                style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, paddingVertical: 0, includeFontPadding: false }}
+              />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted }}>₺</Text>
+            </View>
+            <View style={{ width: 16, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 10, height: 1.5, backgroundColor: colors.textMuted, borderRadius: 1 }} />
+            </View>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 1, borderColor: isDarkMode ? '#374151' : '#E2E8F0', borderRadius: 12, backgroundColor: isDarkMode ? '#111827' : '#F8FAFC', paddingHorizontal: 12, gap: 6 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted }}>Maks</Text>
+              <TextInput
+                value={maxPrice}
+                onChangeText={setMaxPrice}
+                keyboardType="numeric"
+                placeholder="∞"
+                placeholderTextColor={colors.textMuted}
+                style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, paddingVertical: 0, includeFontPadding: false }}
+              />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted }}>₺</Text>
+            </View>
           </View>
 
           {/* City */}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 8 }}>Şehir</Text>
-          <TextInput
-            value={cityFilter}
-            onChangeText={setCityFilter}
-            placeholder="İstanbul, Ankara..."
-            placeholderTextColor={colors.textMuted}
-            style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, height: 40, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 12, marginBottom: 20 }}
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>Şehir</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 1, borderColor: isDarkMode ? '#374151' : '#E2E8F0', borderRadius: 12, backgroundColor: isDarkMode ? '#111827' : '#F8FAFC', paddingHorizontal: 12, marginBottom: 18, gap: 8 }}>
+            <Ionicons name="search-outline" size={14} color={colors.textMuted} />
+            <TextInput
+              value={cityFilter}
+              onChangeText={setCityFilter}
+              placeholder="İstanbul, Ankara..."
+              placeholderTextColor={colors.textMuted}
+              style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, flex: 1, paddingVertical: 0, includeFontPadding: false }}
+            />
+          </View>
 
-          <View className="flex-row items-center justify-between mb-5 px-1">
-            <View className="pr-3 flex-1">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
-                Ücretsiz Kargo etiketi
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, borderRadius: 14, padding: 14, backgroundColor: isDarkMode ? '#1E293B' : '#F8FAFC', borderWidth: 1, borderColor: isDarkMode ? '#374151' : '#E2E8F0' }}>
+            <View style={{ paddingRight: 12, flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <Ionicons name="car-outline" size={14} color={colors.textPrimary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>Ücretsiz Kargo etiketi</Text>
+              </View>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>
                 Sadece etikete göre filtreler, kargo takip süreci başlatmaz.
               </Text>
             </View>
             <Pressable
               onPress={() => setOnlyFreeShipping((current) => !current)}
-              style={{
-                width: 46,
-                height: 28,
-                borderRadius: 999,
-                padding: 3,
-                backgroundColor: onlyFreeShipping ? colors.primary : '#CBD5E1',
-                justifyContent: 'center',
-              }}
+              style={{ width: 46, height: 28, borderRadius: 999, padding: 3, backgroundColor: onlyFreeShipping ? colors.primary : isDarkMode ? '#374151' : '#CBD5E1', justifyContent: 'center' }}
             >
-              <View
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: '#fff',
-                  alignSelf: onlyFreeShipping ? 'flex-end' : 'flex-start',
-                }}
-              />
+              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: onlyFreeShipping ? 'flex-end' : 'flex-start' }} />
             </Pressable>
           </View>
 
@@ -624,21 +642,29 @@ export default function SearchScreen() {
               });
               setFilterVisible(false);
             }}
-            style={{ backgroundColor: colors.primary }}
-            className="h-12 rounded-2xl items-center justify-center"
+            style={{ backgroundColor: colors.primary, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 }}
           >
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Uygula</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
+              {activeFilterCount > 0 ? `Filtreyi Uygula (${activeFilterCount})` : 'Uygula'}
+            </Text>
           </Pressable>
         </View>
       </Modal>
 
       <Modal visible={categoryPickerVisible} animationType="slide" transparent onRequestClose={() => setCategoryPickerVisible(false)}>
         <Pressable className="flex-1 bg-black/40" onPress={() => setCategoryPickerVisible(false)} />
-        <View className="bg-white rounded-t-3xl px-5 pt-5 pb-8" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '72%' }}>
-          <View className="flex-row items-center justify-between mb-3">
-            <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Kategori Seç</Text>
-            <Pressable onPress={() => setCategoryPickerVisible(false)}>
-              <Ionicons name="close" size={22} color={colors.textMuted} />
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '72%', backgroundColor: isDarkMode ? '#1A2233' : '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 }}>
+          {/* Drag handle */}
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isDarkMode ? '#374151' : '#D1D5DB', alignSelf: 'center', marginBottom: 16 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="apps-outline" size={17} color={colors.primary} />
+              </View>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>Kategori Seç</Text>
+            </View>
+            <Pressable onPress={() => setCategoryPickerVisible(false)} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="close" size={18} color={colors.textMuted} />
             </Pressable>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -647,8 +673,7 @@ export default function SearchScreen() {
                 setSelectedCategory(null);
                 setCategoryPickerVisible(false);
               }}
-              className="h-11 rounded-xl px-3 mb-2 flex-row items-center justify-between"
-              style={{ borderWidth: 1, borderColor: selectedCategory === null ? '#93C5FD' : '#E2E8F0', backgroundColor: selectedCategory === null ? '#EFF6FF' : '#fff' }}
+              style={{ height: 44, borderRadius: 12, paddingHorizontal: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: selectedCategory === null ? '#93C5FD' : isDarkMode ? '#374151' : '#E2E8F0', backgroundColor: selectedCategory === null ? '#EFF6FF' : isDarkMode ? '#1E293B' : '#fff' }}
             >
               <Text style={{ fontFamily: selectedCategory === null ? fonts.bold : fonts.regular, fontSize: 13, color: colors.textPrimary }}>Tüm Kategoriler</Text>
               {selectedCategory === null ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
@@ -662,8 +687,7 @@ export default function SearchScreen() {
                     setSelectedCategory(cat.id);
                     setCategoryPickerVisible(false);
                   }}
-                  className="h-11 rounded-xl px-3 mb-2 flex-row items-center justify-between"
-                  style={{ borderWidth: 1, borderColor: active ? '#93C5FD' : '#E2E8F0', backgroundColor: active ? '#EFF6FF' : '#fff' }}
+                  style={{ height: 44, borderRadius: 12, paddingHorizontal: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: active ? '#93C5FD' : isDarkMode ? '#374151' : '#E2E8F0', backgroundColor: active ? '#EFF6FF' : isDarkMode ? '#1E293B' : '#fff' }}
                 >
                   <Text style={{ fontFamily: active ? fonts.bold : fonts.regular, fontSize: 13, color: colors.textPrimary }}>{cat.name}</Text>
                   {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
@@ -1151,50 +1175,63 @@ export default function SearchScreen() {
             ) : null}
 
             {/* Öne Çıkanlar */}
-            <View className="mb-5">
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="trending-up" size={16} color={colors.primary} />
-                <Text
-                  style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}
-                  className="ml-1.5"
-                >
-                  Öne Çıkanlar
-                </Text>
+            <View style={{ marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: '#EF444418', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="trending-up" size={15} color="#EF4444" />
+                </View>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>Öne Çıkanlar</Text>
               </View>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                {trendingSearches.map((t, i) => (
-                  <Pressable
-                    key={t}
-                    onPress={() => applySearch(t, 'search_trending_chip')}
-                    className="flex-row items-center bg-[#F7F7F7] px-3 h-9 rounded-full border border-[#33333315]"
-                  >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>{i + 1}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} className="ml-2">
-                      {t}
-                    </Text>
-                  </Pressable>
-                ))}
+              <View style={{ borderRadius: 16, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', backgroundColor: theme.surfaceBg }}>
+                {trendingSearches.map((t, i) => {
+                  const rankColors = ['#F59E0B', '#94A3B8', '#C97D2E'];
+                  const rankColor = i < 3 ? rankColors[i] : colors.primary;
+                  return (
+                    <Pressable
+                      key={t}
+                      onPress={() => applySearch(t, 'search_trending_chip')}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: i === trendingSearches.length - 1 ? 0 : 1, borderBottomColor: theme.border }}
+                    >
+                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: rankColor + '20', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Text style={{ fontFamily: fonts.headingBold, fontSize: 12, color: rankColor }}>{i + 1}</Text>
+                      </View>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{t}</Text>
+                      {i < 3 ? (
+                        <Text style={{ fontSize: 15 }}>🔥</Text>
+                      ) : (
+                        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                      )}
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
             {/* Popüler Markalar */}
-            <View className="mb-5">
-              <Text
-                style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}
-                className="mb-3"
-              >
-                Popüler Markalar
-              </Text>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                {popularBrands.map((b) => (
-                  <Pressable
-                    key={b}
-                    onPress={() => applySearch(b, 'search_popular_brand_chip')}
-                    className="bg-white border border-[#33333322] px-4 h-10 rounded-xl items-center justify-center"
-                  >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>{b}</Text>
-                  </Pressable>
-                ))}
+            <View style={{ marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: colors.primary + '18', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="storefront-outline" size={15} color={colors.primary} />
+                </View>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>Popüler Markalar</Text>
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {popularBrands.map((b, idx) => {
+                  const brandPalette = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#EC4899', '#6366F1'];
+                  const bc = brandPalette[idx % brandPalette.length];
+                  return (
+                    <Pressable
+                      key={b}
+                      onPress={() => applySearch(b, 'search_popular_brand_chip')}
+                      style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: bc + '12', borderWidth: 1, borderColor: bc + '30', borderRadius: 20, paddingRight: 12, paddingVertical: 4, paddingLeft: 4, gap: 6 }}
+                    >
+                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: bc, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: fonts.headingBold, fontSize: 12, color: '#fff' }}>{(b[0] ?? '').toUpperCase()}</Text>
+                      </View>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: bc }}>{b}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           </>

@@ -71,9 +71,10 @@ export function StoryTray({
     return addStory && showAddButton ? [addStory, ...sellerPreviews] : sellerPreviews;
   }, [stories, showAddButton, autoGroupBySeller]);
 
-  const AVATAR = 62;
-  const ITEM_W = 76;
+  const AVATAR = 68;
+  const ITEM_W = 84;
   const LABEL_SIZE = 11;
+  const RING_PAD = 3;
 
   const getBadgeMeta = (badge?: string) => {
     const normalized = badge?.trim().toLocaleLowerCase('tr-TR');
@@ -96,15 +97,15 @@ export function StoryTray({
     }
   };
 
-  // App blue gradient for unseen stories
-  const GRADIENT_UNSEEN: [string, string, string] = ['#1E5FC6', '#3B82F6', '#60A5FA'];
-  const GRADIENT_SEEN: [string, string] = ['#D1D5DB', '#9CA3AF'];
+  const GRADIENT_UNSEEN: [string, string, string] = ['#4338CA', '#2563EB', '#38BDF8'];
+  const GRADIENT_SEEN: [string, string] = ['#CBD5E1', '#94A3B8'];
+  const GRADIENT_LIVE: [string, string, string] = ['#DC2626', '#EF4444', '#FB923C'];
 
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}
+      contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 6, gap: 6 }}
     >
       {groupedStories.map((s) => {
         const badgeMeta = getBadgeMeta(s.badge);
@@ -118,43 +119,47 @@ export function StoryTray({
           >
             {/* Avatar ring */}
             {s.isAdd ? (
-              <View
+              <LinearGradient
+                colors={['#E0E7FF', '#DBEAFE', '#EDE9FE']}
                 style={{
-                  width: AVATAR + 6,
-                  height: AVATAR + 6,
-                  borderRadius: (AVATAR + 6) / 2,
-                  borderWidth: 2,
-                  borderColor: '#E5E7EB',
-                  borderStyle: 'dashed',
+                  width: AVATAR + 8,
+                  height: AVATAR + 8,
+                  borderRadius: (AVATAR + 8) / 2,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#F9FAFB',
+                  borderWidth: 1.5,
+                  borderColor: colors.primary + '50',
                 }}
               >
                 <View
                   style={{
-                    width: AVATAR,
-                    height: AVATAR,
-                    borderRadius: AVATAR / 2,
-                    backgroundColor: '#EEF4FF',
+                    width: AVATAR + 2,
+                    height: AVATAR + 2,
+                    borderRadius: (AVATAR + 2) / 2,
+                    backgroundColor: '#F0F5FF',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Ionicons name="add" size={28} color={colors.primary} />
+                  <LinearGradient
+                    colors={['#1E5FC6', '#3B82F6']}
+                    style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name="add" size={22} color="#fff" />
+                  </LinearGradient>
                 </View>
-              </View>
+              </LinearGradient>
             ) : (
               <View style={{ position: 'relative' }}>
               <LinearGradient
-                colors={s.seen ? GRADIENT_SEEN : GRADIENT_UNSEEN}
+                colors={getBadgeMeta(s.badge)?.label?.includes('CANLI') ? GRADIENT_LIVE : s.seen ? GRADIENT_SEEN : GRADIENT_UNSEEN}
                 start={{ x: 0.15, y: 1 }}
                 end={{ x: 0.85, y: 0 }}
                 style={{
-                  width: AVATAR + 6,
-                  height: AVATAR + 6,
-                  borderRadius: (AVATAR + 6) / 2,
-                  padding: 2.5,
+                  width: AVATAR + 8,
+                  height: AVATAR + 8,
+                  borderRadius: (AVATAR + 8) / 2,
+                  padding: RING_PAD,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -162,9 +167,9 @@ export function StoryTray({
                 {/* White gap ring */}
                 <View
                   style={{
-                    width: AVATAR + 1,
-                    height: AVATAR + 1,
-                    borderRadius: (AVATAR + 1) / 2,
+                    width: AVATAR + 2,
+                    height: AVATAR + 2,
+                    borderRadius: (AVATAR + 2) / 2,
                     backgroundColor: '#fff',
                     padding: 2,
                     alignItems: 'center',
@@ -173,7 +178,7 @@ export function StoryTray({
                 >
                   <Image
                     source={{ uri: s.image }}
-                    style={{ width: AVATAR - 3, height: AVATAR - 3, borderRadius: (AVATAR - 3) / 2 }}
+                    style={{ width: AVATAR - 2, height: AVATAR - 2, borderRadius: (AVATAR - 2) / 2 }}
                     resizeMode="cover"
                   />
                 </View>
@@ -184,8 +189,8 @@ export function StoryTray({
                   (Date.now() - new Date(s.createdAt).getTime() < 2 * 60 * 60 * 1000);
                 return isFresh ? (
                   <View style={{
-                    position: 'absolute', bottom: 1, right: 1,
-                    width: 13, height: 13, borderRadius: 6.5,
+                    position: 'absolute', bottom: 2, right: 2,
+                    width: 14, height: 14, borderRadius: 7,
                     backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#fff',
                   }} />
                 ) : null;
@@ -197,22 +202,22 @@ export function StoryTray({
             {badgeMeta && !s.isAdd ? (
               <View
                 style={{
-                  marginTop: -9,
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
+                  marginTop: -10,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2.5,
                   borderRadius: 20,
                   backgroundColor: badgeMeta.color,
                   borderWidth: 1.5,
                   borderColor: '#fff',
                   zIndex: 1,
                   shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 2,
-                  elevation: 3,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  elevation: 5,
                 }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff', letterSpacing: 0.4 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff', letterSpacing: 0.5 }}>
                   {badgeMeta.label}
                 </Text>
               </View>
@@ -222,12 +227,12 @@ export function StoryTray({
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fonts.medium,
+                fontFamily: s.seen ? fonts.regular : fonts.medium,
                 fontSize: LABEL_SIZE,
-                color: s.seen ? '#9CA3AF' : '#111827',
+                color: s.seen ? '#94A3B8' : '#0F172A',
                 textAlign: 'center',
-                marginTop: badgeMeta && !s.isAdd ? 4 : 7,
-                maxWidth: ITEM_W,
+                marginTop: badgeMeta && !s.isAdd ? 5 : 8,
+                maxWidth: ITEM_W - 4,
               }}
             >
               {s.isAdd ? 'Hikaye ekle' : s.seller}
@@ -235,27 +240,28 @@ export function StoryTray({
 
             {/* Price tag or story-count dots */}
             {!s.isAdd && s.priceTag ? (
-              <Text
-                numberOfLines={1}
-                style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary, marginTop: 1 }}
-              >
-                {s.priceTag}
-              </Text>
+              <View style={{ marginTop: 3, backgroundColor: colors.primary + '15', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary }}
+                >
+                  {s.priceTag}
+                </Text>
+              </View>
             ) : !s.isAdd && storyCount > 1 ? (
-              <View style={{ flexDirection: 'row', gap: 3, marginTop: 4, alignItems: 'center' }}>
-                {Array.from({ length: Math.min(storyCount, 3) }).map((_, di) => (
+              <View style={{ flexDirection: 'row', gap: 3, marginTop: 5, alignItems: 'center' }}>
+                {Array.from({ length: Math.min(storyCount, 4) }).map((_, di) => (
                   <View
                     key={di}
                     style={{
-                      width: di === 0 ? 14 : 5,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: s.seen ? '#D1D5DB' : colors.primary,
-                      opacity: di === 0 ? 1 : 0.55,
+                      width: di === 0 ? 16 : 4,
+                      height: 3,
+                      borderRadius: 1.5,
+                      backgroundColor: s.seen ? '#CBD5E1' : (di === 0 ? colors.primary : colors.primary + '50'),
                     }}
                   />
                 ))}
-                {storyCount > 3 && (
+                {storyCount > 4 && (
                   <Text style={{ fontFamily: fonts.bold, fontSize: 7, color: colors.primary }}>+</Text>
                 )}
               </View>
