@@ -1,10 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Animated,
+  Dimensions,
   PanResponder,
-  Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
   useWindowDimensions,
@@ -15,9 +14,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BoxMascot from '../src/components/BoxMascot';
-import { colors, fonts } from '../src/constants/theme';
+import { fonts } from '../src/constants/theme';
 
-const LAUNCHED_KEY = '@sipkutu_launched';
+export const LAUNCHED_KEY = '@sipkutu_launched';
 
 export async function markLaunched() {
   await AsyncStorage.setItem(LAUNCHED_KEY, '1');
@@ -35,42 +34,52 @@ const slides: {
   variant: SlideVariant;
   title: string;
   description: string;
+  feature1: string;
+  feature2: string;
+  feature3: string;
+  gradientTop: [string, string, string];
   accent: string;
-  accentLight: string;
-  icon: string;
-  gradient: [string, string, string];
+  iconFeature: [string, string, string];
 }[] = [
   {
     key: 'welcome',
     variant: 'welcome',
-    title: "Sipariş Kutusu'na\nHoş Geldin",
+    title: "Sipariş Kutusu'na\nHoş Geldin 👋",
     description: 'Instagram satıcıları ve alıcıları tek bir güvenli pazaryerinde buluşuyor.',
-    accent: '#3B82F6',
-    accentLight: '#EEF4FF',
-    icon: 'storefront-outline',
-    gradient: ['#FFFFFF', '#F0F7FF', '#E8F3FF'],
+    feature1: '✓  Onaylı satıcılar',
+    feature2: '✓  Güvenli iletişim',
+    feature3: '✓  Kolay sipariş takibi',
+    gradientTop: ['#1A4FB5', '#2563EB', '#3B82F6'],
+    accent: '#2563EB',
+    iconFeature: ['shield-checkmark-outline', 'chatbubble-outline', 'cube-outline'],
   },
   {
     key: 'order',
     variant: 'order',
-    title: 'Hızlıca Ürün\nKeşfet',
-    description: 'İlanları incele, satıcıyla konuş ve sipariş sürecini tek yerden yönet.',
-    accent: '#1E5FC6',
-    accentLight: '#EBF2FF',
-    icon: 'search-outline',
-    gradient: ['#FFFFFF', '#EDF3FF', '#E4EEFF'],
+    title: 'Hızlıca Ürün\nKeşfet & Satın Al',
+    description: 'Binlerce ürün arasından filtrele, satıcıyla konuş ve sipariş ver.',
+    feature1: '✓  Akıllı arama & filtre',
+    feature2: '✓  Anlık bildirimler',
+    feature3: '✓  Favorilere kaydet',
+    gradientTop: ['#1E3A8A', '#1D4ED8', '#4F46E5'],
+    accent: '#1D4ED8',
+    iconFeature: ['search-outline', 'notifications-outline', 'heart-outline'],
   },
   {
     key: 'success',
     variant: 'success',
-    title: 'Güvenle\nAlışverişe Başla',
-    description: 'BO yanında: daha düzenli, daha şeffaf ve daha kolay bir alışveriş deneyimi.',
-    accent: '#0EA5E9',
-    accentLight: '#E0F5FF',
-    icon: 'shield-checkmark-outline',
-    gradient: ['#FFFFFF', '#E8F7FF', '#D9F2FF'],
+    title: 'Güvenle\nAlışverişe Başla 🚀',
+    description: 'BO seni bekliyor — daha düzenli, şeffaf ve kolay bir deneyim için.',
+    feature1: '✓  %100 güvenli ödeme',
+    feature2: '✓  Satıcı değerlendirme',
+    feature3: '✓  7/24 destek',
+    gradientTop: ['#0C4A6E', '#0284C7', '#0EA5E9'],
+    accent: '#0284C7',
+    iconFeature: ['lock-closed-outline', 'star-outline', 'headset-outline'],
   },
 ];
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -79,15 +88,23 @@ export default function OnboardingScreen() {
   const currentIndexRef = useRef(0);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const mascotY = useRef(new Animated.Value(0)).current;
   const mascotScale = useRef(new Animated.Value(1)).current;
-  const cardScale = useRef(new Animated.Value(1)).current;
-  const dotWidths = useRef(
-    slides.map((_, i) => new Animated.Value(i === 0 ? 28 : 8)),
-  ).current;
+  const cardSlide = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const dotAnims = useRef(slides.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))).current;
 
-  const isCompact = height < 760;
-  const mascotSize = isCompact ? 115 : 148;
+  const isCompact = height < 720;
+  const mascotSize = isCompact ? 130 : 170;
+  const topFraction = isCompact ? 0.48 : 0.52;
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: (currentIndex + 1) / slides.length,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, [currentIndex]);
 
   async function finish() {
     await AsyncStorage.setItem(LAUNCHED_KEY, '1');
@@ -96,9 +113,9 @@ export default function OnboardingScreen() {
 
   function animateDots(next: number) {
     Animated.parallel(
-      dotWidths.map((anim, i) =>
+      dotAnims.map((anim, i) =>
         Animated.timing(anim, {
-          toValue: i === next ? 28 : 8,
+          toValue: i === next ? 1 : 0,
           duration: 280,
           useNativeDriver: false,
         }),
@@ -108,26 +125,23 @@ export default function OnboardingScreen() {
 
   function goTo(next: number) {
     currentIndexRef.current = next;
+
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(slideAnim, { toValue: -20, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(cardScale, { toValue: 0.96, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 160, useNativeDriver: false }),
+      Animated.timing(cardSlide, { toValue: 30, duration: 160, useNativeDriver: false }),
+      Animated.timing(mascotScale, { toValue: 0.78, duration: 160, useNativeDriver: false }),
     ]).start(() => {
       setCurrentIndex(next);
       animateDots(next);
-      slideAnim.setValue(28);
-      mascotScale.setValue(0.60);
-      cardScale.setValue(0.96);
+      cardSlide.setValue(-24);
+      mascotY.setValue(16);
+      mascotScale.setValue(0.78);
+
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 240, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 240, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(cardScale, { toValue: 1, duration: 240, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.spring(mascotScale, {
-          toValue: 1,
-          friction: 5,
-          tension: 130,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: false }),
+        Animated.timing(cardSlide, { toValue: 0, duration: 280, useNativeDriver: false }),
+        Animated.spring(mascotY, { toValue: 0, friction: 6, tension: 120, useNativeDriver: false }),
+        Animated.spring(mascotScale, { toValue: 1, friction: 6, tension: 120, useNativeDriver: false }),
       ]).start();
     });
   }
@@ -144,7 +158,7 @@ export default function OnboardingScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.4,
+        Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
       onPanResponderRelease: (_, gs) => {
         const idx = currentIndexRef.current;
         if (gs.dx < -50 && idx < slides.length - 1) goTo(idx + 1);
@@ -155,240 +169,139 @@ export default function OnboardingScreen() {
 
   const slide = slides[currentIndex];
   const isLast = currentIndex === slides.length - 1;
+  const topHeight = height * topFraction;
 
   return (
-    <LinearGradient colors={slide.gradient} style={styles.gradient}>
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={[styles.brandPill, { backgroundColor: slide.accentLight }]}>
-              <Text style={[styles.brandPillText, { color: slide.accent }]}>Sipariş Kutusu</Text>
+      {/* ── Gradient top section ────────────────────────────────────────────── */}
+      <LinearGradient
+        colors={slide.gradientTop}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={{ height: topHeight, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 24, position: 'relative', overflow: 'hidden' }}
+      >
+        {/* Dekoratif daireler */}
+        <View style={{ position: 'absolute', top: -80, right: -80, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+        <View style={{ position: 'absolute', bottom: -40, left: -60, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.05)' }} />
+        <View style={{ position: 'absolute', top: 30, left: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.07)' }} />
+
+        {/* Slide number pill */}
+        <View style={{ position: 'absolute', top: 20, right: 20 }}>
+          <SafeAreaView edges={['top']}>
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff', letterSpacing: 0.5 }}>
+                {currentIndex + 1} / {slides.length}
+              </Text>
             </View>
-            <Text style={styles.tagline}>BO ile alışveriş artık daha kolay</Text>
+          </SafeAreaView>
+        </View>
+
+        {/* Skip button */}
+        <View style={{ position: 'absolute', top: 20, left: 20 }}>
+          <SafeAreaView edges={['top']}>
+            <Pressable onPress={() => void finish()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Geç</Text>
+            </Pressable>
+          </SafeAreaView>
+        </View>
+
+        {/* Mascot */}
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: mascotY }, { scale: mascotScale }],
+          }}
+        >
+          <BoxMascot variant={slide.variant} size={mascotSize} animated />
+        </Animated.View>
+      </LinearGradient>
+
+      {/* ── Bottom white card ──────────────────────────────────────────────── */}
+      <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#fff' }}>
+        <Animated.View
+          style={{
+            flex: 1,
+            paddingHorizontal: 28,
+            paddingTop: 28,
+            paddingBottom: 16,
+            opacity: fadeAnim,
+            transform: [{ translateY: cardSlide }],
+          }}
+        >
+          {/* Progress bar */}
+          <View style={{ height: 3, backgroundColor: '#E2E8F0', borderRadius: 2, marginBottom: 24 }}>
+            <Animated.View
+              style={{
+                height: 3,
+                borderRadius: 2,
+                backgroundColor: slide.accent,
+                width: progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+              }}
+            />
           </View>
 
-          {/* Slide content */}
-          <Animated.View
-            style={[
-              styles.slideContent,
-              Platform.OS !== 'web'
-                ? { opacity: fadeAnim, transform: [{ translateY: slideAnim }, { scale: cardScale }] }
-                : {},
-            ]}
-          >
-            {/* Mascot card */}
-            <View style={[styles.mascotCard, { backgroundColor: slide.accentLight }]}>
-              <Animated.View style={{ transform: [{ scale: mascotScale }] }}>
-                <BoxMascot variant={slide.variant} size={mascotSize} animated />
-              </Animated.View>
-            </View>
+          {/* Title */}
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: isCompact ? 22 : 26, color: '#0D1B2A', lineHeight: isCompact ? 30 : 34, letterSpacing: -0.5, marginBottom: 10 }}>
+            {slide.title}
+          </Text>
 
-            {/* Icon badge */}
-            <View style={[styles.iconBadge, { backgroundColor: slide.accent }]}>
-              <Ionicons name={slide.icon as any} size={15} color="#fff" />
-            </View>
+          {/* Description */}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: '#516070', lineHeight: 22, marginBottom: 20 }}>
+            {slide.description}
+          </Text>
 
-            <Text style={styles.title}>{slide.title}</Text>
-            <Text style={styles.subtitle}>{slide.description}</Text>
-          </Animated.View>
+          {/* Feature rows */}
+          {[slide.feature1, slide.feature2, slide.feature3].map((feat, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 }}>
+              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: slide.accent + '18', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={slide.iconFeature[i] as any} size={14} color={slide.accent} />
+              </View>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#334155', flex: 1 }}>{feat.replace('✓  ', '')}</Text>
+            </View>
+          ))}
+
+          <View style={{ flex: 1 }} />
 
           {/* Dots */}
-          <View style={styles.dotsRow}>
-            {slides.map((s, i) => (
-              <Pressable
-                key={s.key}
-                style={styles.dotPressable}
-                onPress={() => { if (i !== currentIndex) goTo(i); }}
-              >
-                <Animated.View
-                  style={[
-                    styles.dot,
-                    {
-                      width: dotWidths[i],
-                      backgroundColor: i === currentIndex ? slide.accent : '#CBD5E1',
-                    },
-                  ]}
-                />
-              </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
+            {slides.map((_, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: slide.accent,
+                  width: dotAnims[i].interpolate({ inputRange: [0, 1], outputRange: [6, 24] }),
+                  opacity: dotAnims[i].interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
+                }}
+              />
             ))}
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttonArea}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryBtnWrapper,
-                pressed && { opacity: 0.88, transform: [{ scale: 0.975 }] },
-              ]}
-              onPress={handleNext}
+          {/* Primary button */}
+          <Pressable
+            onPress={handleNext}
+            style={({ pressed }) => ({ borderRadius: 16, overflow: 'hidden', opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.975 : 1 }] })}
+          >
+            <LinearGradient
+              colors={[slide.accent, slide.gradientTop[2]]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ height: 54, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
-              <LinearGradient
-                colors={[slide.accent, colors.primary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.primaryBtn}
-              >
-                <Text style={styles.primaryBtnText}>
-                  {isLast ? 'Başlayalım 🚀' : 'İleri'}
-                </Text>
-                {!isLast && (
-                  <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 6 }} />
-                )}
-              </LinearGradient>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.5 }]}
-              onPress={() => void finish()}
-            >
-              <Text style={styles.skipBtnText}>Geç</Text>
-            </Pressable>
-          </View>
-
-        </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff', letterSpacing: 0.2 }}>
+                {isLast ? 'Başlayalım' : 'İleri'}
+              </Text>
+              <Ionicons name={isLast ? 'rocket-outline' : 'arrow-forward'} size={18} color="#fff" />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
       </SafeAreaView>
-    </LinearGradient>
+
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  container: {
-    flex: 1,
-    paddingTop: 12,
-    paddingBottom: 8,
-    justifyContent: 'space-between',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 4,
-    paddingHorizontal: 24,
-  },
-  brandPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 99,
-    marginBottom: 8,
-  },
-  brandPillText: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    letterSpacing: 0.3,
-  },
-  tagline: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontFamily: fonts.medium,
-    letterSpacing: 0.3,
-  },
-  slideContent: {
-    flexGrow: 1,
-    flexShrink: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-  },
-  mascotCard: {
-    width: 220,
-    height: 220,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
-  },
-  iconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: fonts.headingBold,
-    color: '#0D1B2A',
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 34,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#516070',
-    textAlign: 'center',
-    maxWidth: 300,
-    fontFamily: fonts.regular,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 10,
-    gap: 6,
-  },
-  dotPressable: {
-    padding: 8,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-  },
-  buttonArea: {
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-    gap: 6,
-    width: '100%',
-  },
-  primaryBtnWrapper: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 7,
-  },
-  primaryBtn: {
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontFamily: fonts.bold,
-    letterSpacing: 0.2,
-  },
-  skipBtn: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skipBtnText: {
-    fontSize: 14,
-    fontFamily: fonts.medium,
-    color: '#94A3B8',
-  },
-});
