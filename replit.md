@@ -18,6 +18,7 @@ A Turkish e-commerce marketplace app ("Order Box") — an Expo/React Native mobi
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
 - **Analytics:** PostHog
 - **Error Tracking:** Sentry
+- **IAP / Subscriptions:** RevenueCat (`react-native-purchases`) — see below
 
 ## Running the Project
 
@@ -39,6 +40,28 @@ See `.env.example` for all required variables. Key ones:
 For the web-admin panel, set in `web-admin/.env`:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+
+### RevenueCat (IAP/Subscriptions)
+
+**IMPORTANT:** The Replit RevenueCat integration (`connector:ccfg_revenuecat_01KED80FZSMH99H5FHQWSX7D4M`) was dismissed by the user. To activate RevenueCat:
+
+**Option A — Replit Integration (recommended):**
+1. Agent should call `proposeIntegration('connector:ccfg_revenuecat_01KED80FZSMH99H5FHQWSX7D4M')` again
+2. User completes OAuth in the popup
+3. Agent calls `addIntegration(connectionId)` and copies `renderedContent` snippet into `scripts/revenueCatClient.ts`
+4. Agent runs `scripts/seedRevenueCat.ts` to create all products/entitlements/offerings
+5. Agent adds the printed API keys as env vars below
+
+**Option B — Manual API Keys:**
+User provides RevenueCat API keys from https://app.revenuecat.com → Project Settings → API Keys, then agent stores them as secrets:
+- `EXPO_PUBLIC_REVENUECAT_TEST_API_KEY` — Test Store public key
+- `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` — App Store public key
+- `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` — Play Store public key
+- `REVENUECAT_SECRET_KEY` — Secret key (for seed script only)
+- `REVENUECAT_PROJECT_ID` — Project ID (for seed script)
+- `REVENUECAT_WEBHOOK_SECRET` — Webhook authorization header value
+
+**Current status:** Code is fully implemented. Only API keys are missing. App runs fine without them (RC silently skips in browser/dev mode).
 
 ## Deployment
 
