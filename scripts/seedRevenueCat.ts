@@ -135,7 +135,7 @@ async function seedRevenueCat() {
   const { data: existingProducts, error: listProductsError } = await listProducts({ client, path: { project_id: project.id }, query: { limit: 100 } });
   if (listProductsError) throw new Error('Failed to list products');
 
-  const ensureProduct = async (targetApp: App, isTestStore: boolean, identifier: string, displayName: string, title: string, type: 'subscription' | 'non_subscription', duration?: string, priceTRY?: number): Promise<Product> => {
+  const ensureProduct = async (targetApp: App, isTestStore: boolean, identifier: string, displayName: string, title: string, type: 'subscription' | 'non_renewing_subscription', duration?: string, _priceTRY?: number): Promise<Product> => {
     const existing = existingProducts.items?.find((p) => p.store_identifier === identifier && p.app_id === targetApp.id);
     if (existing) { console.log(`Product exists [${identifier}]:`, existing.id); return existing; }
 
@@ -156,21 +156,6 @@ async function seedRevenueCat() {
     const { data: created, error } = await createProduct({ client, path: { project_id: project.id }, body });
     if (error) throw new Error(`Failed to create product ${identifier}: ${JSON.stringify(error)}`);
     console.log(`Created product [${identifier}]:`, created.id);
-
-    if (isTestStore && priceTRY) {
-      const priceMicros = priceTRY * 1_000_000;
-      const { error: priceError } = await client.post<TestStorePricesResponse>({
-        url: '/projects/{project_id}/products/{product_id}/test_store_prices',
-        path: { project_id: project.id, product_id: created.id },
-        body: { prices: [{ amount_micros: priceMicros, currency: 'TRY' }] },
-      });
-      if (priceError && (priceError as any).type !== 'resource_already_exists') {
-        console.warn(`Failed to set test price for ${identifier}:`, priceError);
-      } else {
-        console.log(`  Set test price: ₺${priceTRY}`);
-      }
-    }
-
     return created;
   };
 
@@ -190,9 +175,9 @@ async function seedRevenueCat() {
   const creditProductMap: Record<string, { test: Product; appStore: Product; playStore: Product }> = {};
   for (const cp of CREDIT_PRODUCTS) {
     const [testProd, appStoreProd, playStoreProd] = await Promise.all([
-      ensureProduct(testApp, true, cp.id, cp.displayName, cp.title, 'non_subscription', undefined, cp.priceTRY),
-      ensureProduct(appStoreApp, false, cp.id, cp.displayName, cp.title, 'non_subscription'),
-      ensureProduct(playStoreApp, false, cp.id.replace(/\./g, '_'), cp.displayName, cp.title, 'non_subscription'),
+      ensureProduct(testApp, true, cp.id, cp.displayName, cp.title, 'non_renewing_subscription', undefined, cp.priceTRY),
+      ensureProduct(appStoreApp, false, cp.id, cp.displayName, cp.title, 'non_renewing_subscription'),
+      ensureProduct(playStoreApp, false, cp.id.replace(/\./g, '_'), cp.displayName, cp.title, 'non_renewing_subscription'),
     ]);
     creditProductMap[cp.id] = { test: testProd, appStore: appStoreProd, playStore: playStoreProd };
   }

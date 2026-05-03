@@ -4,5 +4,5 @@ export {
   OTHER_SUBCATEGORY_ID,
   getMarketplaceCategory,
   type MarketplaceCategory,
-  type MarketplaceSubCategory,
+  type MarketplaceSubcategory,
 } from './marketplaceCategories';

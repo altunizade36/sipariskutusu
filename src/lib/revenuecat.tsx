@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import Purchases, { type CustomerInfo, type Offerings, type PurchasesPackage } from 'react-native-purchases';
+import Purchases, { type CustomerInfo, type PurchasesOfferings, type PurchasesPackage, type CustomerInfoUpdateListener } from 'react-native-purchases';
 import Constants from 'expo-constants';
 
 const REVENUECAT_TEST_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY ?? '';
@@ -53,7 +53,7 @@ export async function logoutRevenueCat(): Promise<void> {
 
 type SubscriptionContextValue = {
   customerInfo: CustomerInfo | null;
-  offerings: Offerings | null;
+  offerings: PurchasesOfferings | null;
   isLoading: boolean;
   isPurchasing: boolean;
   isRestoring: boolean;
@@ -80,7 +80,7 @@ function getActivePlanFromCustomerInfo(info: CustomerInfo | null): { plan: strin
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
-  const [offerings, setOfferings] = useState<Offerings | null>(null);
+  const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -117,17 +117,18 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    let sub: ReturnType<typeof Purchases.addCustomerInfoUpdateListener> | null = null;
+    let listener: CustomerInfoUpdateListener | null = null;
     try {
-      sub = Purchases.addCustomerInfoUpdateListener((info) => {
+      listener = (info: CustomerInfo) => {
         if (mounted.current) setCustomerInfo(info);
-      });
+      };
+      Purchases.addCustomerInfoUpdateListener(listener);
     } catch {
       // silently ignore
     }
     return () => {
-      if (sub) {
-        try { sub.remove(); } catch { /* ignore */ }
+      if (listener) {
+        try { Purchases.removeCustomerInfoUpdateListener(listener); } catch { /* ignore */ }
       }
     };
   }, []);
