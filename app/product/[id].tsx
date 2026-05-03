@@ -23,6 +23,9 @@ import { ProductImagePlaceholder } from '../../src/components/ProductImagePlaceh
 import { useRecentlyViewed } from '../../src/hooks/useRecentlyViewed';
 import { captureError, trackEvent } from '../../src/services/monitoring';
 import { TELEMETRY_EVENTS } from '../../src/constants/telemetryEvents';
+import { fetchStoreFollowState, followStore, unfollowStore } from '../../src/services/storeFollowService';
+import { dispatchFollowNotification } from '../../src/services/notificationDispatchService';
+import { MARKETPLACE_CATEGORIES } from '../../src/constants/marketplaceCategories';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -119,8 +122,7 @@ export default function ProductDetailScreen() {
   const [product, setProduct] = useState<Product>(
     localProduct,
   );
-  const sizeOptions = product.availableSizes?.length ? product.availableSizes : ['XS', 'S', 'M', 'L', 'XL'];
-  const [selectedSize, setSelectedSize] = useState(sizeOptions[0] ?? 'M');
+  const [selectedSize, setSelectedSize] = useState(product.availableSizes?.[0] ?? '');
   const [selectedColor, setSelectedColor] = useState(product.availableColors?.[0] ?? '');
   const [favorited, setFavorited] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(parseEngagementCount(localProduct?.favoriteCount));
@@ -144,10 +146,17 @@ export default function ProductDetailScreen() {
   const [reportMessage, setReportMessage] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [storeFollowed, setStoreFollowed] = useState(false);
+  const [storeFollowerCount, setStoreFollowerCount] = useState(0);
+  const [storeFollowLoading, setStoreFollowLoading] = useState(false);
   const contactWhatsapp = product.whatsapp || '';
   const mediaUris = getOrderedMediaUris(product);
   const selectedMediaIsVideo = isVideoUri(selectedMediaUri);
   const shouldShowSimilarSkeleton = allProducts.length === 0;
+  const storeProductCount = useMemo(
+    () => allProducts.filter((p) => p.sellerId === product.sellerId && p.id !== product.id).length,
+    [allProducts, product.sellerId, product.id],
+  );
 
   const flattenActiveCommentCount = useCallback((items: ListingComment[]): number => {
     return items.reduce((total, item) => total + (item.status === 'active' ? 1 : 0) + flattenActiveCommentCount(item.replies), 0);
@@ -195,7 +204,7 @@ export default function ProductDetailScreen() {
   }, [localProduct]);
 
   useEffect(() => {
-    setSelectedSize(sizeOptions[0] ?? 'M');
+    setSelectedSize(product.availableSizes?.[0] ?? '');
     setSelectedColor(product.availableColors?.[0] ?? '');
   }, [id, product.availableColors?.join('|'), product.availableSizes?.join('|')]);
 
@@ -280,6 +289,39 @@ export default function ProductDetailScreen() {
       setFavoriteCount((current) => Math.max(next ? current + 1 : current - 1, 0));
       refreshListing();
     }, [refreshListing, router, user, product.id, toggleFav]);
+
+  useEffect(() => {
+    if (!product.storeId || !user || !isSupabaseConfigured) return;
+    fetchStoreFollowState(product.storeId)
+      .then(({ isFollowing, followerCount }) => {
+        setStoreFollowed(isFollowing);
+        setStoreFollowerCount(followerCount);
+      })
+      .catch(() => undefined);
+  }, [product.storeId, user?.id]);
+
+  const handleToggleStoreFollow = useCallback(async () => {
+    if (!user) { router.push('/auth'); return; }
+    if (!product.storeId) return;
+    if (storeFollowLoading) return;
+    setStoreFollowLoading(true);
+    try {
+      if (storeFollowed) {
+        await unfollowStore(product.storeId);
+        setStoreFollowed(false);
+        setStoreFollowerCount((c) => Math.max(c - 1, 0));
+      } else {
+        await followStore(product.storeId);
+        setStoreFollowed(true);
+        setStoreFollowerCount((c) => c + 1);
+        dispatchFollowNotification(product.sellerId ?? '', product.brand || 'Mağaza').catch(() => undefined);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setStoreFollowLoading(false);
+    }
+  }, [user, product.storeId, product.sellerId, product.brand, storeFollowed, storeFollowLoading, router]);
 
   function openWhatsApp() {
     if (!contactWhatsapp) {
@@ -438,6 +480,11 @@ export default function ProductDetailScreen() {
         is_reply: Boolean(parentId),
         comment_length: draft.trim().length,
       });
+      if (product.sellerId && product.sellerId !== user?.id) {
+        import('../../src/services/notificationDispatchService')
+          .then(({ dispatchFavoriteNotification }) => dispatchFavoriteNotification(product.id))
+          .catch(() => undefined);
+      }
       if (parentId) {
         setReplyDrafts((current) => ({ ...current, [parentId]: '' }));
         setReplyingTo(null);
@@ -758,34 +805,83 @@ export default function ProductDetailScreen() {
             >
 Ödeme ve teslimat detayları için satıcıyla doğrudan iletişime geçin.
             </Text>
-            <View className="mt-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2.5">
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary, lineHeight: 17 }}>
-                Bu platform yalnızca alıcı ve satıcıyı buluşturur.
-                {'\n'}Ödeme ve teslimat taraflar arasında gerçekleşir.
-              </Text>
-            </View>
-            <View className="flex-row items-center mt-3">
-              <View
-                style={{ backgroundColor: '#EFF6FF' }}
-                className="px-2.5 py-1 rounded-full"
-              >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>
-                  Durum satıcı beyanına göredir
-                </Text>
+            {/* Güven bloğu */}
+            <View style={{ marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', backgroundColor: isDarkMode ? '#1E3A5F22' : '#EFF6FF', padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} style={{ marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary, lineHeight: 16 }}>
+                    Bu platform alıcı ve satıcıyı buluşturur.
+                  </Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textSecondary, lineHeight: 16, marginTop: 2 }}>
+                    Ödeme ve teslimat taraflar arasında gerçekleşir. Platform dışı ödeme yaparken dikkatli olun.
+                  </Text>
+                </View>
               </View>
-              {product.condition ? (
-                <View className="ml-2 px-2.5 py-1 rounded-full bg-[#EFF6FF]">
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>
-                    {product.condition}
+            </View>
+
+            {/* Ürün bilgisi çipleri */}
+            {(() => {
+              const categoryLabel = MARKETPLACE_CATEGORIES.find((c) => c.id === product.category)?.name;
+              const chips: { icon: string; label: string; color?: string; bg?: string }[] = [];
+              if (product.condition) chips.push({ icon: 'pricetag-outline', label: product.condition });
+              if (product.isNegotiable) chips.push({ icon: 'git-compare-outline', label: 'Pazarlık Var', color: '#059669', bg: '#ECFDF5' });
+              if (typeof product.stock === 'number' && product.stock > 0) {
+                chips.push({
+                  icon: 'cube-outline',
+                  label: product.stock > 10 ? 'Stokta Var' : `${product.stock} adet kaldı`,
+                  color: product.stock <= 3 ? '#DC2626' : '#059669',
+                  bg: product.stock <= 3 ? '#FEF2F2' : '#ECFDF5',
+                });
+              }
+              if (product.delivery?.length) chips.push({ icon: 'car-outline', label: product.delivery.join(' / ') });
+              if (categoryLabel) chips.push({ icon: 'grid-outline', label: categoryLabel });
+              return chips.length > 0 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                  {chips.map((chip) => (
+                    <View
+                      key={chip.label}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 20,
+                        backgroundColor: chip.bg ?? (isDarkMode ? '#1E3A5F' : '#EFF6FF'),
+                        borderWidth: 1,
+                        borderColor: chip.bg ? chip.bg : (isDarkMode ? colors.primary + '30' : '#BFDBFE'),
+                      }}
+                    >
+                      <Ionicons name={chip.icon as any} size={11} color={chip.color ?? colors.primary} />
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: chip.color ?? colors.primary }}>
+                        {chip.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null;
+            })()}
+
+            {/* Konum & Tarih */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 12, flexWrap: 'wrap' }}>
+              {product.location ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="location-outline" size={12} color={pal.textMuted} />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary }}>
+                    {product.location}{product.district ? ` / ${product.district}` : ''}
+                  </Text>
+                </View>
+              ) : null}
+              {product.createdAt ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="calendar-outline" size={12} color={pal.textMuted} />
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary }}>
+                    {new Date(product.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </Text>
                 </View>
               ) : null}
             </View>
-            {product.location ? (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} className="mt-3">
-                {product.location}{product.district ? ` / ${product.district}` : ''}
-              </Text>
-            ) : null}
           </View>
 
           {product.availableSizes?.length ? (
@@ -858,30 +954,78 @@ export default function ProductDetailScreen() {
 
           {/* Mağaza Kartı */}
           <View style={{ marginTop: 20, backgroundColor: pal.storeBg, borderRadius: 20, borderWidth: 1, borderColor: pal.storeBorder, padding: 16 }}>
+            {/* Üst: avatar + isim + mağazaya git */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: isDarkMode ? '#1E3A5F' : '#EFF6FF', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.primary + '30' }}>
-                <Ionicons name="storefront" size={26} color={colors.primary} />
-              </View>
+              <Pressable onPress={openProductStore}>
+                <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: isDarkMode ? '#1E3A5F' : '#EFF6FF', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.primary + '30' }}>
+                  <Ionicons name="storefront" size={26} color={colors.primary} />
+                </View>
+              </Pressable>
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: pal.textPrimary }} numberOfLines={1}>
-                  {product.brand || 'Satıcı'}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 8 }}>
+                <Pressable onPress={openProductStore}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: pal.textPrimary }} numberOfLines={1}>
+                    {product.brand || 'Satıcı'}
+                  </Text>
+                </Pressable>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 6, flexWrap: 'wrap' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <Ionicons name="star" size={12} color="#F59E0B" />
                     <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary }}>4.8</Text>
                   </View>
                   <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: pal.textMuted }} />
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary }}>Onaylı Satıcı</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Ionicons name="people-outline" size={12} color={pal.textMuted} />
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary }}>
+                      {storeFollowerCount > 0 ? `${storeFollowerCount} takipçi` : 'Onaylı Satıcı'}
+                    </Text>
+                  </View>
+                  {storeProductCount > 0 ? (
+                    <>
+                      <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: pal.textMuted }} />
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary }}>
+                        {storeProductCount} ürün
+                      </Text>
+                    </>
+                  ) : null}
                 </View>
               </View>
               <Pressable
                 onPress={openProductStore}
-                style={{ backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}
+                style={{ backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12 }}
               >
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>Mağazaya Git</Text>
               </Pressable>
             </View>
+
+            {/* Takip et butonu */}
+            {product.storeId ? (
+              <Pressable
+                onPress={handleToggleStoreFollow}
+                disabled={storeFollowLoading}
+                style={{
+                  marginTop: 12,
+                  height: 40,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: storeFollowed ? colors.primary : pal.border,
+                  backgroundColor: storeFollowed ? colors.primary + '12' : pal.card,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  opacity: storeFollowLoading ? 0.6 : 1,
+                }}
+              >
+                <Ionicons
+                  name={storeFollowed ? 'checkmark-circle' : 'add-circle-outline'}
+                  size={17}
+                  color={storeFollowed ? colors.primary : pal.textSecondary}
+                />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: storeFollowed ? colors.primary : pal.textSecondary }}>
+                  {storeFollowLoading ? 'İşleniyor...' : storeFollowed ? 'Takip Ediliyor' : 'Takip Et'}
+                </Text>
+              </Pressable>
+            ) : null}
 
             <View style={{ height: 1, backgroundColor: pal.storeBorder, marginVertical: 14 }} />
 

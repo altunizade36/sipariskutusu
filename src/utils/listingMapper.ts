@@ -119,5 +119,7 @@ export function mapListingToProduct(listing: Listing): Product {
           ? ['Kargo']
           : ['Elden Teslim'],
     stock: listing.stock,
+    isNegotiable: listing.is_negotiable ?? false,
+    createdAt: listing.created_at ?? undefined,
   };
 }

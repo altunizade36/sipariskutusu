@@ -26,6 +26,8 @@ export type Product = {
   attributes?: Array<{ label: string; value: string }>;
   stock?: number;
   whatsapp?: string;
+  isNegotiable?: boolean;
+  createdAt?: string;
 };
 
 export type Category = {
