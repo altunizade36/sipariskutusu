@@ -56,12 +56,12 @@ export default function BoxMascot({
         Animated.timing(bounce, {
           toValue: 1,
           duration: 900,
-          useNativeDriver: Platform.OS !== 'web',
+          useNativeDriver: false,
         }),
         Animated.timing(bounce, {
           toValue: 0,
           duration: 900,
-          useNativeDriver: Platform.OS !== 'web',
+          useNativeDriver: false,
         }),
       ]),
     );
@@ -92,7 +92,7 @@ export default function BoxMascot({
         {
           width: size,
           height: size,
-          transform: animated && Platform.OS !== 'web'
+          transform: animated
             ? [{ translateY }, { scale }]
             : [{ scale: 1 }],
         },
