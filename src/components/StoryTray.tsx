@@ -71,10 +71,10 @@ export function StoryTray({
     return addStory && showAddButton ? [addStory, ...sellerPreviews] : sellerPreviews;
   }, [stories, showAddButton, autoGroupBySeller]);
 
-  const AVATAR = 68;
-  const ITEM_W = 84;
+  const AVATAR = 62;
+  const ITEM_W = 76;
   const LABEL_SIZE = 11;
-  const RING_PAD = 3;
+  const RING_PAD = 2.5;
 
   const getBadgeMeta = (badge?: string) => {
     const normalized = badge?.trim().toLocaleLowerCase('tr-TR');
@@ -122,9 +122,9 @@ export function StoryTray({
               <LinearGradient
                 colors={['#E0E7FF', '#DBEAFE', '#EDE9FE']}
                 style={{
-                  width: AVATAR + 8,
-                  height: AVATAR + 8,
-                  borderRadius: (AVATAR + 8) / 2,
+                  width: AVATAR + 6,
+                  height: AVATAR + 6,
+                  borderRadius: (AVATAR + 6) / 2,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1.5,
@@ -133,9 +133,9 @@ export function StoryTray({
               >
                 <View
                   style={{
-                    width: AVATAR + 2,
-                    height: AVATAR + 2,
-                    borderRadius: (AVATAR + 2) / 2,
+                    width: AVATAR,
+                    height: AVATAR,
+                    borderRadius: AVATAR / 2,
                     backgroundColor: '#F0F5FF',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -143,9 +143,9 @@ export function StoryTray({
                 >
                   <LinearGradient
                     colors={['#1E5FC6', '#3B82F6']}
-                    style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+                    style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <Ionicons name="add" size={22} color="#fff" />
+                    <Ionicons name="add" size={20} color="#fff" />
                   </LinearGradient>
                 </View>
               </LinearGradient>
@@ -156,9 +156,9 @@ export function StoryTray({
                 start={{ x: 0.15, y: 1 }}
                 end={{ x: 0.85, y: 0 }}
                 style={{
-                  width: AVATAR + 8,
-                  height: AVATAR + 8,
-                  borderRadius: (AVATAR + 8) / 2,
+                  width: AVATAR + 6,
+                  height: AVATAR + 6,
+                  borderRadius: (AVATAR + 6) / 2,
                   padding: RING_PAD,
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -167,9 +167,9 @@ export function StoryTray({
                 {/* White gap ring */}
                 <View
                   style={{
-                    width: AVATAR + 2,
-                    height: AVATAR + 2,
-                    borderRadius: (AVATAR + 2) / 2,
+                    width: AVATAR + 1,
+                    height: AVATAR + 1,
+                    borderRadius: (AVATAR + 1) / 2,
                     backgroundColor: '#fff',
                     padding: 2,
                     alignItems: 'center',
@@ -178,7 +178,7 @@ export function StoryTray({
                 >
                   <Image
                     source={{ uri: s.image }}
-                    style={{ width: AVATAR - 2, height: AVATAR - 2, borderRadius: (AVATAR - 2) / 2 }}
+                    style={{ width: AVATAR - 3, height: AVATAR - 3, borderRadius: (AVATAR - 3) / 2 }}
                     resizeMode="cover"
                   />
                 </View>
@@ -189,8 +189,8 @@ export function StoryTray({
                   (Date.now() - new Date(s.createdAt).getTime() < 2 * 60 * 60 * 1000);
                 return isFresh ? (
                   <View style={{
-                    position: 'absolute', bottom: 2, right: 2,
-                    width: 14, height: 14, borderRadius: 7,
+                    position: 'absolute', bottom: 1, right: 1,
+                    width: 13, height: 13, borderRadius: 6.5,
                     backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#fff',
                   }} />
                 ) : null;
