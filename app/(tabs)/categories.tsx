@@ -254,7 +254,7 @@ export default function CategoriesScreen() {
     Animated.timing(sheetTranslateY, {
       toValue: 520,
       duration: 180,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start(({ finished }) => {
       if (finished) {
         setFilterVisible(false);
@@ -269,7 +269,7 @@ export default function CategoriesScreen() {
 
     Animated.spring(sheetTranslateY, {
       toValue: 0,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       speed: 20,
       bounciness: 4,
     }).start();

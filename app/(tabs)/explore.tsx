@@ -1,4 +1,4 @@
-import { Animated, Dimensions, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Animated, Dimensions, Image, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,8 +58,8 @@ function PulsingDot({ color = '#fff' }: { color?: string }) {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(scale, { toValue: 1.7, duration: 650, useNativeDriver: true }),
-        Animated.timing(scale, { toValue: 1, duration: 650, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: 1.7, duration: 650, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(scale, { toValue: 1, duration: 650, useNativeDriver: Platform.OS !== 'web' }),
       ])
     ).start();
   }, [scale]);

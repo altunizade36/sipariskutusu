@@ -2,6 +2,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -88,7 +89,7 @@ function NotificationCard({
     setShowDelete((prev) => !prev);
     Animated.spring(slideAnim, {
       toValue: showDelete ? 0 : -72,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       tension: 120,
       friction: 10,
     }).start();

@@ -1,4 +1,4 @@
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, Platform, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { colors } from '../constants/theme';
@@ -15,7 +15,7 @@ export function ScrollToTopButton({ visible, onPress }: ScrollToTopButtonProps) 
     Animated.timing(fadeAnim, {
       toValue: visible ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [visible, fadeAnim]);
 

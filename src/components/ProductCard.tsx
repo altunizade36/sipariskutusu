@@ -67,7 +67,7 @@ function parseCount(value: string | number | undefined) {
 
 function ProductCardComponent({ product, width = '100%' }: Props) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isDarkMode } = useAuth();
   const { checkFavorited, toggle } = useFavorites();
   const [favorited, setFavorited] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -146,14 +146,20 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
     }
   };
 
+  const cardBg = isDarkMode ? '#1C2537' : '#FFFFFF';
+  const imgPlaceholderBg = isDarkMode ? '#243048' : '#F1F5F9';
+  const titleColor = isDarkMode ? '#E2E8F0' : colors.textPrimary;
+  const subtitleColor = isDarkMode ? '#94A3B8' : colors.textSecondary;
+  const mutedColor = isDarkMode ? '#64748B' : colors.textMuted;
+
   return (
     <Pressable
       onPress={() => router.push(`/product/${product.id}`)}
-      style={{ width: typeof width === 'number' ? width : '100%' }}
-      className="bg-white active:opacity-90"
+      style={{ width: typeof width === 'number' ? width : '100%', backgroundColor: cardBg }}
+      className="active:opacity-90"
     >
       {/* Image */}
-      <View style={{ aspectRatio: 3 / 4 }} className="relative bg-[#F1F5F9] overflow-hidden">
+      <View style={{ aspectRatio: 3 / 4, backgroundColor: imgPlaceholderBg }} className="relative overflow-hidden">
         <CachedImage
           uri={resolveMediaCover(product)}
           style={{ width: '100%', height: '100%' }}
@@ -294,7 +300,7 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
           style={{
             fontFamily: fonts.medium,
             fontSize: 12,
-            color: colors.textPrimary,
+            color: titleColor,
             lineHeight: 17,
             marginTop: 2,
             minHeight: 34,
@@ -306,11 +312,11 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
         {/* Live engagement */}
         <View className="flex-row items-center mt-1.5 gap-1">
           <Ionicons name="heart" size={11} color={colors.danger} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: subtitleColor }}>
             {formatEngagementCount(liveFavoriteCount)} beğeni
           </Text>
           <Ionicons name="chatbubble-outline" size={11} color={colors.primary} style={{ marginLeft: 6 }} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: subtitleColor }}>
             {formatEngagementCount(liveReviewCount)} yorum
           </Text>
         </View>
@@ -322,7 +328,7 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
               style={{
                 fontFamily: fonts.regular,
                 fontSize: 11,
-                color: colors.textMuted,
+                color: mutedColor,
                 textDecorationLine: 'line-through',
               }}
             >
@@ -336,7 +342,7 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
           </Text>
         </View>
 
-        <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary, marginTop: 6, lineHeight: 14 }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: subtitleColor, marginTop: 6, lineHeight: 14 }}>
           Bu platform yalnızca alıcı ve satıcıyı buluşturur.
           {'\n'}Ödeme ve teslimat taraflar arasında gerçekleşir.
         </Text>

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   Animated,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -86,8 +87,8 @@ export default function OnboardingScreen() {
     currentIndexRef.current = next;
     // Fade + slide out
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: -22, duration: 150, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(slideAnim, { toValue: -22, duration: 150, useNativeDriver: Platform.OS !== 'web' }),
     ]).start(() => {
       setCurrentIndex(next);
       animateDots(next);
@@ -95,13 +96,13 @@ export default function OnboardingScreen() {
       mascotScale.setValue(0.62);
       // Fade + slide in + mascot spring bounce
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 230, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 230, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 230, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 230, useNativeDriver: Platform.OS !== 'web' }),
         Animated.spring(mascotScale, {
           toValue: 1,
           friction: 5,
           tension: 130,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
     });
