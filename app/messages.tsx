@@ -60,6 +60,8 @@ import { NewMessageButton } from '../src/components/chat/NewMessageButton';
 import { EmptyChatState } from '../src/components/chat/EmptyChatState';
 import { TypingIndicator } from '../src/components/chat/TypingIndicator';
 import { openImageAttachmentPicker } from '../src/components/chat/ImageAttachmentPicker';
+import { pickImageFromCamera } from '../src/utils/imagePicker';
+import { deleteMyMessage } from '../src/services/messageService';
  
 // ─── Yardımcı fonksiyonlar ───────────────────────────────────
  
@@ -569,6 +571,9 @@ function MessageActionSheet({
   onEdit,
   canEdit,
   onCopy,
+  onForward,
+  onDelete,
+  canDelete,
   onReport,
   onDismiss,
 }: {
@@ -579,6 +584,9 @@ function MessageActionSheet({
   onEdit: () => void;
   canEdit: boolean;
   onCopy: () => void;
+  onForward: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
   onReport: () => void;
   onDismiss: () => void;
 }) {
@@ -616,10 +624,24 @@ function MessageActionSheet({
             </Pressable>
           ) : null}
 
-          <Pressable onPress={() => { onReport(); onDismiss(); }} className="h-10 flex-row items-center">
-            <Ionicons name="flag-outline" size={18} color="#B91C1C" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#B91C1C', marginLeft: 10 }}>Mesajı Şikayet Et</Text>
+          <Pressable onPress={() => { onForward(); onDismiss(); }} className="h-10 flex-row items-center">
+            <Ionicons name="arrow-redo-outline" size={18} color={colors.textPrimary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, marginLeft: 10 }}>İlet</Text>
           </Pressable>
+
+          {canDelete ? (
+            <Pressable onPress={() => { onDelete(); onDismiss(); }} className="h-10 flex-row items-center">
+              <Ionicons name="trash-outline" size={18} color="#B91C1C" />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#B91C1C', marginLeft: 10 }}>Mesajı Sil</Text>
+            </Pressable>
+          ) : null}
+
+          {!canDelete ? (
+            <Pressable onPress={() => { onReport(); onDismiss(); }} className="h-10 flex-row items-center">
+              <Ionicons name="flag-outline" size={18} color="#B91C1C" />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#B91C1C', marginLeft: 10 }}>Mesajı Şikayet Et</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -1760,6 +1782,81 @@ export default function MessagesScreen() {
     if (!activeMessageAction) return;
     Share.share({ message: activeMessageAction.text }).catch(() => undefined);
   }
+
+  function handleForwardMessage() {
+    if (!activeMessageAction) return;
+    Share.share({ message: `↪️ İletildi:\n${activeMessageAction.text}` }).catch(() => undefined);
+  }
+
+  function handleDeleteMessage() {
+    if (!activeMessageAction || !activeMessageAction.mine || !conversation) return;
+    const targetId = activeMessageAction.id;
+    const isPending = targetId.startsWith('pending-') || pendingMsg?.id === targetId;
+    Alert.alert(
+      'Mesajı Sil',
+      'Bu mesaj kalıcı olarak silinecek. Onaylıyor musun?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => {
+            const convId = conversation.id;
+            setActiveMessageAction(null);
+
+            if (isPending) {
+              // Cancel optimistic/pending send — nothing to delete on server
+              setPendingMsg((p) => (p && (p.id === targetId || targetId.startsWith('pending-')) ? null : p));
+              return;
+            }
+
+            // Snapshot for rollback if remote delete fails
+            const prevSnapshot = remoteMessages[convId] ?? [];
+            setRemoteMessages((current) => {
+              const prev = current[convId] ?? [];
+              return { ...current, [convId]: prev.filter((m) => m.id !== targetId) };
+            });
+
+            if (isRemoteMode) {
+              deleteMyMessage(targetId).catch((err) => {
+                captureError(err instanceof Error ? err : new Error(String(err)), { scope: 'messages.delete' });
+                // Rollback: restore the message
+                setRemoteMessages((current) => ({ ...current, [convId]: prevSnapshot }));
+                Alert.alert('Silinemedi', 'Mesaj silinirken bir sorun oluştu. Lütfen tekrar dene.');
+              });
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  async function handlePickAndSendCameraImage() {
+    setShowAttachMenu(false);
+    if (!conversation) return;
+    try {
+      const uri = await pickImageFromCamera();
+      if (!uri) return;
+      if (!isRemoteMode) {
+        await sendText(`GORSEL:${uri}`);
+        return;
+      }
+      const optimisticId = `pending-img-${Date.now()}`;
+      setPendingMsg({ id: optimisticId, text: '📷 Görsel', status: 'sending', msgKind: 'image', imageUri: uri });
+      const uploadedUrl = await uploadMessageImage(conversation.id, uri);
+      const created = await sendRemoteMessage(conversation.id, '[Gorsel]', uploadedUrl);
+      setPendingMsg(null);
+      setRemoteMessages((current) => {
+        const prev = current[conversation.id] ?? [];
+        if (prev.some((m) => m.id === created.id)) return current;
+        return { ...current, [conversation.id]: [...prev, created] };
+      });
+      updateConversationPreview(conversation.id, '📷 Görsel', created.created_at, created.sender_id);
+    } catch (e) {
+      setPendingMsg((p) => (p ? { ...p, status: 'failed' } : null));
+      Alert.alert('Hata', e instanceof Error ? e.message : 'Kamera açılamadı.');
+    }
+  }
  
   // ─── Parse mesaj ───────────────────────────────────────────
  
@@ -2218,6 +2315,9 @@ export default function MessagesScreen() {
               onEdit={handleEditMessage}
               canEdit={activeMessageAction.mine}
               onCopy={handleCopyMessage}
+              onForward={handleForwardMessage}
+              onDelete={handleDeleteMessage}
+              canDelete={activeMessageAction.mine}
               onReport={openModerationActions}
               onDismiss={() => setActiveMessageAction(null)}
             />
@@ -2237,6 +2337,10 @@ export default function MessagesScreen() {
               <Pressable onPress={handlePickAndSendImage} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10 }}>
                 <Ionicons name="image" size={20} color={colors.primary} />
                 <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>Galeriden Görsel</Text>
+              </Pressable>
+              <Pressable onPress={handlePickAndSendCameraImage} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10 }}>
+                <Ionicons name="camera" size={20} color="#0EA5E9" />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>Kamera ile Çek</Text>
               </Pressable>
               <Pressable onPress={() => { setShowAttachMenu(false); setShowOfferModal(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10 }}>
                 <Ionicons name="pricetag" size={20} color="#D97706" />

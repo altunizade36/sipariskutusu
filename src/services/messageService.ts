@@ -677,4 +677,15 @@ export async function updateOfferStatus(
   if (error) throw error;
 }
 
+/** Delete a message that belongs to the current user. */
+export async function deleteMyMessage(messageId: string): Promise<void> {
+  const userId = await currentUserId();
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .eq('id', messageId)
+    .eq('sender_id', userId);
+  if (error) throw error;
+}
+
 export const messageService = new MessageService();
