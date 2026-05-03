@@ -1,6 +1,7 @@
 import { ActivityIndicator, Alert, View, Text, Pressable } from 'react-native';
 import CachedImage from './CachedImage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { colors, fonts } from '../constants/theme';
@@ -15,25 +16,25 @@ type Props = {
   width?: number | string;
 };
 
-type BadgeStyle = { bg: string; text: string; icon: string; label: string };
+type BadgeStyle = { bg: string; text: string; border: string; icon: string; label: string };
 
 const BADGE_MAP: Record<string, BadgeStyle> = {
-  Flash: { bg: '#FEF3C7', text: '#92400E', icon: '⚡', label: 'Flash İndirim' },
-  'Yeni İlan': { bg: '#DBEAFE', text: '#1E40AF', icon: '🆕', label: 'Yeni İlan' },
-  'Mağazada Yeni': { bg: '#EFF6FF', text: '#1D4ED8', icon: '🏪', label: 'Mağazada Yeni' },
-  Hikayede: { bg: '#EEF2FF', text: '#4338CA', icon: '📸', label: 'Hikayede' },
-  'Çok Satan': { bg: '#ECFDF5', text: '#065F46', icon: '🔥', label: 'Çok Satan' },
-  Popüler: { bg: '#FFF7ED', text: '#C2410C', icon: '🔥', label: 'Popüler' },
-  'Popüler İlan': { bg: '#FFF7ED', text: '#C2410C', icon: '🔥', label: 'Popüler İlan' },
-  'En Çok İncelenen': { bg: '#F0FDF4', text: '#166534', icon: '👁', label: 'Çok İncelenen' },
-  Vitrinde: { bg: '#DBEAFE', text: '#1E40AF', icon: '✨', label: 'Vitrinde' },
-  Trend: { bg: '#FAE8FF', text: '#86198F', icon: '📈', label: 'Trend' },
-  Yeni: { bg: '#DBEAFE', text: '#1D4ED8', icon: '🆕', label: 'Yeni' },
+  Flash:             { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A', icon: '⚡', label: 'Flash İndirim' },
+  'Yeni İlan':       { bg: '#DBEAFE', text: '#1E40AF', border: '#BFDBFE', icon: '🆕', label: 'Yeni İlan' },
+  'Mağazada Yeni':   { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE', icon: '🏪', label: 'Mağazada Yeni' },
+  Hikayede:          { bg: '#EEF2FF', text: '#4338CA', border: '#C7D2FE', icon: '📸', label: 'Hikayede' },
+  'Çok Satan':       { bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0', icon: '🔥', label: 'Çok Satan' },
+  Popüler:           { bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA', icon: '🔥', label: 'Popüler' },
+  'Popüler İlan':    { bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA', icon: '🔥', label: 'Popüler İlan' },
+  'En Çok İncelenen':{ bg: '#F0FDF4', text: '#166534', border: '#BBF7D0', icon: '👁', label: 'Çok İncelenen' },
+  Vitrinde:          { bg: '#DBEAFE', text: '#1E40AF', border: '#BFDBFE', icon: '✨', label: 'Vitrinde' },
+  Trend:             { bg: '#FAE8FF', text: '#86198F', border: '#E9D5FF', icon: '📈', label: 'Trend' },
+  Yeni:              { bg: '#DBEAFE', text: '#1D4ED8', border: '#BFDBFE', icon: '🆕', label: 'Yeni' },
 };
 
 function getBadge(badge?: string): BadgeStyle | null {
   if (!badge) return null;
-  return BADGE_MAP[badge] ?? { bg: '#FEE2E2', text: '#991B1B', icon: '🏷', label: badge };
+  return BADGE_MAP[badge] ?? { bg: '#FEE2E2', text: '#991B1B', border: '#FECACA', icon: '🏷', label: badge };
 }
 
 function isUuid(value: string) {
@@ -44,7 +45,6 @@ function formatEngagementCount(value: number) {
   if (value >= 1000) {
     return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}B`;
   }
-
   return value.toLocaleString('tr-TR');
 }
 
@@ -52,18 +52,20 @@ function parseCount(value: string | number | undefined) {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : 0;
   }
-
   const normalized = String(value ?? '0').trim().replace(',', '.').toUpperCase();
-  if (!normalized || normalized === 'YENI' || normalized === 'YENİ') {
-    return 0;
-  }
-
+  if (!normalized || normalized === 'YENI' || normalized === 'YENİ') return 0;
   if (normalized.endsWith('B')) {
     return Math.round(Number(normalized.slice(0, -1)) * 1000) || 0;
   }
-
   return Number(normalized.replace(/[^0-9.]/g, '')) || 0;
 }
+
+const CONDITION_COLORS: Record<string, { bg: string; text: string }> = {
+  'Yeni':           { bg: '#DCFCE7', text: '#15803D' },
+  'Az kullanılmış': { bg: '#DBEAFE', text: '#1D4ED8' },
+  'İkinci el':      { bg: '#FEF3C7', text: '#92400E' },
+  'Hasarlı':        { bg: '#FEE2E2', text: '#B91C1C' },
+};
 
 function ProductCardComponent({ product, width = '100%' }: Props) {
   const router = useRouter();
@@ -79,65 +81,42 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
   const canUseLiveListing = isUuid(product.id);
   const initialFavoriteCount = useMemo(() => parseCount(product.favoriteCount), [product.favoriteCount]);
   const [liveFavoriteCount, setLiveFavoriteCount] = useState(initialFavoriteCount);
-  const [liveReviewCount, setLiveReviewCount] = useState(canUseLiveListing ? product.reviewCount : 0);
+
+  const conditionColor = product.condition ? (CONDITION_COLORS[product.condition] ?? null) : null;
+  const locationText = [product.location, product.district].filter(Boolean).join(' · ');
 
   useEffect(() => {
     setLiveFavoriteCount(initialFavoriteCount);
-    setLiveReviewCount(canUseLiveListing ? product.reviewCount : 0);
-  }, [canUseLiveListing, initialFavoriteCount, product.reviewCount]);
+  }, [initialFavoriteCount]);
 
   useEffect(() => {
     let alive = true;
-
     if (!isSupabaseConfigured || !user || !canUseLiveListing) {
       setFavorited(false);
-      return () => {
-        alive = false;
-      };
+      return () => { alive = false; };
     }
-
-    const refresh = () => {
-      checkFavorited(product.id).then((next) => {
-        if (alive) {
-          setFavorited(next);
-        }
-      });
-    };
-
-    refresh();
-
-    return () => {
-      alive = false;
-    };
+    checkFavorited(product.id).then((next) => { if (alive) setFavorited(next); });
+    return () => { alive = false; };
   }, [canUseLiveListing, checkFavorited, product.id, user?.id]);
 
   const handleFavoritePress = async () => {
-    if (!user) {
-      router.push('/auth');
-      return;
-    }
-
+    if (!user) { router.push('/auth'); return; }
     if (!isSupabaseConfigured || !canUseLiveListing) {
       Alert.alert('Favoriler aktif değil', 'Bu işlem canlı ilanlarda giriş yapmış kullanıcılarla çalışır.');
       return;
     }
-
-    // Optimistic update: toggle UI immediately
     const wasF = favorited;
     const wasFCount = liveFavoriteCount;
     setFavorited(!favorited);
-    setLiveFavoriteCount((current) => Math.max(!wasF ? current + 1 : current - 1, 0));
+    setLiveFavoriteCount((c) => Math.max(!wasF ? c + 1 : c - 1, 0));
     setFavoriteLoading(true);
-
     try {
       const next = await toggle(product.id);
-      // Only update if different from optimistic (shouldn't happen if server agrees)
       if (next !== !wasF) {
         setFavorited(next);
-        setLiveFavoriteCount((current) => Math.max(next ? current + 1 : current - 1, 0));
+        setLiveFavoriteCount((c) => Math.max(next ? c + 1 : c - 1, 0));
       }
     } catch (error) {
-      // Revert on error
       setFavorited(wasF);
       setLiveFavoriteCount(wasFCount);
       Alert.alert('Favori güncellenemedi', error instanceof Error ? error.message : 'Lütfen tekrar dene.');
@@ -151,145 +130,104 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
   const titleColor = isDarkMode ? '#E2E8F0' : colors.textPrimary;
   const subtitleColor = isDarkMode ? '#94A3B8' : colors.textSecondary;
   const mutedColor = isDarkMode ? '#64748B' : colors.textMuted;
+  const borderColor = isDarkMode ? '#263249' : '#F1F5F9';
 
   return (
     <Pressable
       onPress={() => router.push(`/product/${product.id}`)}
-      style={{ width: typeof width === 'number' ? width : '100%', backgroundColor: cardBg }}
+      style={{
+        width: typeof width === 'number' ? width : '100%',
+        backgroundColor: cardBg,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor,
+        shadowColor: isDarkMode ? '#000' : '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDarkMode ? 0.3 : 0.07,
+        shadowRadius: 8,
+        elevation: 3,
+      }}
       className="active:opacity-90"
     >
-      {/* Image */}
-      <View style={{ aspectRatio: 3 / 4, backgroundColor: imgPlaceholderBg }} className="relative overflow-hidden">
+      {/* ── IMAGE ─────────────────────────────────────────────── */}
+      <View style={{ aspectRatio: 3 / 4, backgroundColor: imgPlaceholderBg, position: 'relative', overflow: 'hidden' }}>
         <CachedImage
           uri={resolveMediaCover(product)}
           style={{ width: '100%', height: '100%' }}
           contentFit="cover"
         />
 
+        {/* Bottom gradient for readability */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.28)']}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56 }}
+        />
+
+        {/* Video indicator */}
         {hasVideo ? (
-          <View className="absolute bottom-2 left-2 w-7 h-7 rounded-full bg-black/65 items-center justify-center">
-            <Ionicons name="play" size={13} color="#fff" />
+          <View style={{ position: 'absolute', bottom: 8, left: 8, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="play" size={12} color="#fff" />
           </View>
         ) : null}
 
+        {/* Media count */}
         {mediaCount > 1 ? (
-          <View className="absolute bottom-2 right-2 bg-black/65 rounded-full px-2 py-[3px] flex-row items-center gap-1">
-            <Ionicons name="images-outline" size={10} color="#fff" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>
-              {mediaCount}
-            </Text>
+          <View style={{ position: 'absolute', bottom: 8, right: discountPct < 10 ? 42 : 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Ionicons name="images-outline" size={9} color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{mediaCount}</Text>
           </View>
         ) : null}
 
-        {/* Badge */}
+        {/* Badge (top-left) */}
         {badge ? (
-          <View
-            style={{
-              backgroundColor: badge.bg,
-              borderColor: badge.text + '33',
-              borderWidth: 1,
-              maxWidth: '88%',
-              elevation: 1,
-              shadowColor: '#000',
-              shadowOpacity: 0.08,
-              shadowRadius: 2,
-              shadowOffset: { width: 0, height: 1 },
-            }}
-            className="absolute top-2 left-2 flex-row items-center px-2.5 py-1 rounded-full gap-1"
-          >
+          <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: badge.bg, borderColor: badge.border, borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 3, maxWidth: '80%' }}>
             <Text style={{ fontSize: 8 }}>{badge.icon}</Text>
-            <Text
-              numberOfLines={1}
-              style={{ fontFamily: fonts.bold, fontSize: 8.5, color: badge.text, letterSpacing: 0.3 }}
-            >
-              {badge.label}
-            </Text>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 8.5, color: badge.text, letterSpacing: 0.2 }}>{badge.label}</Text>
           </View>
         ) : null}
 
-        {/* Discount pill */}
+        {/* Discount pill (top-right) */}
         {discountPct >= 10 ? (
-          <View
-            style={{
-              backgroundColor: '#EF4444',
-              elevation: 2,
-              shadowColor: '#EF4444',
-              shadowOpacity: 0.35,
-              shadowRadius: 4,
-              shadowOffset: { width: 0, height: 2 },
-            }}
-            className="absolute top-2 right-2 flex-row items-center px-2 py-1 rounded-full gap-0.5"
-          >
+          <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#EF4444', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 2, shadowColor: '#EF4444', shadowOpacity: 0.4, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
             <Ionicons name="flash" size={9} color="#fff" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>
-              -{discountPct}%
-            </Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>-{discountPct}%</Text>
           </View>
-        ) : (
-          /* Favorite button if no discount */
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              handleFavoritePress();
-            }}
-            disabled={favoriteLoading}
-            className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full items-center justify-center"
-            style={{ elevation: 2 }}
-          >
-            {favoriteLoading ? (
-              <ActivityIndicator size="small" color={colors.danger} />
-            ) : (
-              <Ionicons
-                name={favorited ? 'heart' : 'heart-outline'}
-                size={16}
-                color={favorited ? colors.danger : colors.textSecondary}
-              />
-            )}
-          </Pressable>
-        )}
-
-        {/* Favorite on bottom-left when discount pill is top-right */}
-        {discountPct >= 10 ? (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              handleFavoritePress();
-            }}
-            disabled={favoriteLoading}
-            className="absolute bottom-2 left-2 w-7 h-7 bg-white/90 rounded-full items-center justify-center"
-          >
-            {favoriteLoading ? (
-              <ActivityIndicator size="small" color={colors.danger} />
-            ) : (
-              <Ionicons
-                name={favorited ? 'heart' : 'heart-outline'}
-                size={14}
-                color={favorited ? colors.danger : colors.textSecondary}
-              />
-            )}
-          </Pressable>
         ) : null}
 
-        {/* Free shipping ribbon */}
+        {/* Favorite button */}
+        <Pressable
+          onPress={(e) => { e.stopPropagation(); handleFavoritePress(); }}
+          disabled={favoriteLoading}
+          style={{ position: 'absolute', bottom: 8, right: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: favorited ? colors.danger : 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 }}
+        >
+          {favoriteLoading ? (
+            <ActivityIndicator size="small" color={colors.danger} />
+          ) : (
+            <Ionicons
+              name={favorited ? 'heart' : 'heart-outline'}
+              size={15}
+              color={favorited ? '#fff' : colors.danger}
+            />
+          )}
+        </Pressable>
+
+        {/* Free shipping badge */}
         {product.freeShipping ? (
-          <View
-            className="absolute bg-white/90 rounded-full px-2 py-[3px] flex-row items-center gap-0.5"
-            style={{ bottom: mediaCount > 1 ? 28 : 8, right: 8 }}
-          >
+          <View style={{ position: 'absolute', top: badge ? 32 : 8, right: 8, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
             <Ionicons name="rocket" size={9} color={colors.success} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: colors.success }}>
-              Ücretsiz Kargo
-            </Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: colors.success }}>Ücretsiz</Text>
           </View>
         ) : null}
       </View>
 
-      {/* Info */}
-      <View className="px-2.5 pt-2 pb-3">
-        {/* Brand */}
+      {/* ── INFO ──────────────────────────────────────────────── */}
+      <View style={{ paddingHorizontal: 10, paddingTop: 9, paddingBottom: 10 }}>
+
+        {/* Seller name */}
         <Text
           numberOfLines={1}
-          style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary, letterSpacing: 0.2 }}
+          style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.primary, letterSpacing: 0.3, marginBottom: 3 }}
         >
           {product.brand}
         </Text>
@@ -297,55 +235,52 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
         {/* Title */}
         <Text
           numberOfLines={2}
-          style={{
-            fontFamily: fonts.medium,
-            fontSize: 12,
-            color: titleColor,
-            lineHeight: 17,
-            marginTop: 2,
-            minHeight: 34,
-          }}
+          style={{ fontFamily: fonts.medium, fontSize: 12.5, color: titleColor, lineHeight: 18, minHeight: 36 }}
         >
           {product.title}
         </Text>
 
-        {/* Live engagement */}
-        <View className="flex-row items-center mt-1.5 gap-1">
-          <Ionicons name="heart" size={11} color={colors.danger} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: subtitleColor }}>
-            {formatEngagementCount(liveFavoriteCount)} beğeni
-          </Text>
-          <Ionicons name="chatbubble-outline" size={11} color={colors.primary} style={{ marginLeft: 6 }} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: subtitleColor }}>
-            {formatEngagementCount(liveReviewCount)} yorum
-          </Text>
-        </View>
+        {/* Condition + Location row */}
+        {(conditionColor || locationText) ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+            {conditionColor ? (
+              <View style={{ backgroundColor: conditionColor.bg, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: conditionColor.text }}>{product.condition}</Text>
+              </View>
+            ) : null}
+            {locationText ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flex: 1 }}>
+                <Ionicons name="location-outline" size={10} color={mutedColor} />
+                <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 10, color: mutedColor, flex: 1 }}>{locationText}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
-        {/* Price */}
-        <View className="mt-1.5">
-          {product.originalPrice && product.price > 0 ? (
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: 11,
-                color: mutedColor,
-                textDecorationLine: 'line-through',
-              }}
-            >
-              ₺{product.originalPrice.toLocaleString('tr-TR')}
+        {/* Price row */}
+        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <View>
+            {product.originalPrice && product.price > 0 ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: mutedColor, textDecorationLine: 'line-through', lineHeight: 14 }}>
+                ₺{product.originalPrice.toLocaleString('tr-TR')}
+              </Text>
+            ) : null}
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.primary, lineHeight: 20 }}>
+              {product.price > 0 ? `₺${product.price.toLocaleString('tr-TR')}` : 'Fiyat Sor'}
             </Text>
+          </View>
+
+          {/* Engagement count */}
+          {liveFavoriteCount > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 }}>
+              <Ionicons name="heart" size={11} color={colors.danger} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: subtitleColor }}>
+                {formatEngagementCount(liveFavoriteCount)}
+              </Text>
+            </View>
           ) : null}
-          <Text
-            style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.primary }}
-          >
-            {product.price > 0 ? `₺${product.price.toLocaleString('tr-TR')}` : 'Fiyat Sor'}
-          </Text>
         </View>
 
-        <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: subtitleColor, marginTop: 6, lineHeight: 14 }}>
-          Bu platform yalnızca alıcı ve satıcıyı buluşturur.
-          {'\n'}Ödeme ve teslimat taraflar arasında gerçekleşir.
-        </Text>
       </View>
     </Pressable>
   );
@@ -362,5 +297,6 @@ export const ProductCard = memo(ProductCardComponent, (prev, next) => {
     && prev.product.badge === next.product.badge
     && prev.product.image === next.product.image
     && prev.product.title === next.product.title
+    && prev.product.condition === next.product.condition
   );
 });

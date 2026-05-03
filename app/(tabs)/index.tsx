@@ -32,7 +32,8 @@ import { t } from '../../src/i18n';
 import { isSmallDevice, calcCardWidth } from '../../src/utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = calcCardWidth(2, 0, 24);
+const GRID_GAP = 10;
+const CARD_WIDTH = calcCardWidth(2, GRID_GAP, 28);
 const LOAD_MORE_SCROLL_THROTTLE_MS = 350;
 
 type ProductTabId = 'all' | 'new' | 'flash' | 'discount' | 'freeShipping';
@@ -743,9 +744,9 @@ export default function HomeScreen() {
         </View>
 
         {/* Products grid */}
-        <View style={{ backgroundColor: pal.card, paddingHorizontal: 14, paddingBottom: 16, paddingTop: 4 }}>
+        <View style={{ backgroundColor: pal.bg, paddingHorizontal: 14, paddingBottom: 16, paddingTop: 8 }}>
           {filteredProducts.length === 0 ? (
-            <View style={{ borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: pal.chipBorder, backgroundColor: pal.cardAlt, paddingHorizontal: 20, paddingVertical: 48, marginTop: 8, alignItems: 'center' }}>
+            <View style={{ borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: pal.chipBorder, backgroundColor: pal.cardAlt, paddingHorizontal: 20, paddingVertical: 48, marginTop: 4, alignItems: 'center' }}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: pal.primaryTint, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
                 <Ionicons name="search-outline" size={28} color={colors.primary} />
               </View>
@@ -761,25 +762,12 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: pal.border, marginTop: 8 }}>
-              {filteredProducts.map((p, i) => {
-                const totalRows = Math.ceil(filteredProducts.length / 2);
-                const currentRow = Math.floor(i / 2);
-                return (
-                  <View
-                    key={`${p.id}-${i}`}
-                    style={{
-                      width: CARD_WIDTH,
-                      borderRightWidth: i % 2 === 0 ? 1 : 0,
-                      borderBottomWidth: currentRow === totalRows - 1 ? 0 : 1,
-                      borderColor: pal.border,
-                      backgroundColor: pal.card,
-                    }}
-                  >
-                    <ProductCard product={p} />
-                  </View>
-                );
-              })}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP, marginTop: 4 }}>
+              {filteredProducts.map((p, i) => (
+                <View key={`${p.id}-${i}`} style={{ width: CARD_WIDTH }}>
+                  <ProductCard product={p} />
+                </View>
+              ))}
             </View>
           )}
 
