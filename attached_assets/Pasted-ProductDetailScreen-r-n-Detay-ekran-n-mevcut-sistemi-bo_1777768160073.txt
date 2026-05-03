@@ -1,0 +1,160 @@
+ProductDetailScreen / Ürün Detay ekranını mevcut sistemi bozmadan profesyonel hale getir.
+
+AMAÇ:
+Ürün detay ekranı Instagram + sahibinden mantığında çalışsın. Görsel, fiyat, mağaza, mesaj, favori, yorum, benzer ürünler ve güven blokları tam bağlantılı olsun. Boş görsel olduğunda her zaman “Sipariş Kutusu” yazılı placeholder görünsün.
+
+1. ÜST GÖRSEL ALANI
+- Ürün fotoğrafları üstte slider/carousel olarak görünsün.
+- Birden fazla fotoğraf varsa swipe ile geçilsin.
+- Altında küçük nokta göstergesi olsun.
+- Video varsa oynatılabilir görünsün.
+- Görseller aspectRatio ile bozulmadan gelsin.
+- Boş gri alan kalmasın.
+
+2. BOŞ FOTOĞRAF PLACEHOLDER
+Üründe fotoğraf yoksa özel placeholder göster:
+- Açık gri / beyaz zemin
+- Ortada çapraz şekilde “Sipariş Kutusu” yazısı
+- Hafif opacity
+- Küçük paket/ürün ikonu olabilir
+- Boş fotoğraf alanı hiçbir zaman düz gri kalmasın.
+- Bu placeholder ürün kartlarında, ürün detayda, mağaza ürünlerinde, favorilerde ve kategorilerde de kullanılabilsin.
+
+Ortak component oluştur:
+src/components/ProductImagePlaceholder.tsx
+
+3. ÜST AKSİYONLAR
+Görsel üstünde:
+- Sol üst geri butonu
+- Sağ üst paylaş butonu
+- Sağ üst favori kalbi
+
+Favori:
+- Boşken çizgili/gri
+- Basınca kırmızı dolu
+- Tekrar basınca favoriden çıkar
+- Favori sayısı doğru artsın/azalsın
+
+4. ÜRÜN BİLGİSİ
+Görsel altında sırasıyla:
+- Satıcı/mağaza adı tıklanabilir
+- Ürün başlığı
+- Fiyat büyük ve net: ₺ formatında
+- Konum
+- Yayın tarihi
+- Ürün durumu
+- Kategori/alt kategori chipleri
+
+5. GÜVEN BİLGİ BLOĞU
+Ürün altında mavi bilgi kartı olsun:
+
+“Bu platform alıcı ve satıcıyı buluşturur.
+Ödeme ve teslimat taraflar arasında gerçekleşir.”
+
+Altına küçük uyarı:
+“Platform dışı ödeme yaparken dikkatli olun.”
+
+6. VARYANT ALANI
+Üründe varsa göster:
+- beden
+- renk
+- ölçü
+- stok durumu
+- pazarlık yapılabilir bilgisi
+
+Yoksa bu alan boş yer kaplamasın.
+
+7. MAĞAZA KARTI
+Ürün detayında mağaza kartı olsun:
+- mağaza adı
+- mağaza profil resmi
+- puan
+- takipçi
+- ürün sayısı
+- mağazaya git butonu
+- takip et / takip ediliyor butonu
+
+Mağaza kartına tıklayınca StoreScreen açılsın.
+
+8. MESAJ SİSTEMİ
+Ürün detayında ana aksiyon mesaj olsun.
+
+Alt sabit bar:
+- Sol: favori
+- Sağ: “Satıcıya Mesaj Gönder” büyük mavi buton
+
+Butona basınca:
+- Kullanıcı giriş yapmamışsa LoginScreen’e yönlendir
+- Kullanıcı kendi ürününe mesaj atamasın
+- Satıcıyla mevcut konuşma varsa ona git
+- Yoksa yeni konuşma oluştur
+- İlk mesaj otomatik:
+  “Merhaba, [ürün adı] hakkında bilgi almak istiyorum.”
+- Konuşma Messages sistemine düşsün
+- Satıcıya bildirim gitsin
+
+9. AÇIKLAMA
+Ürün açıklaması düzgün görünsün:
+- Başlık: Ürün Açıklaması
+- Instagram’dan geldiyse caption açıklama olarak gösterilsin
+- Uzun açıklamalarda “Devamını oku” olsun
+- Durum, teslimat, özellikler ayrıca listelensin
+
+10. YORUM VE DEĞERLENDİRME
+- Yorumlar bölümü çalışsın
+- Kullanıcı giriş yapmamışsa hata göstermesin
+- “Yorum yapmak için giriş yap” butonu LoginScreen’e gitsin
+- Auth session missing hatası görünmesin
+- Yorum sayısı doğru görünsün
+- Yorum yazılınca satıcıya bildirim gitsin
+
+11. BENZER ÜRÜNLER
+En alta ekle:
+- Aynı kategoriden benzer ürünler
+- Aynı mağazadan diğer ürünler
+- 2’li grid olarak göster
+- Published olmayan ürünleri gösterme
+
+12. ŞİKAYET
+Ürün ve satıcı şikayet sistemi düzgün çalışsın:
+- “İlanı Şikayet Et”
+- “Satıcıyı Şikayet Et”
+- Basınca ReportScreen veya modal açılsın
+- Şikayet admin paneline düşsün
+
+13. TASARIM DÜZELTMELERİ
+- Mesaj butonu tekrar etmesin, tek ana buton olsun
+- Üst boş gri alan kalksın
+- Çentiğe taşma olmasın
+- Bottom tab/alt home indicator üstünü kapatmasın
+- Küçük telefonlarda ekran taşmasın
+- Kartlar yuvarlak ve temiz olsun
+- Marka rengi mavi-beyaz kalsın
+- Dark mode uyumlu olsun
+
+14. VERİ BAĞLANTISI
+ProductDetail şu alanlara bağlı çalışsın:
+- product
+- seller/store
+- favorites
+- likes
+- comments
+- messages
+- notifications
+- reports
+- relatedProducts
+
+Fake/dummy veri varsa gerçek state/service yapısına bağla.
+
+15. TEST ET
+- Fotoğraflı ürün düzgün görünüyor mu?
+- Fotoğrafsız üründe çapraz “Sipariş Kutusu” placeholder çıkıyor mu?
+- Favori ekle/çıkar çalışıyor mu?
+- Mesaj gönder konuşma oluşturuyor mu?
+- Mağaza kartı mağazaya gidiyor mu?
+- Yorumda auth hatası kalktı mı?
+- Şikayet admin paneline düşüyor mu?
+- Benzer ürünler geliyor mu?
+- Görsel alanı artık boş gri kalmıyor mu?
+
+Mevcut ürün, mağaza, mesaj, favori, bildirim, kategori, Instagram import ve auth sistemini bozma. Eksik import, type/interface, navigation, route ve state hatalarını kendin çöz.

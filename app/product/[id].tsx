@@ -19,6 +19,7 @@ import { submitReport, type ReportTargetType } from '../../src/services/reportSe
 import { getOrCreateConversationForListing } from '../../src/services/chatLinkageService';
 import { buildConversationMessagesRoute, buildMessagesInboxRoute, buildSellerMessagesRoute } from '../../src/utils/messageRouting';
 import { InfoBanner } from '../../src/components/InfoBanner';
+import { ProductImagePlaceholder } from '../../src/components/ProductImagePlaceholder';
 import { useRecentlyViewed } from '../../src/hooks/useRecentlyViewed';
 import { captureError, trackEvent } from '../../src/services/monitoring';
 import { TELEMETRY_EVENTS } from '../../src/constants/telemetryEvents';
@@ -103,7 +104,7 @@ function SimilarListingsSkeletonRow() {
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isDarkMode } = useAuth();
   const { allProducts } = useListings();
   const { checkFavorited, toggle: toggleFav } = useFavorites();
   const recentlyViewed = useRecentlyViewed();
@@ -141,6 +142,8 @@ export default function ProductDetailScreen() {
   const [reportDescription, setReportDescription] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportMessage, setReportMessage] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [descExpanded, setDescExpanded] = useState(false);
   const contactWhatsapp = product.whatsapp || '';
   const mediaUris = getOrderedMediaUris(product);
   const selectedMediaIsVideo = isVideoUri(selectedMediaUri);
@@ -558,105 +561,112 @@ export default function ProductDetailScreen() {
     );
   }
 
+  const pal = {
+    bg: isDarkMode ? '#0F172A' : '#FFFFFF',
+    card: isDarkMode ? '#111827' : '#FFFFFF',
+    border: isDarkMode ? '#334155' : '#E5E7EB',
+    subBg: isDarkMode ? '#1E293B' : '#F8FAFC',
+    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
+    textMuted: isDarkMode ? '#64748B' : colors.textMuted,
+    infoBg: isDarkMode ? '#1E3A8A22' : '#EFF6FF',
+    infoBorder: isDarkMode ? '#1E40AF' : '#BFDBFE',
+    infoText: isDarkMode ? '#93C5FD' : colors.primary,
+    commentBg: isDarkMode ? '#1E293B' : '#F8FAFC',
+    commentBorder: isDarkMode ? '#334155' : '#33333315',
+    similarBg: isDarkMode ? '#111827' : '#FFFFFF',
+    similarBorder: isDarkMode ? '#1E293B' : '#33333312',
+    storeBg: isDarkMode ? '#111827' : '#FFFFFF',
+    storeBorder: isDarkMode ? '#334155' : '#33333315',
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg }} edges={['top']}>
       {/* Floating header */}
-      <View className="absolute top-12 left-0 right-0 z-10 flex-row items-center justify-between px-3">
+      <View style={{ position: 'absolute', top: 48, left: 0, right: 0, zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 }}>
         <Pressable
           onPress={() => router.back()}
-          className="w-10 h-10 bg-white/95 rounded-full items-center justify-center shadow-sm"
+          style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}
         >
           <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
         </Pressable>
-        <View className="flex-row gap-2">
-          <Pressable onPress={shareProduct} className="w-10 h-10 bg-white/95 rounded-full items-center justify-center shadow-sm">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable
+            onPress={handleToggleFavorite}
+            style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={20} color={favorited ? '#EF4444' : colors.textPrimary} />
+          </Pressable>
+          <Pressable
+            onPress={shareProduct}
+            style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}
+          >
             <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Image */}
-        <View className="bg-[#E5E7EB] relative" style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.2, justifyContent: 'center', alignItems: 'center' }}>
-          {selectedMediaUri ? (
-            <Image
-              source={{ uri: selectedMediaUri }}
-              style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.2 }}
-              resizeMode="cover"
-            />
-          ) : (
-            <Text
-              style={{
-                fontFamily: fonts.headingBold,
-                fontSize: 56,
-                color: '#D1D5DB',
-                transform: [{ rotate: '-45deg' }],
-                textAlign: 'center',
+        {/* Image Carousel */}
+        <View style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.1, backgroundColor: '#F1F5F9', overflow: 'hidden' }}>
+          {mediaUris.length > 0 ? (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                setCurrentImageIndex(idx);
               }}
+              style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.1 }}
             >
-              {product.brand}
-            </Text>
+              {mediaUris.map((uri, i) => (
+                <View key={`${uri}-${i}`} style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.1 }}>
+                  <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  {isVideoUri(uri) ? (
+                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                      <Ionicons name="play-circle" size={56} color="#fff" />
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <ProductImagePlaceholder size="full" style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.1 }} />
           )}
-          {selectedMediaIsVideo ? (
-            <View className="absolute inset-0 items-center justify-center bg-black/20">
-              <Ionicons name="play-circle" size={56} color="#fff" />
-            </View>
-          ) : null}
-          {product.discount ? (
-            <View
-              style={{ backgroundColor: colors.danger }}
-              className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md"
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>
-                -{product.discount}%
-              </Text>
-            </View>
-          ) : null}
+
+          {/* Dot indicators */}
           {mediaUris.length > 1 ? (
-            <View className="absolute top-3 right-3 rounded-full bg-black/65 px-2.5 py-1 flex-row items-center">
-              <Ionicons name="images-outline" size={12} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff', marginLeft: 4 }}>
-                {mediaUris.length}
-              </Text>
+            <View style={{ position: 'absolute', bottom: 14, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 }}>
+              {mediaUris.map((_, i) => (
+                <View
+                  key={`dot-${i}`}
+                  style={{
+                    width: i === currentImageIndex ? 20 : 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: i === currentImageIndex ? '#fff' : 'rgba(255,255,255,0.5)',
+                  }}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {/* Discount badge */}
+          {product.discount ? (
+            <View style={{ position: 'absolute', bottom: 14, left: 14, backgroundColor: colors.danger, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>-%{product.discount}</Text>
+            </View>
+          ) : null}
+
+          {/* Image count */}
+          {mediaUris.length > 1 ? (
+            <View style={{ position: 'absolute', top: 14, right: 14, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{currentImageIndex + 1}/{mediaUris.length}</Text>
             </View>
           ) : null}
         </View>
-
-        {mediaUris.length > 1 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }}
-          >
-            {mediaUris.map((uri) => {
-              const active = selectedMediaUri === uri;
-              const isVideo = isVideoUri(uri);
-
-              return (
-                <Pressable
-                  key={uri}
-                  onPress={() => setSelectedMediaUri(uri)}
-                  style={{
-                    width: 72,
-                    height: 88,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    borderWidth: active ? 2 : 1,
-                    borderColor: active ? colors.primary : '#D1D5DB',
-                    backgroundColor: '#F3F4F6',
-                  }}
-                >
-                  <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                  {isVideo ? (
-                    <View className="absolute inset-0 items-center justify-center bg-black/25">
-                      <Ionicons name="play-circle" size={20} color="#fff" />
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
 
         <InfoBanner
           icon="information-circle"
@@ -675,63 +685,38 @@ export default function ProductDetailScreen() {
                   {product.brand} ›
                 </Text>
               </Pressable>
-              <Text
-                style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, marginTop: 4 }}
-              >
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: pal.textPrimary, marginTop: 4 }}>
                 {product.title}
               </Text>
-              <View className="mt-2 flex-row" style={{ gap: 12 }}>
+              <View style={{ marginTop: 8, flexDirection: 'row', gap: 12 }}>
                 <Pressable onPress={() => openReportModal('listing', product.id)}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger }}>
-                    İlanı Şikayet Et
-                  </Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger }}>İlanı Şikayet Et</Text>
                 </Pressable>
                 {product.sellerId ? (
                   <Pressable onPress={() => openReportModal('user', product.sellerId ?? '')}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger }}>
-                      Satıcıyı Şikayet Et
-                    </Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger }}>Satıcıyı Şikayet Et</Text>
                   </Pressable>
                 ) : null}
               </View>
             </View>
-            <Pressable
-              onPress={handleToggleFavorite}
-              className="w-10 h-10 rounded-full items-center justify-center border border-[#33333322]"
-            >
-              <Ionicons
-                name={favorited ? 'heart' : 'heart-outline'}
-                size={20}
-                color={favorited ? colors.primary : colors.textPrimary}
-              />
-            </Pressable>
           </View>
 
           {/* Live engagement */}
-          <View className="flex-row items-center mt-3">
-            <View className="flex-row items-center bg-[#F7F7F7] rounded-lg px-2 py-1">
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: pal.subBg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
               <Ionicons name="chatbubble-outline" size={13} color={colors.primary} />
-              <Text
-                style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}
-                className="ml-1"
-              >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: pal.textPrimary, marginLeft: 4 }}>
                 {formatEngagementCount(commentCount)}
               </Text>
             </View>
-            <Text
-              style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}
-              className="ml-2"
-            >
-canlı yorum
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary, marginLeft: 6 }}>
+              canlı yorum
             </Text>
-            <View className="flex-1" />
-            <View className="flex-row items-center">
+            <View style={{ flex: 1 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="heart" size={13} color={colors.accent} />
-              <Text
-                style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}
-                className="ml-1"
-              >
-{formatEngagementCount(favoriteCount)} beğeni
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary, marginLeft: 4 }}>
+                {formatEngagementCount(favoriteCount)} beğeni
               </Text>
             </View>
           </View>
@@ -803,53 +788,47 @@ canlı yorum
             ) : null}
           </View>
 
-          {/* Sizes */}
-          <View className="mt-5">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}>
-Beden Seç
-              </Text>
-              <Pressable onPress={() => router.push('/size-table')}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
-                  Tablo
-                </Text>
-              </Pressable>
-            </View>
-            <View className="flex-row" style={{ gap: 8 }}>
-              {sizeOptions.map((s) => {
-                const active = selectedSize === s;
-                return (
-                  <Pressable
-                    key={s}
-                    onPress={() => setSelectedSize(s)}
-                    style={{
-                      borderColor: active ? colors.primary : colors.border,
-                      backgroundColor: active ? colors.primary + '11' : '#fff',
-                      minWidth: 48,
-                    }}
-                    className="h-11 px-3 rounded-xl border items-center justify-center"
-                  >
-                    <Text
+          {product.availableSizes?.length ? (
+            <View style={{ marginTop: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: pal.textPrimary }}>Beden Seç</Text>
+                <Pressable onPress={() => router.push('/size-table')}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>Tablo</Text>
+                </Pressable>
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {product.availableSizes.map((s) => {
+                  const active = selectedSize === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setSelectedSize(s)}
                       style={{
-                        fontFamily: active ? fonts.bold : fonts.medium,
-                        fontSize: 13,
-                        color: active ? colors.primary : colors.textPrimary,
+                        borderColor: active ? colors.primary : pal.border,
+                        backgroundColor: active ? colors.primary + '18' : pal.card,
+                        minWidth: 48,
+                        height: 44,
+                        paddingHorizontal: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      {s}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 13, color: active ? colors.primary : pal.textPrimary }}>
+                        {s}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          ) : null}
 
           {product.availableColors?.length ? (
-            <View className="mt-5">
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }} className="mb-2">
-                Renk Seç
-              </Text>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+            <View style={{ marginTop: 20 }}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: pal.textPrimary, marginBottom: 8 }}>Renk Seç</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {product.availableColors.map((color) => {
                   const active = selectedColor === color;
                   return (
@@ -857,18 +836,17 @@ Beden Seç
                       key={color}
                       onPress={() => setSelectedColor(color)}
                       style={{
-                        borderColor: active ? colors.primary : colors.border,
-                        backgroundColor: active ? colors.primary + '11' : '#fff',
+                        borderColor: active ? colors.primary : pal.border,
+                        backgroundColor: active ? colors.primary + '18' : pal.card,
+                        borderWidth: 1,
+                        height: 44,
+                        paddingHorizontal: 16,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                      className="h-11 px-4 rounded-xl border items-center justify-center"
                     >
-                      <Text
-                        style={{
-                          fontFamily: active ? fonts.bold : fonts.medium,
-                          fontSize: 13,
-                          color: active ? colors.primary : colors.textPrimary,
-                        }}
-                      >
+                      <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 13, color: active ? colors.primary : pal.textPrimary }}>
                         {color}
                       </Text>
                     </Pressable>
@@ -878,96 +856,92 @@ Beden Seç
             </View>
           ) : null}
 
-          {/* Seller */}
-          <View className="mt-5 p-3 rounded-xl border border-[#33333315]">
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-lg bg-[#F7F7F7] items-center justify-center">
-                <Ionicons name="storefront" size={18} color={colors.primary} />
+          {/* Mağaza Kartı */}
+          <View style={{ marginTop: 20, backgroundColor: pal.storeBg, borderRadius: 20, borderWidth: 1, borderColor: pal.storeBorder, padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: isDarkMode ? '#1E3A5F' : '#EFF6FF', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.primary + '30' }}>
+                <Ionicons name="storefront" size={26} color={colors.primary} />
               </View>
-              <View className="flex-1 ml-3">
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
-{product.brand} Mağaza
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: pal.textPrimary }} numberOfLines={1}>
+                  {product.brand || 'Satıcı'}
                 </Text>
-                <View className="flex-row items-center mt-0.5">
-                  <Ionicons name="star" size={11} color={colors.primary} />
-                  <Text
-                    style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}
-                    className="ml-1"
-                  >
-4.8 puan
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Ionicons name="star" size={12} color="#F59E0B" />
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary }}>4.8</Text>
+                  </View>
+                  <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: pal.textMuted }} />
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary }}>Onaylı Satıcı</Text>
                 </View>
               </View>
-              <Pressable onPress={openProductStore}>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              <Pressable
+                onPress={openProductStore}
+                style={{ backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>Mağazaya Git</Text>
               </Pressable>
             </View>
 
-            <View className="flex-row gap-2 mt-3">
+            <View style={{ height: 1, backgroundColor: pal.storeBorder, marginVertical: 14 }} />
+
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <Pressable
                 onPress={handleSendMessage}
-                style={{ backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }}
-                className="flex-1 h-10 rounded-xl border items-center justify-center flex-row"
+                style={{ flex: 1, height: 44, backgroundColor: isDarkMode ? '#1E3A5F' : '#EFF6FF', borderWidth: 1, borderColor: isDarkMode ? colors.primary + '50' : '#BFDBFE', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
-                <Ionicons name="chatbox-ellipses-outline" size={16} color={colors.primary} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }} className="ml-1.5">
-                  Satıcıya Mesaj Gönder
-                </Text>
+                <Ionicons name="chatbox-ellipses-outline" size={17} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>Mesaj Gönder</Text>
               </Pressable>
               {contactWhatsapp ? (
                 <Pressable
                   onPress={openWhatsApp}
-                  style={{ backgroundColor: '#ECFDF5', borderColor: '#BBF7D0' }}
-                  className="flex-1 h-10 rounded-xl border items-center justify-center flex-row"
+                  style={{ flex: 1, height: 44, backgroundColor: isDarkMode ? '#14532D22' : '#ECFDF5', borderWidth: 1, borderColor: isDarkMode ? '#166534' : '#BBF7D0', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  <Ionicons name="logo-whatsapp" size={16} color="#166534" />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#166534' }} className="ml-1.5">
-                    WhatsApp
-                  </Text>
+                  <Ionicons name="logo-whatsapp" size={17} color="#16A34A" />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#16A34A' }}>WhatsApp</Text>
                 </Pressable>
               ) : null}
             </View>
-
-            <Pressable
-              onPress={handleStartOrderDraft}
-              style={{ backgroundColor: '#ECFEFF', borderColor: '#A5F3FC' }}
-              className="mt-2 h-10 rounded-xl border items-center justify-center flex-row"
-            >
-              <Ionicons name="receipt-outline" size={16} color="#0E7490" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#0E7490' }} className="ml-1.5">
-                Mesajla Gorusme Baslat
-              </Text>
-            </Pressable>
           </View>
 
           {/* Description */}
-          <View className="mt-5">
-            <Text
-              style={{ fontFamily: fonts.headingBold, fontSize: 14, color: colors.textPrimary }}
-              className="mb-2"
-            >
-Ürün Açıklaması
+          <View style={{ marginTop: 20 }}>
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 14, color: pal.textPrimary, marginBottom: 8 }}>
+              Ürün Açıklaması
             </Text>
-            <Text
-              style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}
-            >
-              {product.description || `Yüksek kaliteli malzeme ile üretime sunulmuş ${product.title.toLowerCase()}. Günlük kullanım için uygun, rahat ve özenli bir ürün.`}
-            </Text>
+            {(() => {
+              const fullDesc = product.description || `Yüksek kaliteli malzeme ile üretime sunulmuş ${product.title.toLowerCase()}. Günlük kullanım için uygun, rahat ve özenli bir ürün.`;
+              const isLong = fullDesc.length > 200;
+              return (
+                <>
+                  <Text
+                    style={{ fontFamily: fonts.regular, fontSize: 13, color: pal.textSecondary, lineHeight: 20 }}
+                    numberOfLines={descExpanded || !isLong ? undefined : 4}
+                  >
+                    {fullDesc}
+                  </Text>
+                  {isLong ? (
+                    <Pressable onPress={() => setDescExpanded((v) => !v)} style={{ marginTop: 6 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
+                        {descExpanded ? 'Daha Az Göster ▲' : 'Devamını Oku ▼'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              );
+            })()}
             {product.attributes?.length ? (
-              <View className="mt-4 gap-2">
+              <View style={{ marginTop: 14, gap: 6 }}>
                 {product.attributes.map((item) => (
-                  <View key={`${item.label}-${item.value}`} className="flex-row items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2">
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
-                      {item.label}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>
-                      {item.value}
-                    </Text>
+                  <View key={`${item.label}-${item.value}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: pal.subBg, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary }}>{item.label}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: pal.textPrimary }}>{item.value}</Text>
                   </View>
                 ))}
               </View>
             ) : null}
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: 10 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textMuted, marginTop: 10 }}>
               {contactWhatsapp
                 ? 'Bu ilanda uygulama içi mesaj ve isteğe bağlı WhatsApp iletişimi aktif.'
                 : 'Bu ilanda uygulama içi mesajlaşma aktif.'}
@@ -1023,7 +997,7 @@ Beden Seç
                   {commentInfo}
                 </Text>
               ) : null}
-              {commentsError ? (
+              {commentsError && !commentsError.toLowerCase().includes('session') && !commentsError.toLowerCase().includes('auth') ? (
                 <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.danger, marginTop: 10 }}>
                   {commentsError}
                 </Text>
@@ -1045,62 +1019,49 @@ Beden Seç
             )}
           </View>
 
-          {/* Similar Listings */}
+          {/* Benzer İlanlar - 2 sütunlu grid */}
           {similarListings.length > 0 || shouldShowSimilarSkeleton ? (
-            <View className="mt-6">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.textPrimary }}>
+            <View style={{ marginTop: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: pal.textPrimary }}>
                   Benzer İlanlar
                 </Text>
                 {!shouldShowSimilarSkeleton ? (
                   <Pressable onPress={() => router.push('/(tabs)/categories')}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>
-                      Tümünü gör →
-                    </Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>Tümünü gör →</Text>
                   </Pressable>
                 ) : null}
               </View>
               {shouldShowSimilarSkeleton ? (
                 <SimilarListingsSkeletonRow />
               ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
-                >
-                  {similarListings.map((item, index) => {
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                  {similarListings.slice(0, 6).map((item, index) => {
                     const itemImageUri = resolveMediaCover(item);
+                    const colWidth = (SCREEN_WIDTH - 32 - 10) / 2;
                     return (
                       <Pressable
                         key={item.id}
                         onPress={() => handlePressSimilarListing(item.id, index)}
-                        style={{ width: 130 }}
-                        className="rounded-xl overflow-hidden border border-[#33333312] bg-white active:opacity-80"
+                        style={{ width: colWidth, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: pal.similarBorder, backgroundColor: pal.similarBg }}
                       >
-                        <Image
-                          source={{ uri: itemImageUri }}
-                          style={{ width: 130, height: 130 }}
-                          resizeMode="cover"
-                        />
-                        <View className="px-2 py-2">
-                          <Text
-                            style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textPrimary }}
-                            numberOfLines={2}
-                            className="leading-4"
-                          >
+                        {itemImageUri ? (
+                          <Image source={{ uri: itemImageUri }} style={{ width: colWidth, height: colWidth * 0.9 }} resizeMode="cover" />
+                        ) : (
+                          <ProductImagePlaceholder size="card" style={{ width: colWidth, height: colWidth * 0.9 }} />
+                        )}
+                        <View style={{ padding: 8 }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textPrimary, lineHeight: 17 }} numberOfLines={2}>
                             {item.title}
                           </Text>
-                          <Text
-                            style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}
-                            className="mt-1"
-                          >
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary, marginTop: 3 }}>
                             ₺{item.price.toFixed(2)}
                           </Text>
                         </View>
                       </Pressable>
                     );
                   })}
-                </ScrollView>
+                </View>
               )}
             </View>
           ) : null}
@@ -1196,14 +1157,19 @@ Beden Seç
 
       {/* Sticky action bar */}
       <View
-        style={{ borderTopColor: colors.borderLight }}
-        className="absolute bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex-row gap-2"
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: pal.card, borderTopWidth: 1, borderTopColor: pal.border, paddingHorizontal: 16, paddingVertical: 10, paddingBottom: 18, flexDirection: 'row', gap: 10, alignItems: 'center' }}
       >
         <Pressable
-          onPress={handleSendMessage}
-          style={{ backgroundColor: colors.primary }}
-          className="flex-1 h-12 rounded-xl items-center justify-center active:opacity-90"
+          onPress={handleToggleFavorite}
+          style={{ width: 48, height: 48, borderRadius: 14, borderWidth: 1, borderColor: favorited ? '#EF4444' : pal.border, backgroundColor: favorited ? '#FEE2E2' : pal.subBg, alignItems: 'center', justifyContent: 'center' }}
         >
+          <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={22} color={favorited ? '#EF4444' : pal.textSecondary} />
+        </Pressable>
+        <Pressable
+          onPress={handleSendMessage}
+          style={{ flex: 1, height: 48, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+        >
+          <Ionicons name="chatbox-ellipses-outline" size={19} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
             Satıcıya Mesaj Gönder
           </Text>

@@ -102,3 +102,18 @@ Configured as a static site deployment:
 
 ### İlan Ver (Create Listing) Preview
 - `app/create-listing.tsx` — Preview section fully redesigned: full-width 4:3 image carousel with dots, photo count badge, YAYINA HAZIR/TASLAK status badge, large price display, bargaining/condition tags, seller info row with action buttons, description box with character count, 3-column completion tracker grid
+
+### ProductDetailScreen Overhaul
+- `app/product/[id].tsx` — Full UX/UI overhaul:
+  - **Swipe image carousel** with pagingEnabled ScrollView, dot indicators, image counter badge (n/total), discount badge overlay
+  - **Sipariş Kutusu placeholder** via `src/components/ProductImagePlaceholder.tsx` (cube icon + brand name diagonal, shown when no media)
+  - **Floating header** now includes heart (favorite) button alongside share — both with translucent white pill style
+  - **Mağaza kartı** redesigned: larger storefront avatar (54px), star rating, "Onaylı Satıcı" label, "Mağazaya Git" primary button, divider, Mesaj + WhatsApp action buttons
+  - **"Devamını Oku"** toggle for descriptions longer than 200 chars (4-line clamp with expand/collapse)
+  - **Beden seçici** only rendered when `product.availableSizes?.length > 0` (no more fake XS/S/M/L/XL)
+  - **Benzer İlanlar** switched from horizontal scroll to 2-column wrap grid (max 6 items)
+  - **Sticky bottom bar** now has heart favorite button + "Satıcıya Mesaj Gönder" with icon
+  - **Dark mode** via `pal` palette object derived from `isDarkMode` — applied across all sections
+  - **Session/auth error suppression** in comments error display
+  - Removed duplicate message button from mağaza kartı (consolidated to bottom bar)
+- `src/components/ProductImagePlaceholder.tsx` — New reusable component: `size="full|card|thumb"`, shows cube icon + "Sipariş Kutusu" text at 10deg tilt with 35% opacity, slate color
