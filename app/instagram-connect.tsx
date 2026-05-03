@@ -1,59 +1,112 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, Pressable, ScrollView, Alert, TextInput, Image,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  View, Text, Pressable, ScrollView, Image,
+  ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, fonts } from '../src/constants/theme';
+import { useAuth } from '../src/context/AuthContext';
 import {
   getInstagramConnection,
-  connectInstagram,
+  connectInstagramOAuth,
   disconnectInstagram,
+  syncInstagramContent,
+  getSyncState,
+  isTokenExpired,
   formatIgCount,
+  formatSyncTime,
+  syncStatusColor,
+  syncStatusLabel,
   type InstagramConnection,
+  type SyncState,
 } from '../src/services/instagramService';
 
 export default function InstagramConnectScreen() {
   const router = useRouter();
+  const { isDarkMode } = useAuth();
   const [connection, setConnection] = useState<InstagramConnection | null>(null);
+  const [syncState, setSyncState] = useState<SyncState>({ status: 'idle', lastSyncAt: null, error: null });
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
-  const [username, setUsername] = useState('');
-  const [accountType, setAccountType] = useState<'BUSINESS' | 'CREATOR'>('BUSINESS');
-  const [showForm, setShowForm] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    getInstagramConnection().then((c) => {
-      setConnection(c);
-      setLoading(false);
-    });
+  const pal = {
+    bg: isDarkMode ? '#0F172A' : '#F8FAFC',
+    card: isDarkMode ? '#111827' : '#FFFFFF',
+    border: isDarkMode ? '#334155' : '#E5E7EB',
+    textPrimary: isDarkMode ? '#E5E7EB' : '#1E293B',
+    textSecondary: isDarkMode ? '#94A3B8' : '#64748B',
+    statBg: isDarkMode ? '#1E293B' : '#F8FAFC',
+    benefitBg: isDarkMode ? '#1E293B' : '#FFFFFF',
+    warnBg: isDarkMode ? '#451A03' : '#FFFBEB',
+    warnBorder: isDarkMode ? '#92400E' : '#FDE68A',
+    warnText: isDarkMode ? '#FCD34D' : '#92400E',
+    errorBg: isDarkMode ? '#450A0A' : '#FFF5F5',
+    errorBorder: isDarkMode ? '#991B1B' : '#FECACA',
+    errorText: isDarkMode ? '#FCA5A5' : '#991B1B',
+    disconnectBg: isDarkMode ? '#1F1315' : '#FFF5F5',
+    disconnectBorder: isDarkMode ? '#7F1D1D' : '#FECACA',
+    headerBg: isDarkMode ? '#111827' : '#FFFFFF',
+    headerBorder: isDarkMode ? '#1E293B' : '#33333315',
+  };
+
+  const load = useCallback(async () => {
+    const [conn, st] = await Promise.all([getInstagramConnection(), getSyncState()]);
+    setConnection(conn);
+    setSyncState(st);
   }, []);
 
-  async function handleConnect() {
-    const clean = username.trim().replace('@', '');
-    if (!clean || clean.length < 2) {
-      Alert.alert('Hata', 'Geçerli bir Instagram kullanıcı adı girin.');
-      return;
-    }
-    setConnecting(true);
+  useEffect(() => {
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  }, [load]);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
+
+  async function handleOAuthConnect() {
+    setOauthLoading(true);
     try {
-      const conn = await connectInstagram(clean, accountType);
+      const conn = await connectInstagramOAuth();
       setConnection(conn);
-      setShowForm(false);
-      Alert.alert('Bağlandı! 🎉', `@${conn.username} hesabı başarıyla bağlandı.`);
+      setSyncState({ status: 'success', lastSyncAt: conn.connectedAt, error: null });
+      Alert.alert(
+        'Bağlandı! 🎉',
+        `@${conn.username} hesabı başarıyla bağlandı. ${formatIgCount(conn.followersCount)} takipçi.`
+      );
     } catch {
-      Alert.alert('Hata', 'Bağlantı kurulamadı, lütfen tekrar dene.');
+      Alert.alert('Hata', 'Instagram bağlantısı kurulamadı. Lütfen tekrar dene.');
     } finally {
-      setConnecting(false);
+      setOauthLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      await syncInstagramContent();
+      const st = await getSyncState();
+      setSyncState(st);
+    } catch {
+      const st = await getSyncState();
+      setSyncState(st);
+      Alert.alert('Hata', 'Senkronizasyon başarısız oldu. Lütfen tekrar dene.');
+    } finally {
+      setSyncing(false);
     }
   }
 
   async function handleDisconnect() {
     Alert.alert(
       'Bağlantıyı Kes',
-      'Instagram hesabını uygulamadan ayırmak istediğine emin misin?',
+      'Instagram hesabını uygulamadan ayırmak istediğine emin misin? Önceden ürüne çevrilmiş ilanlar silinmez.',
       [
         { text: 'İptal', style: 'cancel' },
         {
@@ -61,7 +114,12 @@ export default function InstagramConnectScreen() {
           style: 'destructive',
           onPress: async () => {
             await disconnectInstagram();
-            setConnection({ connected: false, accountId: null, username: null, displayName: null, profilePicUrl: null, followersCount: 0, mediaCount: 0, accountType: null, connectedAt: null });
+            setConnection({
+              connected: false, accountId: null, username: null, displayName: null,
+              profilePicUrl: null, followersCount: 0, mediaCount: 0, accountType: null,
+              connectedAt: null, tokenExpiresAt: null,
+            });
+            setSyncState({ status: 'idle', lastSyncAt: null, error: null });
           },
         },
       ]
@@ -70,203 +128,257 @@ export default function InstagramConnectScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.primary} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
+        <ActivityIndicator color="#E1306C" size="large" />
       </SafeAreaView>
     );
   }
 
+  const tokenExpired = connection?.connected && isTokenExpired(connection);
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }} edges={['top']}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#33333315' }}>
-        <Pressable onPress={() => router.back()} style={{ marginRight: 12 }}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg }} edges={['top']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: pal.headerBg, borderBottomWidth: 1, borderBottomColor: pal.headerBorder }}>
+        <Pressable onPress={() => router.back()} style={{ marginRight: 12, width: 38, height: 38, borderRadius: 19, backgroundColor: pal.statBg, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="chevron-back" size={22} color={pal.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: colors.textPrimary }}>Instagram Entegrasyonu</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>Business veya Creator hesabını bağla</Text>
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: pal.textPrimary }}>Instagram Entegrasyonu</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary }}>Business veya Creator hesabını bağla</Text>
         </View>
-        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="logo-instagram" size={18} color="#E1306C" />
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="logo-instagram" size={20} color="#E1306C" />
         </View>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E1306C" />}
+      >
+        {connection?.connected ? (
+          <>
+            {/* Token Expired Warning */}
+            {tokenExpired && (
+              <View style={{ backgroundColor: pal.warnBg, borderRadius: 14, padding: 14, flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: pal.warnBorder }}>
+                <Ionicons name="warning-outline" size={20} color={pal.warnText} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: pal.warnText }}>Instagram bağlantısını yenilemen gerekiyor.</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.warnText, marginTop: 4 }}>
+                    Erişim süresi doldu. Yeniden bağlanmak için aşağıdaki butona bas.
+                  </Text>
+                </View>
+              </View>
+            )}
 
-          {connection?.connected ? (
-            <>
-              {/* Connected Card */}
-              <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#33333315' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            {/* Sync Error */}
+            {(syncState.status === 'error' || syncState.status === 'api_limit' || syncState.status === 'offline') && (
+              <View style={{ backgroundColor: pal.errorBg, borderRadius: 14, padding: 14, flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: pal.errorBorder }}>
+                <Ionicons
+                  name={syncState.status === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+                  size={20}
+                  color={pal.errorText}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: pal.errorText }}>
+                    {syncState.status === 'api_limit'
+                      ? 'Instagram senkronizasyonu geçici olarak durdu.'
+                      : syncState.status === 'offline'
+                      ? 'Bağlantı yok, son kayıtlı içerikler gösteriliyor.'
+                      : 'Senkronizasyon hatası oluştu.'}
+                  </Text>
+                  {syncState.error && (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.errorText, marginTop: 3 }}>{syncState.error}</Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Connected Account Card */}
+            <View style={{ backgroundColor: pal.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: pal.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ position: 'relative' }}>
                   <Image
                     source={{ uri: connection.profilePicUrl ?? 'https://via.placeholder.com/60' }}
-                    style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#E1306C' }}
+                    style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2.5, borderColor: '#E1306C' }}
                   />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>@{connection.username}</Text>
-                      <View style={{ backgroundColor: '#E1306C15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#E1306C' }}>{connection.accountType}</Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{connection.displayName}</Text>
-                  </View>
-                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="checkmark" size={16} color="#16A34A" />
+                  <View style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: pal.card }}>
+                    <Ionicons name="checkmark" size={11} color="#fff" />
                   </View>
                 </View>
-
-                {/* Stats */}
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  {[
-                    { label: 'Takipçi', value: formatIgCount(connection.followersCount) },
-                    { label: 'Medya', value: String(connection.mediaCount) },
-                    { label: 'Durum', value: '✓ Bağlı' },
-                  ].map((stat) => (
-                    <View key={stat.label} style={{ flex: 1, backgroundColor: '#F8FAFC', borderRadius: 12, padding: 10, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{stat.value}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>{stat.label}</Text>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: pal.textPrimary }}>@{connection.username}</Text>
+                    <View style={{ backgroundColor: '#E1306C15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#E1306C' }}>{connection.accountType}</Text>
                     </View>
-                  ))}
+                  </View>
+                  {connection.displayName && (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: pal.textSecondary, marginTop: 2 }}>{connection.displayName}</Text>
+                  )}
+                  {connection.connectedAt && (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textSecondary, marginTop: 4 }}>
+                      Bağlandı: {new Date(connection.connectedAt).toLocaleDateString('tr-TR')}
+                    </Text>
+                  )}
                 </View>
-
-                {connection.connectedAt && (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 12, textAlign: 'center' }}>
-                    Bağlandı: {new Date(connection.connectedAt).toLocaleDateString('tr-TR')}
-                  </Text>
-                )}
               </View>
 
-              {/* Action Buttons */}
-              <Pressable
-                onPress={() => router.push('/instagram-content' as never)}
-                style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                <Ionicons name="grid-outline" size={20} color="#fff" />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>İçerikleri Görüntüle</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleDisconnect}
-                style={{ backgroundColor: '#FFF5F5', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#FECACA' }}
-              >
-                <Ionicons name="unlink-outline" size={18} color={colors.danger} />
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.danger }}>Bağlantıyı Kes</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              {/* Hero */}
-              <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#33333315' }}>
-                <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                  <Ionicons name="logo-instagram" size={40} color="#E1306C" />
-                </View>
-                <Text style={{ fontFamily: fonts.headingBold, fontSize: 20, color: colors.textPrimary, textAlign: 'center' }}>
-                  Instagram'ı Bağla
-                </Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 21 }}>
-                  Business veya Creator hesabını bağlayarak gönderilerini otomatik ürüne dönüştür.
-                </Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                {[
+                  { label: 'Takipçi', value: formatIgCount(connection.followersCount) },
+                  { label: 'Medya', value: String(connection.mediaCount) },
+                  { label: 'Hesap', value: connection.accountType ?? 'BUSINESS' },
+                ].map((stat) => (
+                  <View key={stat.label} style={{ flex: 1, backgroundColor: pal.statBg, borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: pal.textPrimary }}>{stat.value}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textSecondary, marginTop: 2 }}>{stat.label}</Text>
+                  </View>
+                ))}
               </View>
 
-              {/* Benefits */}
-              {[
-                { icon: 'images-outline', title: 'Gönderi & Reels İthal Et', desc: 'İçeriklerini mağazana aktar' },
-                { icon: 'flash-outline', title: 'Otomatik Ürün Taslağı', desc: 'Caption\'dan fiyat, kategori, beden otomatik çıkar' },
-                { icon: 'rocket-outline', title: 'Hızlı Onay', desc: 'Tek tıkla ürünleri yayınla' },
-                { icon: 'stats-chart-outline', title: 'İstatistikler', desc: 'Beğeni, görüntülenme ve etkileşim takibi' },
-              ].map((item) => (
-                <View key={item.title} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#33333315', gap: 14 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={item.icon as any} size={22} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{item.title}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{item.desc}</Text>
+              {/* Sync Status Row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: pal.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {syncing ? (
+                    <ActivityIndicator size="small" color="#3B82F6" />
+                  ) : (
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: syncStatusColor(syncState.status) }} />
+                  )}
+                  <View>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: syncStatusColor(syncState.status) }}>
+                      {syncing ? 'Senkronize ediliyor...' : syncStatusLabel(syncState.status)}
+                    </Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textSecondary }}>
+                      Son sync: {formatSyncTime(syncState.lastSyncAt)}
+                    </Text>
                   </View>
                 </View>
-              ))}
-
-              {/* Connect Form */}
-              {showForm ? (
-                <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#33333315', gap: 14 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>Hesap Bilgileri</Text>
-
-                  <View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>Instagram Kullanıcı Adı</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, gap: 8, backgroundColor: '#F8FAFC' }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>@</Text>
-                      <TextInput
-                        value={username}
-                        onChangeText={setUsername}
-                        placeholder="kullaniciadi"
-                        placeholderTextColor="#94A3B8"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}
-                      />
-                    </View>
-                  </View>
-
-                  <View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>Hesap Türü</Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      {(['BUSINESS', 'CREATOR'] as const).map((type) => (
-                        <Pressable
-                          key={type}
-                          onPress={() => setAccountType(type)}
-                          style={{ flex: 1, borderRadius: 12, padding: 12, borderWidth: 2, alignItems: 'center', borderColor: accountType === type ? colors.primary : '#E2E8F0', backgroundColor: accountType === type ? '#EFF6FF' : '#F8FAFC' }}
-                        >
-                          <Ionicons
-                            name={type === 'BUSINESS' ? 'business-outline' : 'person-circle-outline'}
-                            size={22}
-                            color={accountType === type ? colors.primary : colors.textSecondary}
-                          />
-                          <Text style={{ fontFamily: accountType === type ? fonts.bold : fonts.medium, fontSize: 12, color: accountType === type ? colors.primary : colors.textSecondary, marginTop: 4 }}>
-                            {type === 'BUSINESS' ? 'Business' : 'Creator'}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-
-                  <Pressable
-                    onPress={handleConnect}
-                    disabled={connecting}
-                    style={{ backgroundColor: '#E1306C', borderRadius: 14, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-                  >
-                    {connecting ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="logo-instagram" size={18} color="#fff" />}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{connecting ? 'Bağlanıyor...' : 'Instagram ile Bağlan'}</Text>
-                  </Pressable>
-
-                  <Pressable onPress={() => setShowForm(false)} style={{ alignItems: 'center', padding: 8 }}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>İptal</Text>
-                  </Pressable>
-                </View>
-              ) : (
                 <Pressable
-                  onPress={() => setShowForm(true)}
-                  style={{ backgroundColor: '#E1306C', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+                  onPress={handleSync}
+                  disabled={syncing}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#EFF6FF', borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 5, opacity: syncing ? 0.6 : 1 }}
                 >
-                  <Ionicons name="logo-instagram" size={22} color="#fff" />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>Instagram Hesabı Bağla</Text>
+                  <Ionicons name="refresh-outline" size={14} color={colors.primary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>Şimdi Sync</Text>
                 </Pressable>
-              )}
+              </View>
+            </View>
 
-              <View style={{ backgroundColor: '#FFFBEB', borderRadius: 14, padding: 14, flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: '#FDE68A' }}>
-                <Ionicons name="information-circle-outline" size={18} color="#D97706" style={{ marginTop: 1 }} />
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#92400E', flex: 1, lineHeight: 18 }}>
-                  Sadece Business veya Creator hesaplar desteklenir. Kişisel hesaplar bağlanamaz.
+            {/* Action Buttons */}
+            <Pressable
+              onPress={() => router.push('/instagram-content' as never)}
+              style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+            >
+              <Ionicons name="grid-outline" size={20} color="#fff" />
+              <View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>İçerikleri Yönet</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                  {connection.mediaCount} gönderi • Ürüne çevir, gizle, hikayeye aktar
                 </Text>
               </View>
-            </>
-          )}
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" style={{ marginLeft: 'auto' }} />
+            </Pressable>
 
-          <View style={{ height: 32 }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+            {tokenExpired && (
+              <Pressable
+                onPress={handleOAuthConnect}
+                disabled={oauthLoading}
+                style={{ backgroundColor: '#E1306C', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                {oauthLoading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="refresh-outline" size={18} color="#fff" />}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Bağlantıyı Yenile</Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              onPress={handleDisconnect}
+              style={{ backgroundColor: pal.disconnectBg, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: pal.disconnectBorder }}
+            >
+              <Ionicons name="unlink-outline" size={18} color={colors.danger} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.danger }}>Bağlantıyı Kes</Text>
+            </Pressable>
+
+            <View style={{ backgroundColor: pal.warnBg, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: pal.warnBorder }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.warnText, textAlign: 'center', lineHeight: 18 }}>
+                🔒 Erişim tokenın güvenli şekilde Supabase tarafında saklanır. İçeriklerine sadece sen erişebilirsin.
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Hero */}
+            <View style={{ backgroundColor: pal.card, borderRadius: 20, padding: 28, alignItems: 'center', borderWidth: 1, borderColor: pal.border }}>
+              <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+                <Ionicons name="logo-instagram" size={44} color="#E1306C" />
+              </View>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: pal.textPrimary, textAlign: 'center' }}>
+                Instagram'ı Bağla
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: pal.textSecondary, textAlign: 'center', marginTop: 10, lineHeight: 22 }}>
+                Business veya Creator hesabını bağlayarak gönderilerini otomatik ürüne dönüştür. İçeriklerini tek yerden yönet.
+              </Text>
+            </View>
+
+            {/* Benefits */}
+            {[
+              { icon: 'images-outline', title: 'Gönderi & Reels İthal Et', desc: 'Mevcut içeriklerini mağazana aktar', color: '#6366F1' },
+              { icon: 'sparkles-outline', title: 'Otomatik Ürün Taslağı', desc: 'Caption\'dan fiyat, kategori, beden otomatik çıkar', color: '#F59E0B' },
+              { icon: 'rocket-outline', title: 'Hızlı Onay ve Yayınlama', desc: 'Tek tıkla ürünleri yayınla, satışa başla', color: '#10B981' },
+              { icon: 'sync-outline', title: 'Otomatik Senkronizasyon', desc: 'Yeni gönderiler otomatik içe aktarılır (15 dk)', color: '#3B82F6' },
+              { icon: 'stats-chart-outline', title: 'İstatistikler', desc: 'Beğeni, görüntülenme ve etkileşim takibi', color: '#8B5CF6' },
+            ].map((item) => (
+              <View
+                key={item.title}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: pal.benefitBg, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: pal.border, gap: 14 }}
+              >
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: item.color + '18', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={item.icon as any} size={22} color={item.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: pal.textPrimary }}>{item.title}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textSecondary, marginTop: 2 }}>{item.desc}</Text>
+                </View>
+              </View>
+            ))}
+
+            {/* OAuth Connect Button */}
+            <Pressable
+              onPress={handleOAuthConnect}
+              disabled={oauthLoading}
+              style={{ backgroundColor: '#E1306C', borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, opacity: oauthLoading ? 0.8 : 1 }}
+            >
+              {oauthLoading ? (
+                <>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <View>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>Instagram ile Bağlanıyor...</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Yetkilendirme bekleniyor</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="logo-instagram" size={24} color="#fff" />
+                  <View>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>Instagram ile Oturum Aç</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Business veya Creator hesabı</Text>
+                  </View>
+                </>
+              )}
+            </Pressable>
+
+            {/* Warning */}
+            <View style={{ backgroundColor: pal.warnBg, borderRadius: 14, padding: 14, flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: pal.warnBorder }}>
+              <Ionicons name="information-circle-outline" size={18} color={pal.warnText} style={{ marginTop: 1 }} />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.warnText, flex: 1, lineHeight: 18 }}>
+                Sadece Business veya Creator hesaplar desteklenir. Kişisel hesaplar bağlanamaz. Erişim tokenın güvenli şekilde saklanır.
+              </Text>
+            </View>
+          </>
+        )}
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }

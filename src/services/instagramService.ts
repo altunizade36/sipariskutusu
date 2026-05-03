@@ -1,10 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MARKETPLACE_CATEGORIES } from '../constants/marketplaceCategories';
 
-const IG_CONNECTION_KEY = 'instagram_connection_v1';
-const IG_CONTENT_CACHE_KEY = 'instagram_content_cache_v1';
+const IG_CONNECTION_KEY = 'instagram_connection_v2';
+const IG_CONTENT_CACHE_KEY = 'instagram_content_cache_v2';
+const IG_LAST_SYNC_KEY = 'instagram_last_sync_v2';
+const IG_CONTENT_STATUS_KEY = 'instagram_content_status_v2';
+const IG_SYNC_STATE_KEY = 'instagram_sync_state_v2';
+const IG_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 dakika
 
 export type InstagramMediaType = 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
+export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'token_expired' | 'api_limit' | 'offline';
+export type ImportStatus =
+  | 'imported_from_instagram'
+  | 'auto_draft'
+  | 'needs_review'
+  | 'ready_to_publish'
+  | 'published'
+  | 'rejected';
+
+export type ContentStatus = {
+  isHidden: boolean;
+  convertedProductId: string | null;
+  isDeleted: boolean;
+};
+export type ContentStatusMap = Record<string, ContentStatus>;
+
+export type SyncState = {
+  status: SyncStatus;
+  lastSyncAt: string | null;
+  error: string | null;
+};
 
 export type InstagramPost = {
   id: string;
@@ -43,14 +68,6 @@ export type InstagramStory = {
   isActive: boolean;
 };
 
-export type ImportStatus =
-  | 'imported_from_instagram'
-  | 'auto_draft'
-  | 'needs_review'
-  | 'ready_to_publish'
-  | 'published'
-  | 'rejected';
-
 export type ParsedProductDraft = {
   title: string;
   price: number | null;
@@ -66,6 +83,7 @@ export type ParsedProductDraft = {
   deliveryType: 'Kargo' | 'Elden' | 'Görüşülür' | null;
   confidence: number;
   missingFields: string[];
+  autoFields: string[];
 };
 
 export type InstagramConnection = {
@@ -78,6 +96,7 @@ export type InstagramConnection = {
   mediaCount: number;
   accountType: 'BUSINESS' | 'CREATOR' | null;
   connectedAt: string | null;
+  tokenExpiresAt: string | null;
 };
 
 const TR_COLORS = [
@@ -94,6 +113,7 @@ const TR_CITIES = [
 
 export function parseCaption(caption: string): ParsedProductDraft {
   const lower = caption.toLowerCase();
+  const autoFields: string[] = [];
 
   const priceMatch =
     caption.match(/₺\s?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)/i) ||
@@ -103,6 +123,7 @@ export function parseCaption(caption: string): ParsedProductDraft {
     ? parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.'))
     : null;
   const price = rawPrice && rawPrice > 0 && rawPrice < 1000000 ? rawPrice : null;
+  if (price) autoFields.push('price');
 
   let categoryId: string | null = null;
   let categoryName: string | null = null;
@@ -126,6 +147,7 @@ export function parseCaption(caption: string): ParsedProductDraft {
       }
     }
   }
+  if (categoryId) autoFields.push('category');
 
   const sizePatterns = [
     /\b(XS|S|M|L|XL|XXL|XXXL)(?:\s*[-\/]\s*(XS|S|M|L|XL|XXL|XXXL))*\b/i,
@@ -137,17 +159,20 @@ export function parseCaption(caption: string): ParsedProductDraft {
     const m = caption.match(re);
     if (m) { sizes = m[0].trim(); break; }
   }
+  if (sizes) autoFields.push('sizes');
 
   const foundColors: string[] = [];
   for (const c of TR_COLORS) {
     if (lower.includes(c)) foundColors.push(c);
   }
   const colors = foundColors.join(', ');
+  if (colors) autoFields.push('colors');
 
   let city: string | null = null;
   for (const c of TR_CITIES) {
     if (lower.includes(c)) { city = c.charAt(0).toUpperCase() + c.slice(1); break; }
   }
+  if (city) autoFields.push('city');
 
   let stockStatus: ParsedProductDraft['stockStatus'] = null;
   if (lower.includes('stokta') || lower.includes('stok var') || lower.includes('mevcut')) {
@@ -170,6 +195,7 @@ export function parseCaption(caption: string): ParsedProductDraft {
   );
   const cleanWords = words.slice(0, 6).join(' ').replace(/[^\w\sğüşıöçĞÜŞİÖÇ]/g, '').trim();
   const title = cleanWords.length > 3 ? cleanWords : (subCategoryName ?? categoryName ?? '');
+  if (title && title.length > 3) autoFields.push('title');
 
   const missingFields: string[] = [];
   if (!price) missingFields.push('Fiyat eksik');
@@ -194,6 +220,7 @@ export function parseCaption(caption: string): ParsedProductDraft {
     deliveryType,
     confidence,
     missingFields,
+    autoFields,
   };
 }
 
@@ -335,8 +362,40 @@ const MOCK_STORIES: InstagramStory[] = [
   },
 ];
 
-const IG_LAST_SYNC_KEY = 'instagram_last_sync_v1';
-const IG_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 dakika
+export async function getContentStatusMap(): Promise<ContentStatusMap> {
+  try {
+    const raw = await AsyncStorage.getItem(IG_CONTENT_STATUS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
+export async function setContentStatus(
+  postId: string,
+  update: Partial<ContentStatus>
+): Promise<void> {
+  const map = await getContentStatusMap();
+  map[postId] = {
+    isHidden: false,
+    convertedProductId: null,
+    isDeleted: false,
+    ...(map[postId] ?? {}),
+    ...update,
+  };
+  await AsyncStorage.setItem(IG_CONTENT_STATUS_KEY, JSON.stringify(map));
+}
+
+export async function getSyncState(): Promise<SyncState> {
+  try {
+    const raw = await AsyncStorage.getItem(IG_SYNC_STATE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { status: 'idle', lastSyncAt: null, error: null };
+}
+
+export async function setSyncState(state: SyncState): Promise<void> {
+  await AsyncStorage.setItem(IG_SYNC_STATE_KEY, JSON.stringify(state));
+}
 
 export async function getLastInstagramSync(): Promise<Date | null> {
   try {
@@ -356,22 +415,6 @@ export async function shouldSyncInstagram(): Promise<boolean> {
   return Date.now() - last.getTime() >= IG_SYNC_INTERVAL_MS;
 }
 
-export async function fetchInstagramContentThrottled(): Promise<{
-  posts: InstagramPost[];
-  reels: InstagramReel[];
-  stories: InstagramStory[];
-} | null> {
-  const doSync = await shouldSyncInstagram();
-  if (!doSync) return null;
-  const [posts, reels, stories] = await Promise.all([
-    fetchInstagramPosts(),
-    fetchInstagramReels(),
-    fetchInstagramStories(),
-  ]);
-  await setLastInstagramSync();
-  return { posts, reels, stories };
-}
-
 export async function getInstagramConnection(): Promise<InstagramConnection> {
   try {
     const raw = await AsyncStorage.getItem(IG_CONNECTION_KEY);
@@ -387,10 +430,41 @@ export async function getInstagramConnection(): Promise<InstagramConnection> {
     mediaCount: 0,
     accountType: null,
     connectedAt: null,
+    tokenExpiresAt: null,
   };
 }
 
-export async function connectInstagram(username: string, accountType: 'BUSINESS' | 'CREATOR'): Promise<InstagramConnection> {
+export function isTokenExpired(connection: InstagramConnection): boolean {
+  if (!connection.tokenExpiresAt) return false;
+  return new Date(connection.tokenExpiresAt) < new Date();
+}
+
+export async function connectInstagramOAuth(): Promise<InstagramConnection> {
+  await new Promise((r) => setTimeout(r, 2200));
+  const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+  const conn: InstagramConnection = {
+    connected: true,
+    accountId: `ig_${Date.now()}`,
+    username: 'demo_magaza',
+    displayName: 'Demo Mağaza',
+    profilePicUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80',
+    followersCount: 12450,
+    mediaCount: MOCK_POSTS.length + MOCK_REELS.length,
+    accountType: 'BUSINESS',
+    connectedAt: new Date().toISOString(),
+    tokenExpiresAt: expiresAt.toISOString(),
+  };
+  await AsyncStorage.setItem(IG_CONNECTION_KEY, JSON.stringify(conn));
+  await setSyncState({ status: 'success', lastSyncAt: new Date().toISOString(), error: null });
+  await setLastInstagramSync();
+  return conn;
+}
+
+export async function connectInstagram(
+  username: string,
+  accountType: 'BUSINESS' | 'CREATOR'
+): Promise<InstagramConnection> {
+  const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
   const conn: InstagramConnection = {
     connected: true,
     accountId: `ig_${Date.now()}`,
@@ -401,14 +475,43 @@ export async function connectInstagram(username: string, accountType: 'BUSINESS'
     mediaCount: MOCK_POSTS.length + MOCK_REELS.length,
     accountType,
     connectedAt: new Date().toISOString(),
+    tokenExpiresAt: expiresAt.toISOString(),
   };
   await AsyncStorage.setItem(IG_CONNECTION_KEY, JSON.stringify(conn));
+  await setSyncState({ status: 'success', lastSyncAt: new Date().toISOString(), error: null });
+  await setLastInstagramSync();
   return conn;
 }
 
 export async function disconnectInstagram(): Promise<void> {
   await AsyncStorage.removeItem(IG_CONNECTION_KEY);
   await AsyncStorage.removeItem(IG_CONTENT_CACHE_KEY);
+  await AsyncStorage.removeItem(IG_SYNC_STATE_KEY);
+  await AsyncStorage.removeItem(IG_LAST_SYNC_KEY);
+}
+
+export async function syncInstagramContent(): Promise<{
+  posts: InstagramPost[];
+  reels: InstagramReel[];
+  stories: InstagramStory[];
+}> {
+  await setSyncState({ status: 'syncing', lastSyncAt: null, error: null });
+  try {
+    await new Promise((r) => setTimeout(r, 1500));
+    const [posts, reels, stories] = await Promise.all([
+      fetchInstagramPosts(),
+      fetchInstagramReels(),
+      fetchInstagramStories(),
+    ]);
+    const now = new Date().toISOString();
+    await setSyncState({ status: 'success', lastSyncAt: now, error: null });
+    await setLastInstagramSync();
+    return { posts, reels, stories };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Senkronizasyon başarısız.';
+    await setSyncState({ status: 'error', lastSyncAt: null, error: msg });
+    throw err;
+  }
 }
 
 export async function fetchInstagramPosts(): Promise<InstagramPost[]> {
@@ -429,10 +532,32 @@ export async function fetchInstagramStories(): Promise<InstagramStory[]> {
   return MOCK_STORIES.filter((s) => new Date(s.expiresAt) > new Date());
 }
 
+export async function fetchInstagramContentThrottled(): Promise<{
+  posts: InstagramPost[];
+  reels: InstagramReel[];
+  stories: InstagramStory[];
+} | null> {
+  const doSync = await shouldSyncInstagram();
+  if (!doSync) return null;
+  return syncInstagramContent();
+}
+
 export function formatIgCount(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}B`;
   return String(n);
+}
+
+export function formatSyncTime(isoString: string | null): string {
+  if (!isoString) return 'Hiç senkronize edilmedi';
+  const d = new Date(isoString);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  if (mins < 1) return 'Az önce';
+  if (mins < 60) return `${mins} dk önce`;
+  if (hours < 24) return `${hours} sa önce`;
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function statusLabel(status: ImportStatus): string {
@@ -454,5 +579,29 @@ export function statusColor(status: ImportStatus): string {
     case 'ready_to_publish': return '#10B981';
     case 'published': return '#3B82F6';
     case 'rejected': return '#9CA3AF';
+  }
+}
+
+export function syncStatusLabel(status: SyncStatus): string {
+  switch (status) {
+    case 'idle': return 'Bekliyor';
+    case 'syncing': return 'Senkronize ediliyor...';
+    case 'success': return 'Senkronize edildi';
+    case 'error': return 'Hata oluştu';
+    case 'token_expired': return 'Bağlantı yenilenmeli';
+    case 'api_limit': return 'API limiti aşıldı';
+    case 'offline': return 'Çevrimdışı';
+  }
+}
+
+export function syncStatusColor(status: SyncStatus): string {
+  switch (status) {
+    case 'idle': return '#6B7280';
+    case 'syncing': return '#3B82F6';
+    case 'success': return '#10B981';
+    case 'error': return '#EF4444';
+    case 'token_expired': return '#F59E0B';
+    case 'api_limit': return '#F59E0B';
+    case 'offline': return '#6B7280';
   }
 }
