@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import { AdminApiKeyGuard } from '../guards/admin-api-key.guard';
 import { CdnCache } from '../decorators/cdn-cache.decorator';
 import { InvalidateProductCache } from '../decorators/invalidate-product-cache.decorator';
 import { RateLimit } from '../decorators/rate-limit.decorator';
@@ -20,26 +21,31 @@ export class PerformanceDemoController {
   ) {}
 
   @Get('health/redis')
+  @UseGuards(AdminApiKeyGuard)
   async redisHealth() {
     return this.redisService.ping();
   }
 
   @Get('metrics/cache')
+  @UseGuards(AdminApiKeyGuard)
   async cacheMetrics() {
     return this.productCacheService.getCacheStats();
   }
 
   @Get('metrics/rate-limit')
+  @UseGuards(AdminApiKeyGuard)
   async rateLimitMetrics() {
     return this.rateLimitService.getRateLimitStats();
   }
 
   @Get('metrics/sessions')
+  @UseGuards(AdminApiKeyGuard)
   async sessionMetrics() {
     return this.sessionStoreService.getSessionStats();
   }
 
   @Get('metrics/overview')
+  @UseGuards(AdminApiKeyGuard)
   async metricsOverview() {
     const [redis, cache, rateLimit, sessions] = await Promise.all([
       this.redisService.ping(),
@@ -90,16 +96,17 @@ export class PerformanceDemoController {
   }
 
   @Post('products/:id/invalidate-cache')
+  @UseGuards(AdminApiKeyGuard)
   async invalidateProductCache(@Param('id') id: string) {
     await this.productCacheService.invalidateProduct(id);
     return { invalidated: true, productId: id };
   }
 
   @Post('products/:id/mock-update')
+  @UseGuards(AdminApiKeyGuard)
   @UseInterceptors(ProductCacheInvalidationInterceptor)
   @InvalidateProductCache({ paramKey: 'id' })
   async mockUpdateProduct(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    // Simulates a successful product mutation and triggers cache invalidation interceptor.
     return {
       updated: true,
       productId: id,
@@ -108,6 +115,7 @@ export class PerformanceDemoController {
   }
 
   @Post('sessions/create')
+  @UseGuards(AdminApiKeyGuard)
   async createSession(@Body() body: { userId: string; deviceId?: string; ip?: string; userAgent?: string }) {
     return this.sessionStoreService.createSession(body.userId, {
       deviceId: body.deviceId,
@@ -117,16 +125,19 @@ export class PerformanceDemoController {
   }
 
   @Get('sessions/:sessionId')
+  @UseGuards(AdminApiKeyGuard)
   async getSession(@Param('sessionId') sessionId: string) {
     return this.sessionStoreService.getSession(sessionId);
   }
 
   @Get('sessions/user/:userId')
+  @UseGuards(AdminApiKeyGuard)
   async listUserSessions(@Param('userId') userId: string) {
     return this.sessionStoreService.listUserSessions(userId);
   }
 
   @Post('sessions/:sessionId/touch')
+  @UseGuards(AdminApiKeyGuard)
   async touchSession(@Param('sessionId') sessionId: string) {
     return {
       touched: await this.sessionStoreService.touchSession(sessionId),
@@ -134,6 +145,7 @@ export class PerformanceDemoController {
   }
 
   @Post('sessions/:sessionId/revoke')
+  @UseGuards(AdminApiKeyGuard)
   async revokeSession(@Param('sessionId') sessionId: string) {
     await this.sessionStoreService.revokeSession(sessionId);
     return { revoked: true };

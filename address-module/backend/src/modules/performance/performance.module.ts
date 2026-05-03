@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import { OpsController } from './controllers/ops.controller';
 import { PerformanceDemoController } from './controllers/performance-demo.controller';
 import { REDIS_CLIENT } from './constants/performance.constants';
+import { AdminApiKeyGuard } from './guards/admin-api-key.guard';
 import { RedisRateLimitGuard } from './guards/redis-rate-limit.guard';
 import { CdnCacheInterceptor } from './interceptors/cdn-cache.interceptor';
 import { ProductCacheInvalidationInterceptor } from './interceptors/product-cache-invalidation.interceptor';
@@ -42,6 +43,7 @@ import { SessionStoreService } from './services/session-store.service';
     QueueService,
     RateLimitService,
     OpsService,
+    AdminApiKeyGuard,
     RedisRateLimitGuard,
     CdnCacheInterceptor,
     ProductCacheInvalidationInterceptor,

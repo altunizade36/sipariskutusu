@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { AdminApiKeyGuard } from '../guards/admin-api-key.guard';
 import { RateLimit } from '../decorators/rate-limit.decorator';
 import { RedisRateLimitGuard } from '../guards/redis-rate-limit.guard';
 import { OpsService } from '../services/ops.service';
 import { QueueService } from '../services/queue.service';
 
 @Controller('ops')
+@UseGuards(AdminApiKeyGuard)
 export class OpsController {
   constructor(
     private readonly opsService: OpsService,
