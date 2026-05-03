@@ -337,10 +337,13 @@ export default function HomeScreen() {
           onPress={() => router.push('/search')}
           style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: pal.searchBg, borderRadius: 14, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: pal.searchBorder }}
         >
-          <Ionicons name="search" size={18} color={pal.textMuted} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: pal.textMuted, flex: 1, marginLeft: 8 }}>{t.home.searchPlaceholder}</Text>
-          <View style={{ width: 1, height: 18, backgroundColor: pal.border, marginHorizontal: 8 }} />
-          <Ionicons name="camera-outline" size={20} color={colors.primary} />
+          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="search" size={17} color={colors.primary} />
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: pal.textMuted, flex: 1, marginLeft: 10 }}>{t.home.searchPlaceholder}</Text>
+          <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>Ara</Text>
+          </View>
         </Pressable>
 
         {/* Quick nav */}

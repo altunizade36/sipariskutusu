@@ -721,23 +721,7 @@ export default function SearchScreen() {
             <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel="Arama metnini temizle">
               <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </Pressable>
-          ) : (
-            <Pressable
-              onPress={openVisualSearch}
-              disabled={visualSearchLoading}
-              style={{ opacity: visualSearchLoading ? 0.5 : 1 }}
-              className="w-8 h-8 items-center justify-center"
-              accessibilityRole="button"
-              accessibilityLabel="Gorsel arama ac"
-              accessibilityHint="Kamera veya galeriden gorsel secerek arama yapar"
-            >
-              {visualSearchLoading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name={visualSearchActive ? 'camera' : 'camera-outline'} size={20} color={colors.primary} />
-              )}
-            </Pressable>
-          )}
+          ) : null}
         </View>
         {/* Filter button */}
         <Pressable

@@ -1937,30 +1937,43 @@ export default function MessagesScreen() {
           </View>
         </View>
         {!conversation ? (
-          <View className="mt-3 flex-row items-center rounded-xl px-3 h-11 border" style={{ backgroundColor: palette.headerChipBg, borderColor: palette.border }}>
-            <Ionicons name="search" size={18} color={palette.textMuted} />
-            <TextInput value={searchText} onChangeText={setSearchText} placeholder="Konuşmalarda ara" placeholderTextColor={palette.textMuted} style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textPrimary }} className="ml-2 flex-1" accessibilityLabel="Konusmalarda ara" />
+          <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: palette.headerChipBg, borderRadius: 16, paddingHorizontal: 14, height: 46, borderWidth: 1.5, borderColor: palette.border, gap: 10 }}>
+            <Ionicons name="search-outline" size={18} color={colors.primary} />
+            <TextInput value={searchText} onChangeText={setSearchText} placeholder="Konuşmalarda ara..." placeholderTextColor={palette.textMuted} style={{ fontFamily: fonts.regular, fontSize: 14, color: palette.textPrimary, flex: 1 }} accessibilityLabel="Konusmalarda ara" />
+            {searchText.length > 0 ? (
+              <Pressable onPress={() => setSearchText('')}>
+                <Ionicons name="close-circle" size={18} color={palette.textMuted} />
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
         {!conversation ? (
-          <View className="mt-3 flex-row items-center" style={{ gap: 8 }}>
+          <View style={{ marginTop: 10, flexDirection: 'row', backgroundColor: palette.headerChipBg, borderRadius: 14, padding: 3, alignSelf: 'flex-start', gap: 2 }}>
             <Pressable
               onPress={() => setListFilter('all')}
-              style={{ backgroundColor: listFilter === 'all' ? colors.primary : '#F7F7F7', borderColor: listFilter === 'all' ? colors.primary : '#E5E7EB' }}
-              className="h-8 px-3 rounded-full border items-center justify-center"
+              style={{ backgroundColor: listFilter === 'all' ? colors.primary : 'transparent', borderRadius: 11, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 5 }}
             >
-              <Text style={{ fontFamily: listFilter === 'all' ? fonts.bold : fonts.medium, fontSize: 11, color: listFilter === 'all' ? '#fff' : colors.textPrimary }}>
-                Tümü ({conversations.length})
+              <Text style={{ fontFamily: listFilter === 'all' ? fonts.bold : fonts.medium, fontSize: 12, color: listFilter === 'all' ? '#fff' : palette.textMuted }}>
+                Tümü
               </Text>
+              {conversations.length > 0 ? (
+                <View style={{ backgroundColor: listFilter === 'all' ? 'rgba(255,255,255,0.25)' : colors.primary + '22', minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: listFilter === 'all' ? '#fff' : colors.primary }}>{conversations.length}</Text>
+                </View>
+              ) : null}
             </Pressable>
             <Pressable
               onPress={() => setListFilter('unread')}
-              style={{ backgroundColor: listFilter === 'unread' ? colors.primary : '#F7F7F7', borderColor: listFilter === 'unread' ? colors.primary : '#E5E7EB' }}
-              className="h-8 px-3 rounded-full border items-center justify-center"
+              style={{ backgroundColor: listFilter === 'unread' ? colors.primary : 'transparent', borderRadius: 11, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 5 }}
             >
-              <Text style={{ fontFamily: listFilter === 'unread' ? fonts.bold : fonts.medium, fontSize: 11, color: listFilter === 'unread' ? '#fff' : colors.textPrimary }}>
-                Okunmamış ({conversations.filter((item) => item.unreadCount > 0).length})
+              <Text style={{ fontFamily: listFilter === 'unread' ? fonts.bold : fonts.medium, fontSize: 12, color: listFilter === 'unread' ? '#fff' : palette.textMuted }}>
+                Okunmamış
               </Text>
+              {conversations.filter((item) => item.unreadCount > 0).length > 0 ? (
+                <View style={{ backgroundColor: listFilter === 'unread' ? 'rgba(255,255,255,0.25)' : '#EF444422', minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: listFilter === 'unread' ? '#fff' : '#EF4444' }}>{conversations.filter((item) => item.unreadCount > 0).length}</Text>
+                </View>
+              ) : null}
             </Pressable>
           </View>
         ) : null}
@@ -1987,38 +2000,72 @@ export default function MessagesScreen() {
                 const lastMessage = item.messages[item.messages.length - 1]?.text ?? item.lastMessage ?? 'Yeni mesaj';
                 const listingImage = item.listing?.image;
                 const listingPrice = formatPrice(item.listing?.price);
+                const isOnline = inboxPresence[item.id];
+                const hasUnread = item.unreadCount > 0;
                 return (
-                  <Pressable key={item.id} onPress={() => openConversationThread(item.id)} style={{ backgroundColor: '#fff', paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 0.5, borderBottomColor: '#F2F2F2' }}>
-                    <View className="flex-row items-center">
-                      <View style={{ position: 'relative' }}>
-                        <View style={item.unreadCount > 0 ? { borderWidth: 2.5, borderColor: colors.primary, borderRadius: 30, padding: 2 } : { borderWidth: 2.5, borderColor: 'transparent', borderRadius: 30, padding: 2 }}>
-                          <Image source={{ uri: item.avatar || storeData.avatar }} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: item.unreadCount > 0 ? 2 : 0, borderColor: '#fff' }} />
-                        </View>
-                        {item.unreadCount > 0 ? null : null}
-                        <View style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: inboxPresence[item.id] ? '#22C55E' : 'transparent', borderWidth: inboxPresence[item.id] ? 2 : 0, borderColor: '#fff' }} />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, flex: 1, marginRight: 8 }} numberOfLines={1}>{item.title}</Text>
-                          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: item.unreadCount > 0 ? colors.primary : colors.textMuted }}>{formatTime(item.lastMessageAt)}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={{ fontFamily: item.unreadCount > 0 ? fonts.medium : fonts.regular, fontSize: 13, color: item.unreadCount > 0 ? colors.textPrimary : colors.textSecondary, flex: 1, marginRight: 8 }} numberOfLines={1}>{lastMessage}</Text>
-                          {item.unreadCount > 0 ? (
-                            <View style={{ backgroundColor: colors.primary, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
-                              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{item.unreadCount}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </View>
-                    </View>
-                    {listingImage || listingPrice ? (
-                      <View style={{ marginTop: 10, marginLeft: 74, backgroundColor: '#F7F9FF', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', borderWidth: 0.5, borderColor: '#DCE8FF' }}>
-                        {listingImage ? <Image source={{ uri: listingImage }} style={{ width: 32, height: 32, borderRadius: 7 }} /> : <View style={{ width: 32, height: 32, borderRadius: 7, backgroundColor: '#E8EEF8', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={14} color={colors.textMuted} /></View>}
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary, marginLeft: 8, flex: 1 }} numberOfLines={1}>{item.listing?.title || 'İlgili ürün'}</Text>
-                        {listingPrice ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginLeft: 8 }}>{listingPrice}</Text> : null}
-                      </View>
+                  <Pressable
+                    key={item.id}
+                    onPress={() => openConversationThread(item.id)}
+                    style={({ pressed }) => ({
+                      backgroundColor: pressed ? (isDarkMode ? '#1E293B' : '#F0F4FF') : (isDarkMode ? palette.screenBg : '#fff'),
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderBottomWidth: 1,
+                      borderBottomColor: isDarkMode ? '#1E293B' : '#F3F4F6',
+                    })}
+                  >
+                    {/* Unread stripe */}
+                    {hasUnread ? (
+                      <View style={{ position: 'absolute', left: 0, top: 16, bottom: 16, width: 3, borderRadius: 2, backgroundColor: colors.primary }} />
                     ) : null}
+
+                    {/* Avatar */}
+                    <View style={{ position: 'relative', marginRight: 13 }}>
+                      <View style={{
+                        width: 56, height: 56, borderRadius: 28,
+                        borderWidth: hasUnread ? 2.5 : 1.5,
+                        borderColor: hasUnread ? colors.primary : (isDarkMode ? '#334155' : '#E5E7EB'),
+                        padding: 2,
+                        backgroundColor: isDarkMode ? '#1F2937' : '#fff',
+                      }}>
+                        <Image source={{ uri: item.avatar || storeData.avatar }} style={{ width: '100%', height: '100%', borderRadius: 26 }} />
+                      </View>
+                      {isOnline ? (
+                        <View style={{ position: 'absolute', bottom: 2, right: 2, width: 13, height: 13, borderRadius: 7, backgroundColor: '#22C55E', borderWidth: 2.5, borderColor: isDarkMode ? palette.screenBg : '#fff' }} />
+                      ) : null}
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontFamily: hasUnread ? fonts.bold : fonts.medium, fontSize: 15, color: isDarkMode ? palette.textPrimary : colors.textPrimary, flex: 1, marginRight: 8 }} numberOfLines={1}>{item.title}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: hasUnread ? colors.primary : palette.textMuted }}>{formatTime(item.lastMessageAt)}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <Text style={{ fontFamily: hasUnread ? fonts.medium : fonts.regular, fontSize: 13, color: hasUnread ? (isDarkMode ? palette.textPrimary : colors.textPrimary) : palette.textMuted, flex: 1 }} numberOfLines={1}>{lastMessage}</Text>
+                        {hasUnread ? (
+                          <View style={{ backgroundColor: colors.primary, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text>
+                          </View>
+                        ) : (
+                          <Ionicons name="checkmark-done-outline" size={15} color={palette.textMuted} />
+                        )}
+                      </View>
+
+                      {/* Listing card */}
+                      {listingImage || listingPrice ? (
+                        <View style={{ marginTop: 8, backgroundColor: isDarkMode ? '#1E293B' : '#F0F5FF', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#DBEAFE' }}>
+                          {listingImage
+                            ? <Image source={{ uri: listingImage }} style={{ width: 30, height: 30, borderRadius: 7 }} />
+                            : <View style={{ width: 30, height: 30, borderRadius: 7, backgroundColor: isDarkMode ? '#334155' : '#E0EAFF', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={14} color={colors.primary} /></View>
+                          }
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textSecondary, marginLeft: 8, flex: 1 }} numberOfLines={1}>{item.listing?.title || 'İlgili ürün'}</Text>
+                          {listingPrice ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginLeft: 8 }}>{listingPrice}</Text> : null}
+                        </View>
+                      ) : null}
+                    </View>
                   </Pressable>
                 );
               })
