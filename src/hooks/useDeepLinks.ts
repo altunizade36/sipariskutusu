@@ -49,7 +49,7 @@ export function useDeepLinks() {
           router.push('/(tabs)/favorites');
           break;
         case 'profile':
-          router.push('/(tabs)/account');
+          router.push('/account');
           break;
         default:
           break;

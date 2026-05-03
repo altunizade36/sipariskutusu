@@ -11,38 +11,38 @@ import {
   Switch,
   Platform,
 } from 'react-native';
-import { useFavorites } from '../../src/hooks/useFavorites';
+import { useFavorites } from '../src/hooks/useFavorites';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, fonts } from '../../src/constants/theme';
-import { useAuth } from '../../src/context/AuthContext';
-import { useListings } from '../../src/context/ListingsContext';
-import { useSubscription } from '../../src/lib/revenuecat';
-import { getMyWallet, getPlanDisplayName } from '../../src/services/entitlementService';
-import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
-import { fetchMyAccountCore, type AccountCoreProfile } from '../../src/services/profileService';
+import { colors, fonts } from '../src/constants/theme';
+import { useAuth } from '../src/context/AuthContext';
+import { useListings } from '../src/context/ListingsContext';
+import { useSubscription } from '../src/lib/revenuecat';
+import { getMyWallet, getPlanDisplayName } from '../src/services/entitlementService';
+import { useAndroidTabBackToHome } from '../src/hooks/useAndroidTabBackToHome';
+import { fetchMyAccountCore, type AccountCoreProfile } from '../src/services/profileService';
 import {
   fetchMyReports,
   fetchPendingReportsAdmin,
   reviewReportAdmin,
   type ReportRecord,
   type ReportStatus,
-} from '../../src/services/reportService';
+} from '../src/services/reportService';
 import {
   fetchUnreadNotificationCount,
   subscribeToMyNotifications,
-} from '../../src/services/inAppNotificationService';
-import { buildMessagesInboxRoute } from '../../src/utils/messageRouting';
-import { useUserPreferences } from '../../src/hooks/useUserPreferences';
-import { t } from '../../src/i18n';
+} from '../src/services/inAppNotificationService';
+import { buildMessagesInboxRoute } from '../src/utils/messageRouting';
+import { useUserPreferences } from '../src/hooks/useUserPreferences';
+import { t } from '../src/i18n';
 import {
   getInstagramConnection,
   formatIgCount,
   type InstagramConnection,
-} from '../../src/services/instagramService';
+} from '../src/services/instagramService';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 const SUPPORT_EMAIL = 'iletisim@sipariskutusu.com';

@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useUnreadMessageCount } from '../../src/hooks/useUnreadMessageCount';
-import { useUnreadNotificationCount } from '../../src/hooks/useUnreadNotificationCount';
 import BoxMascot from '../../src/components/BoxMascot';
 import { t } from '../../src/i18n';
 import { isSmallDevice, clamp, screenHeight } from '../../src/utils/responsive';
@@ -61,7 +60,6 @@ function SellFabIcon({ focused }: { focused: boolean }) {
 export default function TabLayout() {
   const { isLoading, isDarkMode } = useAuth();
   const unreadCount = useUnreadMessageCount();
-  const unreadNotifCount = useUnreadNotificationCount();
 
   const tabBarHeight = Platform.select({
     web: 94,
@@ -103,12 +101,11 @@ export default function TabLayout() {
           paddingHorizontal: 4,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
-          overflow: 'visible',
           shadowColor: isDarkMode ? '#000' : '#0F172A',
           shadowOpacity: isDarkMode ? 0.4 : 0.10,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: -6 },
-          elevation: 20,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontFamily: fonts.medium,
@@ -204,16 +201,6 @@ export default function TabLayout() {
         }}
       />
 
-      {/* ── Gizli: Profil/Hesap ── */}
-      <Tabs.Screen
-        name="account"
-        options={{
-          href: null,
-          title: t.tabs.profile,
-          tabBarBadge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
-        }}
-      />
 
       {/* ── Gizli: Sepet ── */}
       <Tabs.Screen

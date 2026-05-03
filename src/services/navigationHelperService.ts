@@ -107,7 +107,7 @@ export class NavigationHelper {
   }
 
   static goToProfile() {
-    this.navigate('/(tabs)/account');
+    this.navigate('/account');
   }
 
   static goToMessages() {
@@ -131,7 +131,7 @@ export class NavigationHelper {
   }
 
   static goToSettings() {
-    this.navigate('/(tabs)/account');
+    this.navigate('/account');
   }
 
   static handleDeepLink(url: string) {

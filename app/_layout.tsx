@@ -159,6 +159,7 @@ function RootLayout() {
                   <Stack.Screen name="credits" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                   <Stack.Screen name="my-boosts" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                   <Stack.Screen name="billing-history" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="account" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                 </Stack>
               </ListingWizardProvider>
             </ListingsProvider>
