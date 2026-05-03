@@ -28,6 +28,7 @@ export type Product = {
   whatsapp?: string;
   isNegotiable?: boolean;
   createdAt?: string;
+  isDemo?: boolean;
 };
 
 export type Category = {

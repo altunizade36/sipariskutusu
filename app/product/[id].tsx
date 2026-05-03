@@ -715,13 +715,25 @@ export default function ProductDetailScreen() {
           ) : null}
         </View>
 
-        <InfoBanner
-          icon="information-circle"
-          title="Bu bir P2P Pazaryeri"
-          description="Doğrudan satıcıyla iletişim kurarak ürünü satın alabilirsiniz. İletişim bölümünden mesaj gönderin veya WhatsApp ile bağlantı kurun."
-          dismissible
-          variant="info"
-        />
+        {product.isDemo ? (
+          <View style={{ marginHorizontal: 12, marginTop: 10, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <Ionicons name="information-circle" size={20} color="#D97706" style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#92400E', marginBottom: 3 }}>Bu bir örnek ilandır</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#78350F', lineHeight: 18 }}>
+                Bu ilan yeni kullanıcılar için platformun nasıl çalıştığını göstermek amacıyla oluşturulmuştur. Gerçek bir satış söz konusu değildir. Kendi ilanınızı vermek için "İlan Ver" butonuna tıklayın.
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <InfoBanner
+            icon="information-circle"
+            title="Bu bir P2P Pazaryeri"
+            description="Doğrudan satıcıyla iletişim kurarak ürünü satın alabilirsiniz. İletişim bölümünden mesaj gönderin veya WhatsApp ile bağlantı kurun."
+            dismissible
+            variant="info"
+          />
+        )}
 
         <View className="px-4 pt-3 pb-4">
           {/* Brand & title */}
@@ -1029,24 +1041,31 @@ export default function ProductDetailScreen() {
 
             <View style={{ height: 1, backgroundColor: pal.storeBorder, marginVertical: 14 }} />
 
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Pressable
-                onPress={handleSendMessage}
-                style={{ flex: 1, height: 44, backgroundColor: isDarkMode ? '#1E3A5F' : '#EFF6FF', borderWidth: 1, borderColor: isDarkMode ? colors.primary + '50' : '#BFDBFE', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              >
-                <Ionicons name="chatbox-ellipses-outline" size={17} color={colors.primary} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>Mesaj Gönder</Text>
-              </Pressable>
-              {contactWhatsapp ? (
+            {product.isDemo ? (
+              <View style={{ height: 48, backgroundColor: isDarkMode ? '#2D2506' : '#FEF9C3', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Ionicons name="lock-closed-outline" size={16} color="#D97706" />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#D97706' }}>Örnek ilan — iletişim kapalı</Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable
-                  onPress={openWhatsApp}
-                  style={{ flex: 1, height: 44, backgroundColor: isDarkMode ? '#14532D22' : '#ECFDF5', borderWidth: 1, borderColor: isDarkMode ? '#166534' : '#BBF7D0', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  onPress={handleSendMessage}
+                  style={{ flex: 1, height: 44, backgroundColor: isDarkMode ? '#1E3A5F' : '#EFF6FF', borderWidth: 1, borderColor: isDarkMode ? colors.primary + '50' : '#BFDBFE', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  <Ionicons name="logo-whatsapp" size={17} color="#16A34A" />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#16A34A' }}>WhatsApp</Text>
+                  <Ionicons name="chatbox-ellipses-outline" size={17} color={colors.primary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>Mesaj Gönder</Text>
                 </Pressable>
-              ) : null}
-            </View>
+                {contactWhatsapp ? (
+                  <Pressable
+                    onPress={openWhatsApp}
+                    style={{ flex: 1, height: 44, backgroundColor: isDarkMode ? '#14532D22' : '#ECFDF5', borderWidth: 1, borderColor: isDarkMode ? '#166534' : '#BBF7D0', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <Ionicons name="logo-whatsapp" size={17} color="#16A34A" />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#16A34A' }}>WhatsApp</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            )}
           </View>
 
           {/* Description */}

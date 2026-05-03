@@ -3,6 +3,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCategorySlugPath } from '../catalog';
 import { products, stories, type Product, type Story } from '../data/mockData';
+import { sampleListings, DEMO_TARGET } from '../data/sampleListings';
 import { fetchListings, updateListing as updateListingRemote, deleteListing as deleteListingRemote } from '../services/listingService';
 import { isSupabaseConfigured } from '../services/supabase';
 import { useAuth } from './AuthContext';
@@ -900,15 +901,22 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     return [...result, ...noSellerId];
   }, []);
 
+  const visibleDemoListings = useMemo(() => {
+    const realCount = baseMarketplaceProducts.length;
+    const slots = Math.max(0, DEMO_TARGET - realCount);
+    return sampleListings.slice(0, slots);
+  }, [baseMarketplaceProducts]);
+
   const homeProducts = useMemo(
     () => {
       const combined = [...publishedListings, ...storyLinkedProducts, ...baseMarketplaceProducts];
-      return diversifyFeed(combined);
+      const diversified = diversifyFeed(combined);
+      return [...diversified, ...visibleDemoListings];
     },
-    [baseMarketplaceProducts, publishedListings, storyLinkedProducts, diversifyFeed],
+    [baseMarketplaceProducts, publishedListings, storyLinkedProducts, diversifyFeed, visibleDemoListings],
   );
   const allProducts = useMemo(
-    () => [...publishedListings, ...storyLinkedProducts, ...baseMarketplaceProducts],
+    () => [...publishedListings, ...storyLinkedProducts, ...baseMarketplaceProducts, ...sampleListings],
     [baseMarketplaceProducts, publishedListings, storyLinkedProducts],
   );
   const storeMessageCount = conversations.find((item) => item.id === 'store1')?.unreadCount ?? 0;

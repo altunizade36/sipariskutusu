@@ -219,6 +219,14 @@ function ProductCardComponent({ product, width = '100%' }: Props) {
             <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: colors.success }}>Ücretsiz</Text>
           </View>
         ) : null}
+
+        {/* Demo overlay banner */}
+        {product.isDemo ? (
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(245,158,11,0.92)', paddingVertical: 4, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4 }}>
+            <Ionicons name="information-circle" size={10} color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff', letterSpacing: 0.4 }}>ÖRNEK İLAN</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* ── INFO ──────────────────────────────────────────────── */}
