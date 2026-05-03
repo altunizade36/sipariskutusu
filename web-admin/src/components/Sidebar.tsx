@@ -48,6 +48,12 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    label: 'GELİR',
+    links: [
+      { to: '/subscriptions', label: 'Abonelikler', icon: '💳' },
+    ],
+  },
+  {
     label: 'SİSTEM',
     links: [
       { to: '/audit', label: 'Denetim Günlüğü', icon: '📝' },

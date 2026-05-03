@@ -104,6 +104,7 @@ Configured as a static site deployment:
 - Analytics
 - Stores management
 - Settings
+- **Abonelikler & Gelir** (`/subscriptions`) — RevenueCat IAP admin: subscription list + filters, credit wallets, RC events log, plan breakdown, migration status banner (shows setup instructions when DB tables are missing)
 
 ## Mobile App Features
 
