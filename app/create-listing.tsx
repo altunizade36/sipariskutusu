@@ -16,6 +16,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { colors, fonts } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
@@ -106,13 +107,45 @@ function normalizeDraft(raw: unknown): CreateListingDraft | null {
   };
 }
 
+function buildPalette(dark: boolean) {
+  return {
+    bg: dark ? '#0F172A' : '#F4F6FB',
+    card: dark ? '#1E293B' : '#FFFFFF',
+    cardAlt: dark ? '#0F172A' : '#F8FAFC',
+    border: dark ? '#334155' : '#E2E8F0',
+    borderFaint: dark ? '#1E293B' : '#F1F5F9',
+    textPrimary: dark ? '#F1F5F9' : colors.textPrimary,
+    textSecondary: dark ? '#94A3B8' : colors.textSecondary,
+    textMuted: dark ? '#64748B' : colors.textMuted,
+    inputBg: dark ? '#0F172A' : '#F8FAFC',
+    primaryTint: dark ? '#1E3A5F' : '#EFF6FF',
+    primaryBorder: dark ? '#2563EB44' : '#DBEAFE',
+    successTint: dark ? '#064E3B' : '#ECFDF5',
+    successBorder: dark ? '#065F46' : '#A7F3D0',
+    successText: dark ? '#34D399' : '#047857',
+    warnTint: dark ? '#78350F20' : '#FFFBEB',
+    dangerTint: dark ? '#7F1D1D20' : '#FFF1F2',
+    heartTint: dark ? '#4C1D2D' : '#FFF1F2',
+    heartColor: dark ? '#F43F5E' : '#FDA4AF',
+    chatTint: dark ? '#0C2440' : '#F0F9FF',
+    chatColor: dark ? '#38BDF8' : '#7DD3FC',
+    shareTint: dark ? '#052E16' : '#F0FDF4',
+    shareColor: dark ? '#4ADE80' : '#86EFAC',
+    headerGrad: dark
+      ? (['#1E293B', '#0F172A'] as const)
+      : (['#FFFFFF', '#F4F6FB'] as const),
+  };
+}
+
 export default function CreateListingScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isDarkMode } = useAuth();
   const { addListing, hasStore, reloadProducts } = useListings();
   const uploadProgress = useUploadProgress();
   const insets = useSafeAreaInsets();
   const [storeCheckLoading, setStoreCheckLoading] = useState(true);
+
+  const pal = useMemo(() => buildPalette(isDarkMode), [isDarkMode]);
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [coverIndex, setCoverIndex] = useState(0);
@@ -144,21 +177,15 @@ export default function CreateListingScreen() {
     [categoryId],
   );
   const selectedSubCategoryName = useMemo(() => {
-    if (!selectedCategory) {
-      return '';
-    }
-
+    if (!selectedCategory) return '';
     const found = selectedCategory.subcategories.find((item) => item.id === subCategoryId);
-    if (!found) {
-      return '';
-    }
-
+    if (!found) return '';
     if (found.id === OTHER_SUBCATEGORY_ID && customSubCategory.trim()) {
       return customSubCategory.trim();
     }
-
     return found.name;
   }, [customSubCategory, selectedCategory, subCategoryId]);
+
   const sellerName = String(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'Misafir');
   const sellerAvatar = typeof user?.user_metadata?.avatar_url === 'string'
     ? user.user_metadata.avatar_url
@@ -190,35 +217,22 @@ export default function CreateListingScreen() {
       { label: 'İlçe', done: Boolean(district) },
     ],
     [
-      photos.length,
-      title,
-      descriptionValid,
-      categoryId,
-      subCategoryId,
-      customSubCategory,
-      priceValid,
-      delivery.length,
-      city,
-      district,
-      neighborhood,
+      photos.length, title, descriptionValid, categoryId,
+      subCategoryId, customSubCategory, priceValid, delivery.length, city, district, neighborhood,
     ],
   );
   const completedCount = completionItems.filter((item) => item.done).length;
   const completionPercent = Math.round((completedCount / completionItems.length) * 100);
+
   const filteredCities = useMemo(() => {
     const query = citySearch.trim().toLocaleLowerCase('tr-TR');
-    if (!query) {
-      return CITY_LIST;
-    }
-
+    if (!query) return CITY_LIST;
     return CITY_LIST.filter((item) => item.toLocaleLowerCase('tr-TR').includes(query));
   }, [citySearch]);
+
   const filteredDistricts = useMemo(() => {
     const query = districtSearch.trim().toLocaleLowerCase('tr-TR');
-    if (!query) {
-      return districtList;
-    }
-
+    if (!query) return districtList;
     return districtList.filter((item) => item.toLocaleLowerCase('tr-TR').includes(query));
   }, [districtList, districtSearch]);
 
@@ -236,10 +250,32 @@ export default function CreateListingScreen() {
   if (!district) missing.push('İlçe');
 
   const canPublish = missing.length === 0 && !submitting;
-
   const coverUri = photos[coverIndex] ?? photos[0];
 
-  // Store check loading — wait briefly for ListingsContext to hydrate hasStore
+  const inputStyle = useMemo(() => ({
+    backgroundColor: pal.inputBg,
+    borderWidth: 1,
+    borderColor: pal.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: pal.textPrimary,
+  }), [pal]);
+
+  const selectorStyle = useMemo(() => ({
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    backgroundColor: pal.inputBg,
+    borderWidth: 1,
+    borderColor: pal.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  }), [pal]);
+
   useEffect(() => {
     const timer = setTimeout(() => setStoreCheckLoading(false), 1200);
     return () => clearTimeout(timer);
@@ -247,19 +283,12 @@ export default function CreateListingScreen() {
 
   useEffect(() => {
     let active = true;
-
     const loadDraft = async () => {
       try {
         const serialized = await AsyncStorage.getItem(CREATE_LISTING_DRAFT_KEY);
-        if (!serialized || !active) {
-          return;
-        }
-
+        if (!serialized || !active) return;
         const parsed = normalizeDraft(JSON.parse(serialized));
-        if (!parsed) {
-          return;
-        }
-
+        if (!parsed) return;
         setPhotos(parsed.photos);
         setCoverIndex(parsed.coverIndex);
         setTitle(parsed.title);
@@ -277,138 +306,63 @@ export default function CreateListingScreen() {
         setCity(parsed.city);
         setDistrict(parsed.district);
         setNeighborhood(parsed.neighborhood);
-
         if (parsed.version < CREATE_LISTING_DRAFT_VERSION) {
-          const migratedDraft: CreateListingDraft = {
-            ...parsed,
-            version: CREATE_LISTING_DRAFT_VERSION,
-          };
-          AsyncStorage.setItem(CREATE_LISTING_DRAFT_KEY, JSON.stringify(migratedDraft)).catch(() => {
-            // Migration write-back hatası akışı bloklamamalı.
-          });
+          const migratedDraft: CreateListingDraft = { ...parsed, version: CREATE_LISTING_DRAFT_VERSION };
+          AsyncStorage.setItem(CREATE_LISTING_DRAFT_KEY, JSON.stringify(migratedDraft)).catch(() => undefined);
           trackEvent(TELEMETRY_EVENTS.CREATE_LISTING_DRAFT_MIGRATED, {
             source: 'create_listing_draft',
             from_version: parsed.version,
             to_version: CREATE_LISTING_DRAFT_VERSION,
           });
         }
-
         setDraftRestored(true);
       } catch {
         // Taslak okunamazsa sessizce boş form ile devam et.
       } finally {
-        if (active) {
-          setDraftReady(true);
-        }
+        if (active) setDraftReady(true);
       }
     };
-
     void loadDraft();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    if (!draftReady) {
-      return;
-    }
-
+    if (!draftReady) return;
     const isDefaultFormState =
-      photos.length === 0 &&
-      coverIndex === 0 &&
-      !title.trim() &&
-      !description.trim() &&
-      condition === 'Yeni' &&
-      categoryId === (MARKETPLACE_CATEGORIES[0]?.id ?? 'women') &&
-      subCategoryId === 'all' &&
-      !customSubCategory.trim() &&
-      !sizeVariants.trim() &&
-      !colorVariants.trim() &&
-      !price.trim() &&
-      bargaining === false &&
-      delivery.length === 1 &&
-      delivery[0] === 'Kargo' &&
-      freeShipping === false &&
-      !city.trim() &&
-      !district.trim() &&
-      !neighborhood.trim();
+      photos.length === 0 && coverIndex === 0 && !title.trim() && !description.trim() &&
+      condition === 'Yeni' && categoryId === (MARKETPLACE_CATEGORIES[0]?.id ?? 'women') &&
+      subCategoryId === 'all' && !customSubCategory.trim() && !sizeVariants.trim() &&
+      !colorVariants.trim() && !price.trim() && bargaining === false &&
+      delivery.length === 1 && delivery[0] === 'Kargo' && freeShipping === false &&
+      !city.trim() && !district.trim() && !neighborhood.trim();
 
     if (isDefaultFormState) {
-      AsyncStorage.removeItem(CREATE_LISTING_DRAFT_KEY).catch(() => {
-        // Taslak silme hatası kullanıcı akışını kesmemeli.
-      });
+      AsyncStorage.removeItem(CREATE_LISTING_DRAFT_KEY).catch(() => undefined);
       return;
     }
 
     const payload: CreateListingDraft = {
       version: CREATE_LISTING_DRAFT_VERSION,
-      photos,
-      coverIndex,
-      title,
-      description,
-      condition,
-      categoryId,
-      subCategoryId,
-      customSubCategory,
-      sizeVariants,
-      colorVariants,
-      price,
-      bargaining,
-      delivery,
-      freeShipping,
-      city,
-      district,
-      neighborhood,
+      photos, coverIndex, title, description, condition, categoryId,
+      subCategoryId, customSubCategory, sizeVariants, colorVariants,
+      price, bargaining, delivery, freeShipping, city, district, neighborhood,
     };
-
-    AsyncStorage.setItem(CREATE_LISTING_DRAFT_KEY, JSON.stringify(payload)).catch(() => {
-      // Taslak yazım hatası yayınlama akışını bloklamamalı.
-    });
+    AsyncStorage.setItem(CREATE_LISTING_DRAFT_KEY, JSON.stringify(payload)).catch(() => undefined);
   }, [
-    draftReady,
-    photos,
-    coverIndex,
-    title,
-    description,
-    condition,
-    categoryId,
-    subCategoryId,
-    customSubCategory,
-    sizeVariants,
-    colorVariants,
-    price,
-    bargaining,
-    delivery,
-    freeShipping,
-    city,
-    district,
-    neighborhood,
+    draftReady, photos, coverIndex, title, description, condition, categoryId,
+    subCategoryId, customSubCategory, sizeVariants, colorVariants,
+    price, bargaining, delivery, freeShipping, city, district, neighborhood,
   ]);
 
   const clearDraft = async () => {
     await AsyncStorage.removeItem(CREATE_LISTING_DRAFT_KEY).catch(() => undefined);
-    setPhotos([]);
-    setCoverIndex(0);
-    setTitle('');
-    setDescription('');
-    setCondition('Yeni');
-    setCategoryId(MARKETPLACE_CATEGORIES[0]?.id ?? 'women');
-    setSubCategoryId('all');
-    setCustomSubCategory('');
-    setSizeVariants('');
-    setColorVariants('');
-    setPrice('');
-    setBargaining(false);
-    setDelivery(['Kargo']);
-    setFreeShipping(false);
-    setCity('');
-    setDistrict('');
-    setNeighborhood('');
-    setCitySearch('');
-    setDistrictSearch('');
-    setDraftRestored(false);
+    setPhotos([]); setCoverIndex(0); setTitle(''); setDescription('');
+    setCondition('Yeni'); setCategoryId(MARKETPLACE_CATEGORIES[0]?.id ?? 'women');
+    setSubCategoryId('all'); setCustomSubCategory(''); setSizeVariants('');
+    setColorVariants(''); setPrice(''); setBargaining(false);
+    setDelivery(['Kargo']); setFreeShipping(false); setCity('');
+    setDistrict(''); setNeighborhood(''); setCitySearch('');
+    setDistrictSearch(''); setDraftRestored(false);
   };
 
   const handleAddPhoto = async () => {
@@ -418,9 +372,7 @@ export default function CreateListingScreen() {
     }
     try {
       const uri = await pickImageFromLibrary();
-      if (uri) {
-        setPhotos((prev) => [...prev, uri]);
-      }
+      if (uri) setPhotos((prev) => [...prev, uri]);
     } catch (err: any) {
       Alert.alert('Hata', err?.message ?? 'Fotoğraf eklenemedi.');
     }
@@ -439,9 +391,7 @@ export default function CreateListingScreen() {
   const toggleDelivery = (d: Delivery) => {
     setDelivery((prev) => {
       const next = prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d];
-      if (!next.includes('Kargo')) {
-        setFreeShipping(false);
-      }
+      if (!next.includes('Kargo')) setFreeShipping(false);
       return next;
     });
   };
@@ -453,23 +403,15 @@ export default function CreateListingScreen() {
       return;
     }
     if (!canPublish) return;
-
     setSubmitting(true);
     uploadProgress.startUpload(photos.length);
     try {
       const baseDescription = description.trim();
       const variantLines: string[] = [];
-      if (sizeVariants.trim()) {
-        variantLines.push(`Beden: ${sizeVariants.trim()}`);
-      }
-      if (colorVariants.trim()) {
-        variantLines.push(`Renk: ${colorVariants.trim()}`);
-      }
-
+      if (sizeVariants.trim()) variantLines.push(`Beden: ${sizeVariants.trim()}`);
+      if (colorVariants.trim()) variantLines.push(`Renk: ${colorVariants.trim()}`);
       const descriptionWithVariants = [baseDescription, variantLines.length > 0 ? `Varyantlar\n${variantLines.join('\n')}` : '']
-        .filter(Boolean)
-        .join('\n\n');
-
+        .filter(Boolean).join('\n\n');
       const descriptionWithFreeShippingTag = freeShipping
         ? `${descriptionWithVariants}${descriptionWithVariants ? '\n\n' : ''}#ucretsizkargo`
         : descriptionWithVariants;
@@ -481,8 +423,7 @@ export default function CreateListingScreen() {
           price: priceNumber,
           categoryId: selectedCategory?.id ?? '',
           subCategoryId: subCategoryId === 'all' ? undefined : subCategoryId,
-          customSubCategory:
-            subCategoryId === OTHER_SUBCATEGORY_ID ? customSubCategory.trim() : undefined,
+          customSubCategory: subCategoryId === OTHER_SUBCATEGORY_ID ? customSubCategory.trim() : undefined,
           condition,
           delivery,
           city,
@@ -494,44 +435,25 @@ export default function CreateListingScreen() {
           stock: 1,
           sourceType: 'manual',
         });
-
         uploadProgress.completeUpload();
         await AsyncStorage.removeItem(CREATE_LISTING_DRAFT_KEY).catch(() => undefined);
-
-        // Satıcıya "İlanınız yayına alındı" bildirimi gönder
         createInAppNotification(
-          user.id,
-          'listing_approved',
-          'İlanınız yayına alındı 🎉',
+          user.id, 'listing_approved', 'İlanınız yayına alındı 🎉',
           `"${title.trim()}" başlıklı ilanınız başarıyla yayına alındı.`,
           { listingId: created.id },
         ).catch(() => undefined);
-
-        // Ana sayfayı yenile
         reloadProducts();
-
         Alert.alert('Yayınlandı! 🎉', 'İlanın yayına alındı. Mağazan ve akıştaki yerini almaya başlıyor.', [
           { text: 'İlanı Gör', onPress: () => router.replace(`/product/${created.id}`) },
         ]);
       } else {
-        // Fallback: use local context
         const orderedMedia = coverIndex > 0
           ? [photos[coverIndex], ...photos.filter((_, i) => i !== coverIndex)]
           : photos;
-
         const created = addListing({
-          title: title.trim(),
-          description: descriptionWithVariants,
-          price: priceNumber,
-          categoryId: selectedCategory?.id ?? '',
-          condition,
-          location: city,
-          district,
-          delivery,
-          freeShipping,
-          imageUri: orderedMedia[0],
-          mediaUris: orderedMedia,
-          stock: 1,
+          title: title.trim(), description: descriptionWithVariants, price: priceNumber,
+          categoryId: selectedCategory?.id ?? '', condition, location: city, district, delivery,
+          freeShipping, imageUri: orderedMedia[0], mediaUris: orderedMedia, stock: 1,
           attributes: [
             ...(bargaining ? [{ label: 'Pazarlık', value: 'Var' }] : []),
             ...(freeShipping ? [{ label: 'Ücretsiz Kargo', value: 'Var' }] : []),
@@ -540,7 +462,6 @@ export default function CreateListingScreen() {
             ...(neighborhood.trim() ? [{ label: 'Mahalle', value: neighborhood.trim() }] : []),
           ],
         });
-
         uploadProgress.completeUpload();
         await AsyncStorage.removeItem(CREATE_LISTING_DRAFT_KEY).catch(() => undefined);
         Alert.alert('Yayınlandı', 'İlanın yayınlandı.', [
@@ -559,19 +480,24 @@ export default function CreateListingScreen() {
   // --- Giriş yapılmamışsa ---
   if (!user) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center px-8" edges={['top', 'bottom']}>
-        <Ionicons name="person-circle-outline" size={72} color={colors.textMuted} />
-        <Text style={{ fontFamily: fonts.headingBold, fontSize: 20, color: colors.textPrimary, marginTop: 16, textAlign: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }} edges={['top', 'bottom']}>
+        <View style={{ width: 96, height: 96, borderRadius: 24, backgroundColor: pal.primaryTint, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <Ionicons name="person-circle-outline" size={56} color={colors.primary} />
+        </View>
+        <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: pal.textPrimary, textAlign: 'center' }}>
           Giriş Yapmalısın
         </Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 22 }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: pal.textMuted, marginTop: 10, textAlign: 'center', lineHeight: 22 }}>
           İlan yayınlamak için önce hesabına giriş yapmalısın.
         </Text>
         <Pressable
           onPress={() => router.push({ pathname: '/auth', params: { redirect: '/create-listing' } })}
-          style={{ marginTop: 28, height: 52, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}
+          style={{ marginTop: 28, height: 52, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, width: '100%' }}
         >
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>Giriş Yap</Text>
+        </Pressable>
+        <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: 12, height: 44, borderRadius: 14, borderWidth: 1, borderColor: pal.border, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: pal.textSecondary }}>Geri Dön</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -580,10 +506,12 @@ export default function CreateListingScreen() {
   // --- Mağaza yüklenirken ---
   if (storeCheckLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center" edges={['top', 'bottom']}>
-        <View className="items-center gap-4">
-          <Ionicons name="storefront-outline" size={56} color={colors.primary} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textMuted }}>Mağaza bilgisi kontrol ediliyor...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center' }} edges={['top', 'bottom']}>
+        <View style={{ alignItems: 'center', gap: 14 }}>
+          <View style={{ width: 72, height: 72, borderRadius: 18, backgroundColor: pal.primaryTint, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="storefront-outline" size={36} color={colors.primary} />
+          </View>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: pal.textMuted }}>Mağaza bilgisi kontrol ediliyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -592,41 +520,41 @@ export default function CreateListingScreen() {
   // --- Mağazası yoksa kapı göster ---
   if (!hasStore) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
-        <View className="flex-row items-center px-4 h-12 border-b border-[#33333315]">
-          <Pressable onPress={() => router.replace('/(tabs)')} className="w-10 h-10 items-center justify-center -ml-2">
-            <Ionicons name="close" size={26} color={colors.textPrimary} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg }} edges={['top', 'bottom']}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 52, borderBottomWidth: 1, borderBottomColor: pal.border, backgroundColor: pal.card }}>
+          <Pressable onPress={() => router.replace('/(tabs)')} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginLeft: -8 }}>
+            <Ionicons name="close" size={26} color={pal.textPrimary} />
           </Pressable>
-          <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary, marginLeft: 4 }}>İlan Ver</Text>
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: pal.textPrimary, marginLeft: 4 }}>İlan Ver</Text>
         </View>
-        <View className="flex-1 items-center justify-center px-8">
-          <View style={{ width: 96, height: 96, borderRadius: 24, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <View style={{ width: 96, height: 96, borderRadius: 24, backgroundColor: pal.primaryTint, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
             <Ionicons name="storefront-outline" size={48} color={colors.primary} />
           </View>
-          <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: colors.textPrimary, textAlign: 'center' }}>
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: pal.textPrimary, textAlign: 'center' }}>
             Önce mağazanı oluştur
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
-            İlan yayınlamak için önce bir satıcı mağazası oluşturman gerekiyor. Mağazanı kurduktan sonra dilediğin kadar ilan verebilirsin.
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: pal.textMuted, textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
+            İlan yayınlamak için önce bir satıcı mağazası oluşturman gerekiyor.
           </Text>
-          <View style={{ marginTop: 12, backgroundColor: '#F0FDF4', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#D1FAE5', width: '100%' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#065F46', marginBottom: 6 }}>Mağaza açınca şunları yapabilirsin:</Text>
+          <View style={{ marginTop: 16, backgroundColor: pal.successTint, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: pal.successBorder, width: '100%' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: pal.successText, marginBottom: 8 }}>Mağaza açınca şunları yapabilirsin:</Text>
             {['Manuel ilan yayınla', 'Instagram içeriklerini ürüne çevir', 'Mağaza profili oluştur', 'Sipariş ve mesajları yönet'].map((item) => (
               <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#047857' }}>{item}</Text>
+                <Ionicons name="checkmark-circle" size={14} color={pal.successText} />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.successText }}>{item}</Text>
               </View>
             ))}
           </View>
           <Pressable
             onPress={() => router.push('/store-setup')}
-            style={{ marginTop: 28, height: 54, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', width: '100%', flexDirection: 'row', gap: 8 }}
+            style={{ marginTop: 24, height: 54, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', width: '100%', flexDirection: 'row', gap: 8 }}
           >
             <Ionicons name="storefront" size={20} color="#fff" />
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>Mağaza Oluştur</Text>
           </Pressable>
-          <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: 14, height: 44, borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>Şimdi Değil</Text>
+          <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: 12, height: 44, borderRadius: 14, borderWidth: 1, borderColor: pal.border, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: pal.textSecondary }}>Şimdi Değil</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -641,799 +569,646 @@ export default function CreateListingScreen() {
         message={uploadProgress.message}
         error={uploadProgress.error}
       />
-    <SafeAreaView className="flex-1 bg-[#F7F7F7]" edges={['top']}>
-      <View className="flex-row items-center justify-between px-4 h-12 bg-white border-b border-[#33333315]">
-        <Pressable onPress={() => router.replace('/(tabs)')} className="w-10 h-10 items-center justify-center -ml-2">
-          <Ionicons name="close" size={26} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: colors.textPrimary }}>
-          İlan Ver
-        </Text>
-        <View className="w-10" />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: pal.bg }} edges={['top']}>
 
-      <View className="px-4 py-2 bg-white border-b border-[#33333310] flex-row items-center justify-between">
-        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: draftRestored ? '#047857' : colors.textMuted }}>
-          {draftRestored ? 'Taslak geri yüklendi. Düzenlemeye devam edebilirsin.' : 'Düzenlemeler otomatik taslak olarak kaydedilir.'}
-        </Text>
-        <Pressable onPress={() => void clearDraft()} className="h-7 px-3 rounded-full bg-[#F7F7F7] border border-[#E2E8F0] items-center justify-center">
-          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.textSecondary }}>Taslağı Temizle</Text>
-        </Pressable>
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 160 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+        {/* HEADER */}
+        <LinearGradient
+          colors={pal.headerGrad}
+          style={{ borderBottomWidth: 1, borderBottomColor: pal.border }}
         >
-          {/* 1. FOTOĞRAFLAR */}
-          <Section title="Fotoğraflar" hint={`${photos.length}/${MAX_PHOTOS} · En az 1 gerekli`}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
-              <View className="flex-row gap-2 px-1">
-                {photos.map((uri, idx) => {
-                  const isCover = idx === coverIndex;
-                  return (
-                    <View key={uri + idx} className="relative">
-                      <Pressable onPress={() => setCoverIndex(idx)}>
-                        <Image
-                          source={{ uri }}
-                          style={{ width: 96, height: 96, borderRadius: 12 }}
-                        />
-                        {isCover ? (
-                          <View
-                            style={{ position: 'absolute', inset: 0, borderRadius: 12, borderWidth: 2, borderColor: colors.primary }}
-                          />
-                        ) : null}
-                        <View
-                          style={{
-                            position: 'absolute',
-                            left: 4,
-                            bottom: 4,
-                            backgroundColor: isCover ? colors.primary : 'rgba(0,0,0,0.55)',
-                            paddingHorizontal: 6,
-                            paddingVertical: 2,
-                            borderRadius: 6,
-                          }}
-                        >
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>
-                            {isCover ? 'KAPAK' : 'Kapak yap'}
-                          </Text>
-                        </View>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleRemovePhoto(idx)}
-                        style={{
-                          position: 'absolute',
-                          top: -6,
-                          right: -6,
-                          width: 22,
-                          height: 22,
-                          borderRadius: 11,
-                          backgroundColor: colors.danger,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Ionicons name="close" size={14} color="#fff" />
-                      </Pressable>
-                    </View>
-                  );
-                })}
-                {photos.length < MAX_PHOTOS ? (
-                  <Pressable
-                    onPress={handleAddPhoto}
-                    style={{
-                      width: 96,
-                      height: 96,
-                      borderRadius: 12,
-                      borderWidth: 1.5,
-                      borderColor: colors.primary,
-                      borderStyle: 'dashed',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#EFF6FF',
-                    }}
-                  >
-                    <Ionicons name="camera" size={22} color={colors.primary} />
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary, marginTop: 4 }}>
-                      Ekle
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </ScrollView>
-            {photos.length === 0 ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 8 }}>
-                Fotoğraf olmadan ilan yayınlanamaz.
-              </Text>
-            ) : null}
-          </Section>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 52 }}>
+            <Pressable onPress={() => router.replace('/(tabs)')} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginLeft: -8 }}>
+              <Ionicons name="close" size={26} color={pal.textPrimary} />
+            </Pressable>
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: pal.textPrimary }}>
+              İlan Ver
+            </Text>
+            <View style={{ width: 40 }} />
+          </View>
 
-          {/* 2. ÜRÜN BİLGİSİ */}
-          <Section title="Ürün Bilgisi">
-            <Field label="Başlık" required>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Örn. Az kullanılmış iPhone 13"
-                placeholderTextColor={colors.textMuted}
-                maxLength={80}
-                style={inputStyle}
+          {/* Taslak Durumu */}
+          <View style={{ paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons
+                name={draftRestored ? 'checkmark-circle' : 'save-outline'}
+                size={13}
+                color={draftRestored ? '#10B981' : pal.textMuted}
               />
-            </Field>
-            <Field label="Açıklama">
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Ürünün durumu, detayları..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={4}
-                maxLength={500}
-                style={[inputStyle, { minHeight: 90, textAlignVertical: 'top', paddingTop: 12 }]}
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: draftRestored ? '#10B981' : pal.textMuted }}>
+                {draftRestored ? 'Taslak geri yüklendi' : 'Otomatik kaydediliyor'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => void clearDraft()}
+              style={{ height: 26, paddingHorizontal: 10, borderRadius: 999, backgroundColor: pal.cardAlt, borderWidth: 1, borderColor: pal.border, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: pal.textSecondary }}>Temizle</Text>
+            </Pressable>
+          </View>
+        </LinearGradient>
+
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 160 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+
+            {/* 1. FOTOĞRAFLAR */}
+            <Section title="Fotoğraflar" hint={`${photos.length}/${MAX_PHOTOS}`} pal={pal}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+                <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
+                  {photos.map((uri, idx) => {
+                    const isCover = idx === coverIndex;
+                    return (
+                      <View key={uri + idx} style={{ position: 'relative' }}>
+                        <Pressable onPress={() => setCoverIndex(idx)}>
+                          <Image source={{ uri }} style={{ width: 96, height: 96, borderRadius: 12 }} />
+                          {isCover ? (
+                            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 12, borderWidth: 2.5, borderColor: colors.primary }} />
+                          ) : null}
+                          <View style={{
+                            position: 'absolute', left: 5, bottom: 5,
+                            backgroundColor: isCover ? colors.primary : 'rgba(0,0,0,0.55)',
+                            paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6,
+                          }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff', letterSpacing: 0.3 }}>
+                              {isCover ? 'KAPAK' : 'Kapak Yap'}
+                            </Text>
+                          </View>
+                          <View style={{ position: 'absolute', top: 4, left: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: isCover ? colors.primary : 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{idx + 1}</Text>
+                          </View>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleRemovePhoto(idx)}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="close" size={13} color="#fff" />
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                  {photos.length < MAX_PHOTOS ? (
+                    <Pressable
+                      onPress={handleAddPhoto}
+                      style={{ width: 96, height: 96, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: pal.primaryTint }}
+                    >
+                      <Ionicons name="camera" size={24} color={colors.primary} />
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary, marginTop: 5 }}>Ekle</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </ScrollView>
+              {photos.length === 0 ? (
+                <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: pal.warnTint, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: isDarkMode ? '#78350F40' : '#FDE68A' }}>
+                  <Ionicons name="information-circle-outline" size={16} color={isDarkMode ? '#FBBF24' : '#D97706'} />
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: isDarkMode ? '#FBBF24' : '#92400E', flex: 1, lineHeight: 16 }}>
+                    En az 1 fotoğraf gerekli. İlk eklediğin fotoğraf otomatik kapak olur. İstediğinde değiştirebilirsin.
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textMuted, marginTop: 8 }}>
+                  Kapak fotoğrafını seçmek için üstüne dokun.
+                </Text>
+              )}
+            </Section>
+
+            {/* 2. ÜRÜN BİLGİSİ */}
+            <Section title="Ürün Bilgisi" pal={pal}>
+              <Field label="Başlık" required pal={pal}>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Örn. Az kullanılmış iPhone 13"
+                  placeholderTextColor={pal.textMuted}
+                  maxLength={80}
+                  style={inputStyle}
+                />
+                <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: pal.textMuted, marginTop: 4, textAlign: 'right' }}>
+                  {title.length}/80
+                </Text>
+              </Field>
+              <Field label="Açıklama" pal={pal}>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Ürünün durumu, detayları, özellikleri..."
+                  placeholderTextColor={pal.textMuted}
+                  multiline
+                  numberOfLines={4}
+                  maxLength={500}
+                  style={[inputStyle, { minHeight: 90, textAlignVertical: 'top', paddingTop: 12 }]}
+                />
+                <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: descriptionValid ? '#10B981' : pal.textMuted, marginTop: 4, textAlign: 'right' }}>
+                  {description.trim().length}/500{description.trim().length < 20 && description.trim().length > 0 ? ` (en az 20)` : ''}
+                </Text>
+              </Field>
+              <Field label="Durum" required pal={pal}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {CONDITIONS.map((c) => {
+                    const active = condition === c;
+                    return (
+                      <Pressable
+                        key={c}
+                        onPress={() => setCondition(c)}
+                        style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: active ? colors.primary : pal.border, backgroundColor: active ? pal.primaryTint : pal.inputBg }}
+                      >
+                        <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 12, color: active ? colors.primary : pal.textPrimary }}>
+                          {c}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Field>
+            </Section>
+
+            {/* 3. KATEGORİ */}
+            <Section title="Kategori" pal={pal}>
+              <CategoryPicker
+                selectedCategoryId={categoryId}
+                selectedSubCategoryId={subCategoryId}
+                customSubCategory={customSubCategory}
+                onChangeCategory={(nextCategoryId) => {
+                  setCategoryId(nextCategoryId);
+                  setSubCategoryId('all');
+                  setCustomSubCategory('');
+                }}
+                onChangeSubCategory={(nextSubCategoryId) => {
+                  setSubCategoryId(nextSubCategoryId);
+                  if (nextSubCategoryId !== OTHER_SUBCATEGORY_ID) setCustomSubCategory('');
+                }}
+                onChangeCustomSubCategory={setCustomSubCategory}
               />
-            </Field>
-            <Field label="Durum" required>
-              <View className="flex-row flex-wrap gap-2">
-                {CONDITIONS.map((c) => {
-                  const active = condition === c;
+            </Section>
+
+            {/* 4. VARYANTLAR */}
+            <Section title="Varyantlar" hint="Opsiyonel" pal={pal}>
+              <Field label="Beden Seçenekleri" pal={pal}>
+                <TextInput
+                  value={sizeVariants}
+                  onChangeText={setSizeVariants}
+                  placeholder="Örn: S, M, L, XL"
+                  placeholderTextColor={pal.textMuted}
+                  style={inputStyle}
+                />
+              </Field>
+              <Field label="Renk Seçenekleri" pal={pal}>
+                <TextInput
+                  value={colorVariants}
+                  onChangeText={setColorVariants}
+                  placeholder="Örn: Siyah, Beyaz, Kırmızı"
+                  placeholderTextColor={pal.textMuted}
+                  style={inputStyle}
+                />
+              </Field>
+            </Section>
+
+            {/* 5. FİYAT */}
+            <Section title="Fiyat" pal={pal}>
+              <Field label="Fiyat (₺)" required pal={pal}>
+                <View style={{ position: 'relative' }}>
+                  <View style={{ position: 'absolute', left: 12, top: 0, bottom: 0, justifyContent: 'center', zIndex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: priceValid ? colors.primary : pal.textMuted }}>₺</Text>
+                  </View>
+                  <TextInput
+                    value={price}
+                    onChangeText={setPrice}
+                    placeholder="0,00"
+                    placeholderTextColor={pal.textMuted}
+                    keyboardType="numeric"
+                    style={[inputStyle, { paddingLeft: 28 }]}
+                  />
+                </View>
+                {priceValid ? (
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#10B981', marginTop: 4 }}>
+                    {`₺${priceNumber.toLocaleString('tr-TR')} olarak ayarlandı`}
+                  </Text>
+                ) : null}
+              </Field>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: pal.textPrimary }}>Pazarlık yapılabilir</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textMuted, marginTop: 2 }}>
+                    Alıcılar fiyat üzerinde konuşabilir
+                  </Text>
+                </View>
+                <Switch
+                  value={bargaining}
+                  onValueChange={setBargaining}
+                  trackColor={{ false: pal.border, true: colors.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
+            </Section>
+
+            {/* 6. TESLİMAT */}
+            <Section title="Teslimat" pal={pal}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {DELIVERY_OPTIONS.map((d) => {
+                  const active = delivery.includes(d);
+                  const iconName = d === 'Kargo' ? 'cube-outline' : d === 'Elden' ? 'walk-outline' : 'chatbubble-ellipses-outline';
                   return (
                     <Pressable
-                      key={c}
-                      onPress={() => setCondition(c)}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: active ? colors.primary : '#E2E8F0',
-                        backgroundColor: active ? '#EFF6FF' : '#fff',
-                      }}
+                      key={d}
+                      onPress={() => toggleDelivery(d)}
+                      style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: active ? colors.primary : pal.border, backgroundColor: active ? pal.primaryTint : pal.inputBg, flexDirection: 'row', alignItems: 'center', gap: 6 }}
                     >
-                      <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 12, color: active ? colors.primary : colors.textPrimary }}>
-                        {c}
+                      <Ionicons name={iconName} size={14} color={active ? colors.primary : pal.textSecondary} />
+                      <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 12, color: active ? colors.primary : pal.textPrimary }}>
+                        {d}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
-            </Field>
-          </Section>
 
-          {/* 3. KATEGORİ */}
-          <Section title="Kategori">
-            <CategoryPicker
-              selectedCategoryId={categoryId}
-              selectedSubCategoryId={subCategoryId}
-              customSubCategory={customSubCategory}
-              onChangeCategory={(nextCategoryId) => {
-                setCategoryId(nextCategoryId);
-                setSubCategoryId('all');
-                setCustomSubCategory('');
-              }}
-              onChangeSubCategory={(nextSubCategoryId) => {
-                setSubCategoryId(nextSubCategoryId);
-                if (nextSubCategoryId !== OTHER_SUBCATEGORY_ID) {
-                  setCustomSubCategory('');
-                }
-              }}
-              onChangeCustomSubCategory={setCustomSubCategory}
-            />
-          </Section>
-
-          <Section title="Varyantlar" hint="Opsiyonel: or. S,M,L ve Siyah,Beyaz">
-            <Field label="Beden Seçenekleri">
-              <TextInput
-                value={sizeVariants}
-                onChangeText={setSizeVariants}
-                placeholder="Orn: S, M, L, XL"
-                placeholderTextColor={colors.textMuted}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Renk Seçenekleri">
-              <TextInput
-                value={colorVariants}
-                onChangeText={setColorVariants}
-                placeholder="Orn: Siyah, Beyaz"
-                placeholderTextColor={colors.textMuted}
-                style={inputStyle}
-              />
-            </Field>
-          </Section>
-
-          {/* 4. FİYAT */}
-          <Section title="Fiyat">
-            <Field label="Fiyat (₺)" required>
-              <TextInput
-                value={price}
-                onChangeText={setPrice}
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-                style={inputStyle}
-              />
-            </Field>
-            <View className="flex-row items-center justify-between mt-2">
-              <View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
-                  Pazarlık yapılabilir
-                </Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                  Alıcılar fiyat üzerinde konuşabilir
-                </Text>
-              </View>
-              <Switch
-                value={bargaining}
-                onValueChange={setBargaining}
-                trackColor={{ false: '#E2E8F0', true: colors.primary }}
-                thumbColor="#fff"
-              />
-            </View>
-          </Section>
-
-          {/* 5. TESLİMAT */}
-          <Section title="Teslimat">
-            <View className="flex-row flex-wrap gap-2">
-              {DELIVERY_OPTIONS.map((d) => {
-                const active = delivery.includes(d);
-                return (
-                  <Pressable
-                    key={d}
-                    onPress={() => toggleDelivery(d)}
-                    style={{
-                      paddingHorizontal: 14,
-                      paddingVertical: 8,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: active ? colors.primary : '#E2E8F0',
-                      backgroundColor: active ? '#EFF6FF' : '#fff',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <Ionicons
-                      name={d === 'Kargo' ? 'cube-outline' : d === 'Elden' ? 'walk-outline' : 'chatbubble-ellipses-outline'}
-                      size={14}
-                      color={active ? colors.primary : colors.textSecondary}
-                    />
-                    <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 12, color: active ? colors.primary : colors.textPrimary }}>
-                      {d}
+              {delivery.includes('Kargo') ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 12, backgroundColor: pal.cardAlt, borderWidth: 1, borderColor: pal.border, marginBottom: 12 }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: pal.textPrimary }}>Ücretsiz Kargo etiketi</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textMuted, marginTop: 2 }}>
+                      Sadece ilanda etiket olarak görünür.
                     </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                  </View>
+                  <Switch
+                    value={freeShipping}
+                    onValueChange={setFreeShipping}
+                    trackColor={{ false: pal.border, true: colors.primary }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              ) : null}
 
-            {delivery.includes('Kargo') ? (
-              <View className="flex-row items-center justify-between mt-3 p-3 rounded-xl" style={{ backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' }}>
-                <View className="pr-3 flex-1">
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
-                    Ücretsiz Kargo etiketi
+              <Field label="Şehir" required pal={pal}>
+                <Pressable onPress={() => setCityModal(true)} style={selectorStyle}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: city ? pal.textPrimary : pal.textMuted }}>
+                    {city || 'Şehir seç'}
                   </Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                    Sadece ilanda etiket olarak görünür. Takip/operasyon süreci platformda yürütülmez.
+                  <Ionicons name="chevron-forward" size={18} color={pal.textMuted} />
+                </Pressable>
+              </Field>
+
+              <Field label="İlçe" required pal={pal}>
+                <Pressable
+                  onPress={() => {
+                    if (!city) { Alert.alert('Önce şehir seç', 'İlçe listesini açmak için önce şehir seçmelisin.'); return; }
+                    setDistrictModal(true);
+                  }}
+                  style={[selectorStyle, !city && { opacity: 0.55 }]}
+                >
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: district ? pal.textPrimary : pal.textMuted }}>
+                    {district || (city ? 'İlçe seç' : 'Önce şehir seç')}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={pal.textMuted} />
+                </Pressable>
+              </Field>
+
+              <Field label="Mahalle / Semt" pal={pal}>
+                <TextInput
+                  value={neighborhood}
+                  onChangeText={setNeighborhood}
+                  placeholder="Örn: Atatürk Mahallesi"
+                  placeholderTextColor={pal.textMuted}
+                  style={inputStyle}
+                />
+              </Field>
+            </Section>
+
+            {/* 7. SATICI */}
+            <Section title="Satıcı" pal={pal}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: pal.cardAlt, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: pal.border }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: pal.primaryTint, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {sellerAvatar ? (
+                    <Image source={{ uri: sellerAvatar }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                  ) : (
+                    <Ionicons name="person" size={22} color={colors.primary} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: pal.textPrimary }}>{sellerName}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textMuted, marginTop: 2 }}>
+                    Hesap bilgisi otomatik eklenir
                   </Text>
                 </View>
-                <Switch
-                  value={freeShipping}
-                  onValueChange={setFreeShipping}
-                  trackColor={{ false: '#E2E8F0', true: colors.primary }}
-                  thumbColor="#fff"
-                />
+                <Ionicons name="lock-closed" size={14} color={pal.textMuted} />
               </View>
-            ) : null}
+            </Section>
 
-            <Field label="Şehir" required>
-              <Pressable onPress={() => setCityModal(true)} style={selectorStyle}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: city ? colors.textPrimary : colors.textMuted }}>
-                  {city || 'Şehir seç'}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-            </Field>
+            {/* 8. CANLI ÖNİZLEME */}
+            <Section title="Canlı Önizleme" hint={`%${completionPercent} hazır`} pal={pal}>
 
-            <Field label="İlçe" required>
-              <Pressable
-                onPress={() => {
-                  if (!city) {
-                    Alert.alert('Önce şehir seç', 'İlçe listesini açmak için önce şehir seçmelisin.');
-                    return;
-                  }
-                  setDistrictModal(true);
-                }}
-                style={[selectorStyle, !city && { opacity: 0.65 }]}
-              >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: district ? colors.textPrimary : colors.textMuted }}>
-                  {district || (city ? 'İlçe seç' : 'Önce şehir seç')}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-            </Field>
-
-            <Field label="Mahalle / Semt">
-              <TextInput
-                value={neighborhood}
-                onChangeText={setNeighborhood}
-                placeholder="Örn: Atatürk Mahallesi"
-                placeholderTextColor={colors.textMuted}
-                style={inputStyle}
-              />
-            </Field>
-          </Section>
-
-          {/* 6. SATICI */}
-          <Section title="Satıcı">
-            <View className="flex-row items-center gap-3 bg-[#F8FAFC] rounded-xl p-3 border border-[#E2E8F0]">
-              <View className="w-10 h-10 rounded-full bg-[#EFF6FF] items-center justify-center">
-                {sellerAvatar ? (
-                  <Image source={{ uri: sellerAvatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                ) : (
-                  <Ionicons name="person" size={20} color={colors.primary} />
-                )}
-              </View>
-              <View className="flex-1">
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
-                  {sellerName}
-                </Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                  Hesap bilgisi otomatik eklenir
-                </Text>
-              </View>
-              <Ionicons name="lock-closed" size={14} color={colors.textMuted} />
-            </View>
-          </Section>
-
-          {/* 7. ÖNİZLEME */}
-          <Section title="Canlı Önizleme" hint={`%${completionPercent} tamamlandı`}>
-
-            {/* ── Ana İlan Kartı ── */}
-            <View style={{ borderRadius: 18, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
-
-              {/* Fotoğraf Alanı */}
-              <View style={{ width: '100%', aspectRatio: 4 / 3, backgroundColor: '#F1F5F9', position: 'relative' }}>
-                {coverUri ? (
-                  <Image source={{ uri: coverUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                ) : (
-                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                    <View style={{ width: 64, height: 64, borderRadius: 999, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="camera-outline" size={28} color="#94A3B8" />
+              {/* Ana İlan Kartı */}
+              <View style={{ borderRadius: 18, overflow: 'hidden', backgroundColor: pal.card, borderWidth: 1, borderColor: pal.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDarkMode ? 0.3 : 0.06, shadowRadius: 8, elevation: 3 }}>
+                <View style={{ width: '100%', aspectRatio: 4 / 3, backgroundColor: pal.cardAlt, position: 'relative' }}>
+                  {coverUri ? (
+                    <Image source={{ uri: coverUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                      <View style={{ width: 64, height: 64, borderRadius: 999, backgroundColor: pal.border, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="camera-outline" size={28} color={pal.textMuted} />
+                      </View>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: pal.textMuted }}>Fotoğraf eklenmedi</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: pal.textMuted }}>Yukarıdan fotoğraf ekleyebilirsin</Text>
                     </View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#94A3B8' }}>Fotoğraf eklenmedi</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: '#CBD5E1' }}>Yukarıdan fotoğraf ekleyebilirsin</Text>
-                  </View>
-                )}
+                  )}
 
-                {/* Durum rozeti */}
-                <View style={{ position: 'absolute', top: 10, left: 10 }}>
-                  <View style={{
-                    backgroundColor: canPublish ? '#059669' : '#475569',
-                    borderRadius: 999,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}>
+                  {/* Durum rozeti */}
+                  <View style={{ position: 'absolute', top: 10, left: 10, backgroundColor: canPublish ? '#059669' : '#475569', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: canPublish ? '#A7F3D0' : '#94A3B8' }} />
                     <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff', letterSpacing: 0.5 }}>
                       {canPublish ? 'YAYINA HAZIR' : 'TASLAK'}
                     </Text>
                   </View>
-                </View>
 
-                {/* Fotoğraf sayısı */}
-                {photos.length > 0 && (
-                  <View style={{ position: 'absolute', top: 10, right: 10 }}>
-                    <View style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  {photos.length > 0 ? (
+                    <View style={{ position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Ionicons name="images-outline" size={11} color="#fff" />
                       <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{photos.length}</Text>
                     </View>
-                  </View>
-                )}
+                  ) : null}
 
-                {/* Fotoğraf dots */}
-                {photos.length > 1 && (
-                  <View style={{ position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
-                    {photos.slice(0, 6).map((_, i) => (
-                      <View
-                        key={i}
-                        style={{
-                          width: i === coverIndex ? 18 : 6,
-                          height: 6,
-                          borderRadius: 999,
-                          backgroundColor: i === coverIndex ? '#fff' : 'rgba(255,255,255,0.45)',
-                        }}
-                      />
+                  {photos.length > 1 ? (
+                    <View style={{ position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
+                      {photos.slice(0, 6).map((_, i) => (
+                        <View key={i} style={{ width: i === coverIndex ? 18 : 6, height: 6, borderRadius: 999, backgroundColor: i === coverIndex ? '#fff' : 'rgba(255,255,255,0.45)' }} />
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+
+                {photos.length > 1 ? (
+                  <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingTop: 10 }}>
+                    {photos.slice(0, 5).map((uri, i) => (
+                      <View key={i} style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', borderWidth: i === coverIndex ? 2 : 1, borderColor: i === coverIndex ? colors.primary : pal.border }}>
+                        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      </View>
                     ))}
                   </View>
-                )}
-              </View>
+                ) : null}
 
-              {/* Thumbnail şeridi */}
-              {photos.length > 1 && (
-                <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingTop: 10 }}>
-                  {photos.slice(0, 5).map((uri, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 8,
-                        overflow: 'hidden',
-                        borderWidth: i === coverIndex ? 2 : 1,
-                        borderColor: i === coverIndex ? colors.primary : '#E2E8F0',
-                      }}
-                    >
-                      <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                    </View>
-                  ))}
-                  {photos.length > 5 && (
-                    <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#94A3B8' }}>+{photos.length - 5}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* İlan Bilgileri */}
-              <View style={{ padding: 14, paddingTop: photos.length > 1 ? 10 : 14 }}>
-
-                {/* Fiyat + Durum etiketleri */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                  <View>
-                    <Text style={{ fontFamily: fonts.headingBold, fontSize: 24, color: colors.primary, lineHeight: 28 }}>
-                      {priceValid ? `₺${priceNumber.toLocaleString('tr-TR')}` : '₺—'}
-                    </Text>
-                    {freeShipping && (
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#059669', marginTop: 1 }}>Ücretsiz kargo</Text>
-                    )}
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '45%' }}>
-                    {bargaining && (
-                      <View style={{ backgroundColor: '#ECFDF5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#A7F3D0' }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#047857' }}>Pazarlık</Text>
-                      </View>
-                    )}
-                    <View style={{ backgroundColor: '#F1F5F9', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: '#475569' }}>{condition}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Başlık */}
-                <Text
-                  numberOfLines={2}
-                  style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, lineHeight: 22, marginBottom: 8 }}
-                >
-                  {title.trim() || 'İlan başlığın burada görünür'}
-                </Text>
-
-                {/* Konum + Teslimat */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textMuted }}>
-                    {locationLabel || 'Konum belirlenmedi'}
-                  </Text>
-                  {delivery.length > 0 && (
-                    <>
-                      <Text style={{ color: '#CBD5E1', fontSize: 14, lineHeight: 14 }}>·</Text>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
-                        {delivery.join(' / ')}
+                <View style={{ padding: 14, paddingTop: photos.length > 1 ? 10 : 14 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <View>
+                      <Text style={{ fontFamily: fonts.headingBold, fontSize: 24, color: colors.primary, lineHeight: 28 }}>
+                        {priceValid ? `₺${priceNumber.toLocaleString('tr-TR')}` : '₺—'}
                       </Text>
-                    </>
-                  )}
-                </View>
-
-                {/* Kategori etiketleri */}
-                {(selectedCategory || selectedSubCategoryName) && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                    {selectedCategory && (
-                      <View style={previewChipStyle}>
-                        <Text style={previewChipTextStyle}>{selectedCategory.name}</Text>
+                      {freeShipping ? (
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#059669', marginTop: 1 }}>Ücretsiz kargo</Text>
+                      ) : null}
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '45%' }}>
+                      {bargaining ? (
+                        <View style={{ backgroundColor: pal.successTint, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: pal.successBorder }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: pal.successText }}>Pazarlık</Text>
+                        </View>
+                      ) : null}
+                      <View style={{ backgroundColor: pal.cardAlt, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: pal.border }}>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: pal.textSecondary }}>{condition}</Text>
                       </View>
-                    )}
-                    {selectedSubCategoryName ? (
-                      <View style={previewChipStyle}>
-                        <Text style={previewChipTextStyle}>{selectedSubCategoryName}</Text>
+                    </View>
+                  </View>
+
+                  <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15, color: pal.textPrimary, lineHeight: 22, marginBottom: 8 }}>
+                    {title.trim() || 'İlan başlığın burada görünür'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <Ionicons name="location-outline" size={13} color={pal.textMuted} />
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: pal.textMuted }}>
+                      {locationLabel || 'Konum belirlenmedi'}
+                    </Text>
+                    {delivery.length > 0 ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ color: pal.border, fontSize: 14 }}>{'·'}</Text>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary }}>
+                          {delivery.join(' / ')}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
-                )}
 
-                {/* Satıcı Bilgisi */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 11, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                  {sellerAvatar ? (
-                    <Image source={{ uri: sellerAvatar }} style={{ width: 30, height: 30, borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0' }} />
-                  ) : (
-                    <View style={{ width: 30, height: 30, borderRadius: 999, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="person-outline" size={15} color="#94A3B8" />
+                  {(selectedCategory || selectedSubCategoryName) ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      {selectedCategory ? (
+                        <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: pal.primaryBorder, backgroundColor: pal.primaryTint }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary }}>{selectedCategory.name}</Text>
+                        </View>
+                      ) : null}
+                      {selectedSubCategoryName ? (
+                        <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: pal.primaryBorder, backgroundColor: pal.primaryTint }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.primary }}>{selectedSubCategoryName}</Text>
+                        </View>
+                      ) : null}
                     </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }} numberOfLines={1}>{sellerName}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textMuted }}>Satıcı</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 5 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: '#FFF1F2', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="heart-outline" size={15} color="#FDA4AF" />
-                    </View>
-                    <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: '#F0F9FF', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="chatbubble-outline" size={14} color="#7DD3FC" />
-                    </View>
-                    <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="share-social-outline" size={14} color="#86EFAC" />
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
+                  ) : null}
 
-            {/* ── Açıklama Önizlemesi ── */}
-            <View style={{ marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', overflow: 'hidden' }}>
-              <View style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderBottomWidth: 1,
-                borderBottomColor: '#E2E8F0',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: '#fff',
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Ionicons name="document-text-outline" size={12} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary }}>Açıklama</Text>
-                </View>
-                <Text style={{
-                  fontFamily: fonts.medium,
-                  fontSize: 10,
-                  color: description.trim().length >= 20 ? '#059669' : description.trim().length > 0 ? '#D97706' : colors.textMuted,
-                }}>
-                  {description.trim().length > 0
-                    ? `${description.trim().length} karakter${description.trim().length < 20 ? ' (min. 20)' : ''}`
-                    : 'Henüz eklenmedi'}
-                </Text>
-              </View>
-              <View style={{ padding: 12 }}>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: description.trim() ? colors.textPrimary : '#94A3B8', lineHeight: 20 }} numberOfLines={4}>
-                  {description.trim() || 'Açıklama eklediğinde burada anlık görünecek…'}
-                </Text>
-              </View>
-            </View>
-
-            {/* ── Adım Durumu ── */}
-            <View style={{ marginTop: 12 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary }}>Adım Durumu</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: completionPercent === 100 ? '#059669' : colors.primary }}>
-                  {completedCount}/{completionItems.length}
-                </Text>
-              </View>
-              <View style={{ gap: 6 }}>
-                {[0, 3, 6].map((startIdx) => (
-                  <View key={startIdx} style={{ flexDirection: 'row', gap: 6 }}>
-                    {completionItems.slice(startIdx, startIdx + 3).map((item) => (
-                      <View
-                        key={item.label}
-                        style={{
-                          flex: 1,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          paddingHorizontal: 8,
-                          paddingVertical: 7,
-                          borderRadius: 9,
-                          backgroundColor: item.done ? '#ECFDF5' : '#F8FAFC',
-                          borderWidth: 1,
-                          borderColor: item.done ? '#A7F3D0' : '#E2E8F0',
-                          gap: 5,
-                        }}
-                      >
-                        <Ionicons
-                          name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
-                          size={13}
-                          color={item.done ? '#059669' : '#CBD5E1'}
-                        />
-                        <Text
-                          style={{
-                            fontFamily: item.done ? fonts.bold : fonts.regular,
-                            fontSize: 10,
-                            color: item.done ? '#047857' : '#94A3B8',
-                            flex: 1,
-                          }}
-                          numberOfLines={1}
-                        >
-                          {item.label}
-                        </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 11, borderTopWidth: 1, borderTopColor: pal.borderFaint }}>
+                    {sellerAvatar ? (
+                      <Image source={{ uri: sellerAvatar }} style={{ width: 30, height: 30, borderRadius: 999, borderWidth: 1, borderColor: pal.border }} />
+                    ) : (
+                      <View style={{ width: 30, height: 30, borderRadius: 999, backgroundColor: pal.border, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person-outline" size={15} color={pal.textMuted} />
                       </View>
-                    ))}
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: pal.textPrimary }} numberOfLines={1}>{sellerName}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: pal.textMuted }}>Satıcı</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 5 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: pal.heartTint, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="heart-outline" size={15} color={pal.heartColor} />
+                      </View>
+                      <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: pal.chatTint, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="chatbubble-outline" size={14} color={pal.chatColor} />
+                      </View>
+                      <View style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: pal.shareTint, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="share-social-outline" size={14} color={pal.shareColor} />
+                      </View>
+                    </View>
                   </View>
-                ))}
+                </View>
               </View>
-            </View>
 
-          </Section>
-        </ScrollView>
+              {/* Açıklama Önizlemesi */}
+              <View style={{ marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: pal.border, backgroundColor: pal.card, overflow: 'hidden' }}>
+                <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: pal.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: pal.cardAlt }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Ionicons name="document-text-outline" size={12} color={pal.textSecondary} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: pal.textSecondary }}>Açıklama</Text>
+                  </View>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: description.trim().length >= 20 ? '#059669' : description.trim().length > 0 ? '#D97706' : pal.textMuted }}>
+                    {description.trim().length > 0
+                      ? `${description.trim().length} karakter${description.trim().length < 20 ? ' (min. 20)' : ''}`
+                      : 'Henüz eklenmedi'}
+                  </Text>
+                </View>
+                <View style={{ padding: 12 }}>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: description.trim() ? pal.textPrimary : pal.textMuted, lineHeight: 20 }} numberOfLines={4}>
+                    {description.trim() || 'Açıklama eklediğinde burada anlık görünecek…'}
+                  </Text>
+                </View>
+              </View>
 
-        {/* ALT SABİT BUTON */}
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: '#fff',
-            borderTopWidth: 1,
-            borderTopColor: '#E2E8F0',
-            paddingHorizontal: 16,
-            paddingTop: 10,
-            paddingBottom: Math.max(insets.bottom, 14),
-          }}
-        >
-          <View style={{ marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary }}>
-                İlan Hazırlık Durumu
-              </Text>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.primary }}>
-                {completedCount}/{completionItems.length} · %{completionPercent}
-              </Text>
-            </View>
-            <View style={{ height: 6, borderRadius: 999, backgroundColor: '#E2E8F0', overflow: 'hidden' }}>
-              <View
-                style={{
-                  height: 6,
-                  width: `${completionPercent}%`,
-                  borderRadius: 999,
-                  backgroundColor: completionPercent === 100 ? '#059669' : colors.primary,
-                }}
-              />
-            </View>
-            {missing.length > 0 ? (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textMuted, marginTop: 6 }}>
-                Eksik: {missing.join(', ')}
-              </Text>
-            ) : (
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#047857', marginTop: 6 }}>
-                Hazır. Tüm alanlar tamamlandı.
-              </Text>
-            )}
-          </View>
-          <Pressable
-            onPress={() => {
-              if (canPublish) {
-                handlePublish();
-                return;
-              }
+              {/* Adım Durumu */}
+              <View style={{ marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: pal.textSecondary }}>Adım Durumu</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: completionPercent === 100 ? '#059669' : colors.primary }}>
+                    {completedCount}/{completionItems.length}
+                  </Text>
+                </View>
+                <View style={{ gap: 6 }}>
+                  {[0, 3, 6].map((startIdx) => (
+                    <View key={startIdx} style={{ flexDirection: 'row', gap: 6 }}>
+                      {completionItems.slice(startIdx, startIdx + 3).map((item) => (
+                        <View
+                          key={item.label}
+                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 7, borderRadius: 9, backgroundColor: item.done ? pal.successTint : pal.cardAlt, borderWidth: 1, borderColor: item.done ? pal.successBorder : pal.border, gap: 5 }}
+                        >
+                          <Ionicons name={item.done ? 'checkmark-circle' : 'ellipse-outline'} size={13} color={item.done ? pal.successText : pal.border} />
+                          <Text style={{ fontFamily: item.done ? fonts.bold : fonts.regular, fontSize: 10, color: item.done ? pal.successText : pal.textMuted, flex: 1 }} numberOfLines={1}>
+                            {item.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </Section>
 
-              Alert.alert('Eksik alanlar', `Ilan yayini icin su alanlari tamamla: ${missing.join(', ')}`);
-            }}
-            style={{
-              height: 52,
-              borderRadius: 14,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: canPublish ? colors.primary : '#CBD5E1',
-            }}
+          </ScrollView>
+
+          {/* ALT SABİT FOOTER */}
+          <View
+            style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: pal.card, borderTopWidth: 1, borderTopColor: pal.border, paddingHorizontal: 16, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 14) }}
           >
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
-              {submitting ? 'Yayınlanıyor...' : 'İlanı Yayınla'}
-            </Text>
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
-
-      {/* ŞEHİR MODAL */}
-      <PickerModal
-        visible={cityModal}
-        onClose={() => setCityModal(false)}
-        title="Şehir"
-      >
-        <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
-          <TextInput
-            value={citySearch}
-            onChangeText={setCitySearch}
-            placeholder="Şehir ara"
-            placeholderTextColor={colors.textMuted}
-            style={inputStyle}
-          />
-        </View>
-        {filteredCities.map((c) => {
-          const active = c === city;
-          return (
+            <View style={{ marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: pal.textSecondary }}>İlan Hazırlık Durumu</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: completionPercent === 100 ? '#059669' : colors.primary }}>
+                  {completedCount}/{completionItems.length} {'\u00B7'} %{completionPercent}
+                </Text>
+              </View>
+              <View style={{ height: 6, borderRadius: 999, backgroundColor: pal.border, overflow: 'hidden' }}>
+                <View style={{ height: 6, width: `${completionPercent}%`, borderRadius: 999, backgroundColor: completionPercent === 100 ? '#059669' : colors.primary }} />
+              </View>
+              {missing.length > 0 ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: pal.textMuted, marginTop: 5 }} numberOfLines={1}>
+                  Eksik: {missing.join(', ')}
+                </Text>
+              ) : (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#059669', marginTop: 5 }}>
+                  Hazır. Tüm alanlar tamamlandı.
+                </Text>
+              )}
+            </View>
             <Pressable
-              key={c}
               onPress={() => {
-                setCity(c);
-                setDistrict('');
-                setNeighborhood('');
-                setDistrictSearch('');
-                setCityModal(false);
+                if (canPublish) { handlePublish(); return; }
+                Alert.alert('Eksik alanlar', `İlan yayını için şu alanları tamamla: ${missing.join(', ')}`);
               }}
               style={{
-                paddingHorizontal: 16,
-                paddingVertical: 13,
-                flexDirection: 'row',
+                height: 54,
+                borderRadius: 14,
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottomWidth: 1,
-                borderBottomColor: '#F1F5F9',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                backgroundColor: canPublish ? colors.primary : pal.border,
               }}
             >
-              <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 14, color: active ? colors.primary : colors.textPrimary }}>
-                {c}
-              </Text>
-              {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+              {canPublish ? (
+                <LinearGradient colors={['#2563EB', '#1E5FC6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {submitting ? (
+                  <Ionicons name="reload-outline" size={17} color="#fff" />
+                ) : (
+                  <Ionicons name={canPublish ? 'rocket-outline' : 'lock-closed-outline'} size={17} color={canPublish ? '#fff' : pal.textMuted} />
+                )}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: canPublish ? '#fff' : pal.textMuted }}>
+                  {submitting ? 'Yayınlanıyor...' : canPublish ? 'İlanı Yayınla' : `Eksik Alan (${missing.length})`}
+                </Text>
+              </View>
             </Pressable>
-          );
-        })}
-      </PickerModal>
-
-      <PickerModal
-        visible={districtModal}
-        onClose={() => setDistrictModal(false)}
-        title="İlçe"
-      >
-        <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
-          <TextInput
-            value={districtSearch}
-            onChangeText={setDistrictSearch}
-            placeholder="İlçe ara"
-            placeholderTextColor={colors.textMuted}
-            style={inputStyle}
-          />
-        </View>
-        {filteredDistricts.map((item) => {
-          const active = item === district;
-          return (
-            <Pressable
-              key={item}
-              onPress={() => {
-                setDistrict(item);
-                setDistrictModal(false);
-              }}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 13,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottomWidth: 1,
-                borderBottomColor: '#F1F5F9',
-              }}
-            >
-              <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 14, color: active ? colors.primary : colors.textPrimary }}>
-                {item}
-              </Text>
-              {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
-            </Pressable>
-          );
-        })}
-        {filteredDistricts.length === 0 ? (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 18 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textMuted }}>
-              Sonuc bulunamadi.
-            </Text>
           </View>
-        ) : null}
-      </PickerModal>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+
+        {/* ŞEHİR MODAL */}
+        <PickerModal visible={cityModal} onClose={() => setCityModal(false)} title="Şehir" pal={pal}>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: pal.border }}>
+            <TextInput
+              value={citySearch}
+              onChangeText={setCitySearch}
+              placeholder="Şehir ara..."
+              placeholderTextColor={pal.textMuted}
+              style={inputStyle}
+            />
+          </View>
+          {filteredCities.map((c) => {
+            const active = c === city;
+            return (
+              <Pressable
+                key={c}
+                onPress={() => { setCity(c); setDistrict(''); setNeighborhood(''); setDistrictSearch(''); setCityModal(false); }}
+                style={{ paddingHorizontal: 16, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: pal.borderFaint, backgroundColor: active ? pal.primaryTint : pal.card }}
+              >
+                <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 14, color: active ? colors.primary : pal.textPrimary }}>{c}</Text>
+                {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+              </Pressable>
+            );
+          })}
+        </PickerModal>
+
+        {/* İLÇE MODAL */}
+        <PickerModal visible={districtModal} onClose={() => setDistrictModal(false)} title="İlçe" pal={pal}>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: pal.border }}>
+            <TextInput
+              value={districtSearch}
+              onChangeText={setDistrictSearch}
+              placeholder="İlçe ara..."
+              placeholderTextColor={pal.textMuted}
+              style={inputStyle}
+            />
+          </View>
+          {filteredDistricts.map((item) => {
+            const active = item === district;
+            return (
+              <Pressable
+                key={item}
+                onPress={() => { setDistrict(item); setDistrictModal(false); }}
+                style={{ paddingHorizontal: 16, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: pal.borderFaint, backgroundColor: active ? pal.primaryTint : pal.card }}
+              >
+                <Text style={{ fontFamily: active ? fonts.bold : fonts.medium, fontSize: 14, color: active ? colors.primary : pal.textPrimary }}>{item}</Text>
+                {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+              </Pressable>
+            );
+          })}
+          {filteredDistricts.length === 0 ? (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 18 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: pal.textMuted }}>Sonuç bulunamadı.</Text>
+            </View>
+          ) : null}
+        </PickerModal>
+
+      </SafeAreaView>
     </>
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+type PaletteType = ReturnType<typeof buildPalette>;
+
+function Section({ title, hint, children, pal }: { title: string; hint?: string; children: ReactNode; pal: PaletteType }) {
   return (
-    <View className="mx-4 mt-3 bg-white rounded-2xl p-4 border border-[#33333315]">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{title}</Text>
+    <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: pal.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: pal.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: pal.textPrimary }}>{title}</Text>
         {hint ? (
-          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textMuted }}>{hint}</Text>
+          <View style={{ backgroundColor: pal.cardAlt, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: pal.border }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: pal.textSecondary }}>{hint}</Text>
+          </View>
         ) : null}
       </View>
       {children}
@@ -1441,53 +1216,35 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
+function Field({ label, required, children, pal }: { label: string; required?: boolean; children: ReactNode; pal: PaletteType }) {
   return (
-    <View className="mb-3">
-      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>
-        {label} {required ? <Text style={{ color: colors.danger }}>*</Text> : null}
-      </Text>
+    <View style={{ marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 6 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: pal.textSecondary }}>{label}</Text>
+        {required ? <Text style={{ color: colors.danger, fontSize: 12 }}>*</Text> : null}
+      </View>
       {children}
     </View>
   );
 }
 
 function PickerModal({
-  visible,
-  onClose,
-  title,
-  children,
+  visible, onClose, title, children, pal,
 }: {
   visible: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  pal: PaletteType;
 }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-        <View
-          style={{
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            maxHeight: '80%',
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 16,
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: '#F1F5F9',
-            }}
-          >
-            <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.textPrimary }}>{title}</Text>
-            <Pressable onPress={onClose} className="w-9 h-9 items-center justify-center -mr-2">
-              <Ionicons name="close" size={22} color={colors.textPrimary} />
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <View style={{ backgroundColor: pal.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '82%' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: pal.border }}>
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: pal.textPrimary }}>{title}</Text>
+            <Pressable onPress={onClose} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: pal.cardAlt, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="close" size={20} color={pal.textPrimary} />
             </Pressable>
           </View>
           <ScrollView>{children}</ScrollView>
@@ -1496,42 +1253,3 @@ function PickerModal({
     </Modal>
   );
 }
-
-const inputStyle = {
-  backgroundColor: '#F8FAFC',
-  borderWidth: 1,
-  borderColor: '#E2E8F0',
-  borderRadius: 10,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-  fontFamily: fonts.regular,
-  fontSize: 14,
-  color: colors.textPrimary,
-} as const;
-
-const selectorStyle = {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  backgroundColor: '#F8FAFC',
-  borderWidth: 1,
-  borderColor: '#E2E8F0',
-  borderRadius: 10,
-  paddingHorizontal: 12,
-  paddingVertical: 12,
-} as const;
-
-const previewChipStyle = {
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 999,
-  borderWidth: 1,
-  borderColor: '#DBEAFE',
-  backgroundColor: '#EFF6FF',
-} as const;
-
-const previewChipTextStyle = {
-  fontFamily: fonts.medium,
-  fontSize: 11,
-  color: colors.primary,
-} as const;
