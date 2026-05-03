@@ -38,6 +38,23 @@ type ExpoPushMessage = {
   data?: Record<string, string | number | boolean | null>;
 };
 
+function maskRecipient(value: string): string {
+  if (!value) return '';
+  if (value.startsWith('ExponentPushToken[') || value.startsWith('ExpoPushToken[')) {
+    return value.slice(0, 20) + '...redacted';
+  }
+  const atIndex = value.indexOf('@');
+  if (atIndex > 0) {
+    const local = value.slice(0, atIndex);
+    const domain = value.slice(atIndex);
+    return local.slice(0, 2) + '***' + domain;
+  }
+  if (value.startsWith('+') && value.length > 6) {
+    return value.slice(0, 4) + '***' + value.slice(-2);
+  }
+  return value.slice(0, 8) + '...redacted';
+}
+
 function chunkArray<T>(list: T[], chunkSize: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < list.length; i += chunkSize) {
@@ -213,6 +230,20 @@ serve(async (req: Request) => {
       });
     }
 
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: callerProfile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || callerProfile?.role !== 'admin') {
+      return new Response(JSON.stringify({ ok: false, message: 'Forbidden.' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const payload = (await req.json()) as PushBody;
     const userIds = [...new Set((payload.userIds ?? []).filter(Boolean))].slice(0, 200);
     const title = payload.title?.trim() ?? '';
@@ -283,7 +314,7 @@ serve(async (req: Request) => {
         request_id: requestId,
         user_id: row?.user_id,
         channel: 'push',
-        recipient: token,
+        recipient: maskRecipient(token),
         status: 'failed',
         provider: 'expo',
         error_message: 'DeviceNotRegistered',
@@ -298,7 +329,7 @@ serve(async (req: Request) => {
           request_id: requestId,
           user_id: row?.user_id,
           channel: 'push',
-          recipient: token,
+          recipient: maskRecipient(token),
           status: 'sent',
           provider: 'expo',
         });
@@ -310,7 +341,7 @@ serve(async (req: Request) => {
         request_id: requestId,
         user_id: row?.user_id,
         channel: 'push',
-        recipient: token,
+        recipient: maskRecipient(token),
         status: 'failed',
         provider: 'fcm',
         error_message: 'DeviceNotRegistered',
@@ -325,7 +356,7 @@ serve(async (req: Request) => {
           request_id: requestId,
           user_id: row?.user_id,
           channel: 'push',
-          recipient: token,
+          recipient: maskRecipient(token),
           status: 'sent',
           provider: 'fcm',
         });

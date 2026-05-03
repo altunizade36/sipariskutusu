@@ -42,6 +42,23 @@ type DeliveryLog = {
   error_message?: string;
 };
 
+function maskRecipient(value: string): string {
+  if (!value) return '';
+  if (value.startsWith('ExponentPushToken[') || value.startsWith('ExpoPushToken[')) {
+    return value.slice(0, 20) + '...redacted';
+  }
+  const atIndex = value.indexOf('@');
+  if (atIndex > 0) {
+    const local = value.slice(0, atIndex);
+    const domain = value.slice(atIndex);
+    return local.slice(0, 2) + '***' + domain;
+  }
+  if (value.startsWith('+') && value.length > 6) {
+    return value.slice(0, 4) + '***' + value.slice(-2);
+  }
+  return value.slice(0, 8) + '...redacted';
+}
+
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -187,7 +204,7 @@ async function sendPush(
           request_id: requestId,
           user_id: row.user_id,
           channel: 'push',
-          recipient: row.token,
+          recipient: maskRecipient(row.token),
           status: 'sent',
           provider: 'expo',
           provider_message_id: ticket.id,
@@ -205,7 +222,7 @@ async function sendPush(
         request_id: requestId,
         user_id: row.user_id,
         channel: 'push',
-        recipient: row.token,
+        recipient: maskRecipient(row.token),
         status: 'failed',
         provider: 'expo',
         error_message: errorMessage,
@@ -242,7 +259,7 @@ async function sendPush(
           request_id: requestId,
           user_id: row.user_id,
           channel: 'push',
-          recipient: row.token,
+          recipient: maskRecipient(row.token),
           status: 'sent',
           provider: 'fcm',
           provider_message_id: result.message_id,
@@ -260,7 +277,7 @@ async function sendPush(
         request_id: requestId,
         user_id: row.user_id,
         channel: 'push',
-        recipient: row.token,
+        recipient: maskRecipient(row.token),
         status: 'failed',
         provider: 'fcm',
         error_message: errorMessage,
@@ -273,7 +290,7 @@ async function sendPush(
         request_id: requestId,
         user_id: row.user_id,
         channel: 'push',
-        recipient: row.token,
+        recipient: maskRecipient(row.token),
         status: 'failed',
         provider: 'fcm',
         error_message: 'FCM_SERVER_KEY missing',
@@ -312,7 +329,7 @@ async function sendSms(requestId: string, payload: NonNullable<DispatchRequestBo
       logs.push({
         request_id: requestId,
         channel: 'sms',
-        recipient,
+        recipient: maskRecipient(recipient),
         status: 'failed',
         provider: 'sms',
         error_message: 'SMS provider not configured',
@@ -353,7 +370,7 @@ async function sendSms(requestId: string, payload: NonNullable<DispatchRequestBo
       logs.push({
         request_id: requestId,
         channel: 'sms',
-        recipient,
+        recipient: maskRecipient(recipient),
         status: 'sent',
         provider: 'sms',
         provider_message_id: result.id,
@@ -363,7 +380,7 @@ async function sendSms(requestId: string, payload: NonNullable<DispatchRequestBo
       logs.push({
         request_id: requestId,
         channel: 'sms',
-        recipient,
+        recipient: maskRecipient(recipient),
         status: 'failed',
         provider: 'sms',
         error_message: result.message ?? `sms_failed_${response.status}`,
@@ -390,7 +407,7 @@ async function sendEmail(requestId: string, payload: NonNullable<DispatchRequest
       logs.push({
         request_id: requestId,
         channel: 'email',
-        recipient,
+        recipient: maskRecipient(recipient),
         status: 'failed',
         provider: 'sendgrid',
         error_message: 'Email provider not configured',
@@ -440,7 +457,7 @@ async function sendEmail(requestId: string, payload: NonNullable<DispatchRequest
       logs.push({
         request_id: requestId,
         channel: 'email',
-        recipient,
+        recipient: maskRecipient(recipient),
         status: 'sent',
         provider: 'sendgrid',
       });
@@ -459,7 +476,7 @@ async function sendEmail(requestId: string, payload: NonNullable<DispatchRequest
     logs.push({
       request_id: requestId,
       channel: 'email',
-      recipient,
+      recipient: maskRecipient(recipient),
       status: 'failed',
       provider: 'sendgrid',
       error_message: errorText || `sendgrid_failed_${response.status}`,
@@ -510,10 +527,21 @@ serve(async (req: Request) => {
       return jsonResponse({ ok: false, message: 'Unauthorized.' }, 401);
     }
 
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: callerProfile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || callerProfile?.role !== 'admin') {
+      return jsonResponse({ ok: false, message: 'Forbidden.' }, 403);
+    }
+
     const payload = assertDispatchPayload(await req.json());
     const requestId = req.headers.get('X-Idempotency-Key') || generateRequestId();
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const admin = adminClient;
 
     const channels: Partial<Record<NotificationChannel, { queued: number; delivered: number; failed: number }>> = {};
     const logs: DeliveryLog[] = [];
