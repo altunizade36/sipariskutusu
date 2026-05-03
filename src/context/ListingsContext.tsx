@@ -745,7 +745,15 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     setBackendLoadingMore(true);
     try {
       const items = await fetchListings({}, page, HOME_PRODUCTS_PAGE_SIZE);
-      const mapped = items.map(mapListingToProduct);
+      const mapped = items
+        .filter((item) => {
+          const title = (item.title ?? '').toLowerCase();
+          const seller = ((item as any).seller_name ?? '').toLowerCase();
+          if (title.includes('smoke') || seller.includes('smoke')) return false;
+          if (title.includes('test listing') || title.includes('dummy')) return false;
+          return true;
+        })
+        .map(mapListingToProduct);
 
       setBackendProducts((current) => {
         if (mode === 'replace') {

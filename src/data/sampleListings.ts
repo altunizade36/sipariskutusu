@@ -1,6 +1,6 @@
 import type { Product } from './mockData';
 
-export const DEMO_TARGET = 50;
+export const DEMO_TARGET = 51;
 
 export const sampleListings: Product[] = [
   {
@@ -999,5 +999,27 @@ export const sampleListings: Product[] = [
     stock: 25,
     isDemo: true,
     createdAt: new Date(Date.now() - 50 * 24 * 3600000).toISOString(),
+  },
+  {
+    id: 'demo-051',
+    title: 'Samsung Galaxy Watch 6 — 44mm',
+    brand: 'Örnek Mağaza',
+    description: 'Grafit renk, titanyum kasa, sağlık takibi ve uzun pil ömrüyle günlük kullanım için ideal akıllı saat. Bu bir örnek ilandır.',
+    price: 7499,
+    originalPrice: 9999,
+    discount: 25,
+    rating: 4.8,
+    reviewCount: 193,
+    favoriteCount: '344',
+    image: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&q=80',
+    badge: 'İndirimli',
+    freeShipping: true,
+    category: 'Elektronik',
+    condition: 'Yeni',
+    location: 'İstanbul',
+    district: 'Beşiktaş',
+    stock: 8,
+    isDemo: true,
+    createdAt: new Date(Date.now() - 2 * 24 * 3600000).toISOString(),
   },
 ];
