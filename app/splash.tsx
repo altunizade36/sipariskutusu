@@ -1,83 +1,42 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
-import BoxMascot from '../src/components/BoxMascot';
 import { hasLaunchedBefore } from './onboarding';
 
 const { width, height } = Dimensions.get('window');
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  containerDark: {
-    backgroundColor: '#0A0A0A',
-  },
-  logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logo: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: -2,
-  },
-  logoDark: {
-    color: '#FFFFFF',
-  },
-  logoSubtext: {
-    fontSize: 14,
-    color: '#999999',
-    marginTop: 12,
-    fontWeight: '500',
-    letterSpacing: 2,
-  },
-  logoSubtextDark: {
-    color: '#666666',
-  },
-  loadingContainer: {
-    position: 'absolute',
-    bottom: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 12,
-    color: '#666666',
-    marginTop: 16,
-    fontWeight: '500',
-  },
-  loadingTextDark: {
-    color: '#999999',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3B82F6',
-    marginHorizontal: 4,
-  },
-});
+const mascotSource = require('../assets/mascot/box-loading.png');
 
 export default function SplashScreen() {
   const router = useRouter();
   const { isLoading, isDarkMode } = useAuth();
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const dotAnim = React.useRef(new Animated.Value(0)).current;
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const mascotY = useRef(new Animated.Value(20)).current;
+  const mascotScale = useRef(new Animated.Value(0.85)).current;
+  const dotAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
+    Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
+        duration: 700,
+        useNativeDriver: Platform.OS !== 'web',
       }),
+      Animated.spring(mascotY, {
+        toValue: 0,
+        tension: 60,
+        friction: 8,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.spring(mascotScale, {
+        toValue: 1,
+        tension: 60,
+        friction: 8,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
       Animated.loop(
         Animated.sequence([
           Animated.timing(dotAnim, {
@@ -90,9 +49,9 @@ export default function SplashScreen() {
             duration: 600,
             useNativeDriver: false,
           }),
-        ])
-      ),
-    ]).start();
+        ]),
+      ).start();
+    });
   }, []);
 
   useEffect(() => {
@@ -104,62 +63,134 @@ export default function SplashScreen() {
         } else {
           router.replace('/(tabs)' as never);
         }
-      }, 2000);
+      }, 2200);
 
       return () => clearTimeout(timer);
     }
   }, [isLoading]);
 
-  return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <Animated.View style={[styles.logoContainer, { opacity: fadeAnim }]}>
-        <BoxMascot variant="loading" size={150} animated />
-        <Text style={[styles.logo, isDarkMode && styles.logoDark]}>BO</Text>
-        <Text style={[styles.logoSubtext, isDarkMode && styles.logoSubtextDark]}>
-          SİPARİŞ KUTUSU
-        </Text>
-      </Animated.View>
+  const bg = isDarkMode ? '#0A0F1E' : '#FFFFFF';
+  const textColor = isDarkMode ? '#FFFFFF' : '#0A0F1E';
+  const subtextColor = isDarkMode ? '#6B7280' : '#9CA3AF';
+  const dotColor = '#3B82F6';
 
-      <View style={styles.loadingContainer}>
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                opacity: dotAnim.interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: [0.3, 1, 0.3],
-                }),
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                opacity: dotAnim.interpolate({
-                  inputRange: [0, 0.33, 0.66, 1],
-                  outputRange: [0.3, 0.3, 1, 0.3],
-                }),
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                opacity: dotAnim.interpolate({
-                  inputRange: [0, 0.66, 1],
-                  outputRange: [0.3, 0.3, 1],
-                }),
-              },
-            ]}
+  return (
+    <View style={[styles.container, { backgroundColor: bg }]}>
+      {/* Maskot + Logo grubu */}
+      <Animated.View
+        style={[
+          styles.centerGroup,
+          Platform.OS !== 'web'
+            ? {
+                opacity: fadeAnim,
+                transform: [{ translateY: mascotY }, { scale: mascotScale }],
+              }
+            : { opacity: 1 },
+        ]}
+      >
+        {/* Maskot görseli */}
+        <View style={styles.mascotWrapper}>
+          <Image
+            source={mascotSource}
+            style={styles.mascotImage}
+            resizeMode="contain"
           />
         </View>
-        <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>
-          Yükleniyor...
-        </Text>
+
+        {/* Logo metni */}
+        <Text style={[styles.logoText, { color: textColor }]}>BO</Text>
+        <Text style={[styles.subText, { color: subtextColor }]}>SİPARİŞ KUTUSU</Text>
+      </Animated.View>
+
+      {/* Alt yükleniyor göstergesi */}
+      <View style={styles.loadingContainer}>
+        <View style={styles.dotsRow}>
+          {[0, 1, 2].map((i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.dot,
+                { backgroundColor: dotColor },
+                {
+                  opacity: dotAnim.interpolate({
+                    inputRange: [0, 0.33 * i, 0.33 * (i + 1), 1],
+                    outputRange: [0.25, 0.25, 1, 0.25],
+                    extrapolate: 'clamp',
+                  }),
+                  transform: [
+                    {
+                      scale: dotAnim.interpolate({
+                        inputRange: [0, 0.33 * i, 0.33 * (i + 1), 1],
+                        outputRange: [0.85, 0.85, 1.3, 0.85],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <Text style={[styles.loadingText, { color: subtextColor }]}>Yükleniyor...</Text>
       </View>
     </View>
   );
 }
+
+const MASCOT_SIZE = Math.min(width * 0.55, 240);
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerGroup: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mascotWrapper: {
+    width: MASCOT_SIZE,
+    height: MASCOT_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  mascotImage: {
+    width: MASCOT_SIZE,
+    height: MASCOT_SIZE,
+  },
+  logoText: {
+    fontSize: 52,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+    marginTop: 4,
+  },
+  subText: {
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 3,
+    marginTop: 6,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    bottom: 60,
+    alignItems: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  loadingText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 14,
+    letterSpacing: 0.5,
+  },
+});

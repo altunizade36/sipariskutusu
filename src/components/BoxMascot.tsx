@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  Platform,
   StyleSheet,
   Text,
   View,
-  type ImageSourcePropType,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -19,12 +19,17 @@ export type BoxMascotProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const mascotImages: Record<MascotVariant, ImageSourcePropType> = {
-  welcome: require('../../assets/mascot/box-welcome.png'),
-  loading: require('../../assets/mascot/box-loading.png'),
-  order: require('../../assets/mascot/box-order.png'),
-  success: require('../../assets/mascot/box-success.png'),
-};
+const welcomeImg = require('../../assets/mascot/box-welcome.png');
+const loadingImg = require('../../assets/mascot/box-loading.png');
+const orderImg = require('../../assets/mascot/box-order.png');
+const successImg = require('../../assets/mascot/box-success.png');
+
+const mascotImages = {
+  welcome: welcomeImg,
+  loading: loadingImg,
+  order: orderImg,
+  success: successImg,
+} as const;
 
 export default function BoxMascot({
   variant,
@@ -51,12 +56,12 @@ export default function BoxMascot({
         Animated.timing(bounce, {
           toValue: 1,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(bounce, {
           toValue: 0,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]),
     );
@@ -77,7 +82,6 @@ export default function BoxMascot({
   });
 
   const imageSource = mascotImages[variant];
-  const shouldShowFallback = hasImageError;
   const fallbackFontSize = Math.max(22, Math.round(size * 0.2));
 
   return (
@@ -88,11 +92,13 @@ export default function BoxMascot({
         {
           width: size,
           height: size,
-          transform: animated ? [{ translateY }, { scale }] : [{ scale: 1 }],
+          transform: animated && Platform.OS !== 'web'
+            ? [{ translateY }, { scale }]
+            : [{ scale: 1 }],
         },
       ]}
     >
-      {shouldShowFallback ? (
+      {hasImageError ? (
         <View
           style={[
             styles.fallbackCircle,
