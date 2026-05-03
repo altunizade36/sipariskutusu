@@ -409,38 +409,6 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* ── Category Grid ─────────────────────────────────────────────────── */}
-        <View style={{ backgroundColor: pal.card, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: pal.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 12 }}>
-            <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: pal.textPrimary }}>{t.home.categories}</Text>
-            <Pressable onPress={() => router.push('/(tabs)/categories')}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>{t.home.seeAll}</Text>
-            </Pressable>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 8 }}>
-            {CATEGORY_CHIPS.map((chip) => (
-              <Pressable
-                key={chip.cat}
-                onPress={() => router.push(`/category/${chip.cat}` as never)}
-                style={{
-                  width: (SCREEN_WIDTH - 24 - 24) / 4,
-                  alignItems: 'center',
-                  paddingVertical: 10,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: isDarkMode ? pal.border : chip.border,
-                  backgroundColor: isDarkMode ? pal.cardAlt : chip.color,
-                }}
-              >
-                <Text style={{ fontSize: 22 }}>{chip.emoji}</Text>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: isDarkMode ? pal.textSecondary : chip.text, marginTop: 5, textAlign: 'center' }} numberOfLines={1}>
-                  {chip.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
         {/* ── Hero Banners ──────────────────────────────────────────────────── */}
         <View style={{ backgroundColor: pal.card, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: pal.border }}>
           <ScrollView
