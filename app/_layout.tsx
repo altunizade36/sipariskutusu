@@ -8,7 +8,7 @@ import { Cairo_600SemiBold, Cairo_700Bold } from '@expo-google-fonts/cairo';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
-import { LogBox, Platform } from 'react-native';
+import { Alert, LogBox, Platform } from 'react-native';
 
 // Font yükleme timeout hatalarını tüm ortamlarda gizle
 LogBox.ignoreLogs(['timeout exceeded', 'fontfaceobserver', '6000ms']);
@@ -21,7 +21,17 @@ import { initSentry, initPostHog, getPostHogClient } from '../src/services/monit
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import { useNetworkStatus } from '../src/hooks/useNetworkStatus';
 import { OfflineBanner } from '../src/components/OfflineBanner';
+import { SubscriptionProvider, initializeRevenueCat } from '../src/lib/revenuecat';
 import '../global.css';
+
+try {
+  initializeRevenueCat();
+} catch (err: unknown) {
+  if (__DEV__) {
+    const msg = err instanceof Error ? err.message : 'RevenueCat başlatılamadı';
+    console.warn('RevenueCat init error:', msg);
+  }
+}
 
 initSentry();
 initPostHog();
@@ -111,42 +121,48 @@ function RootLayout() {
           }}
         >
         <AuthProvider>
-          <ListingsProvider>
-            <ListingWizardProvider>
-              <ThemedStatusBar />
-              {!isOnline && <OfflineBanner />}
-              <Stack initialRouteName="splash" screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="splash" options={{ animation: 'fade' }} />
-                <Stack.Screen name="onboarding" options={{ animation: 'fade_from_bottom' }} />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="listing" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="auth" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="reset-password" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="product/[id]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="order/[id]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="category/[slug]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="search" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="share-story" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="store-setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="store-settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="story-viewer" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
-                <Stack.Screen name="messages" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="follow-list" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="notification-settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="report-moderation" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="my-reports" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="cart" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="legal/[doc]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="profile-edit" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="addresses" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="payment-methods" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-                <Stack.Screen name="size-table" options={{ presentation: 'modal' }} />
-              </Stack>
-            </ListingWizardProvider>
-          </ListingsProvider>
+          <SubscriptionProvider>
+            <ListingsProvider>
+              <ListingWizardProvider>
+                <ThemedStatusBar />
+                {!isOnline && <OfflineBanner />}
+                <Stack initialRouteName="splash" screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="splash" options={{ animation: 'fade' }} />
+                  <Stack.Screen name="onboarding" options={{ animation: 'fade_from_bottom' }} />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="listing" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="auth" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
+                  <Stack.Screen name="reset-password" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="product/[id]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="order/[id]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="category/[slug]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="search" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
+                  <Stack.Screen name="share-story" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
+                  <Stack.Screen name="store-setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="store-settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="story-viewer" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
+                  <Stack.Screen name="messages" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="follow-list" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="notification-settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="report-moderation" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="my-reports" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="cart" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="legal/[doc]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="profile-edit" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="addresses" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="payment-methods" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="size-table" options={{ presentation: 'modal' }} />
+                  <Stack.Screen name="subscription" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="credits" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="my-boosts" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                  <Stack.Screen name="billing-history" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                </Stack>
+              </ListingWizardProvider>
+            </ListingsProvider>
+          </SubscriptionProvider>
         </AuthProvider>
         </PostHogProvider>
       </SafeAreaProvider>

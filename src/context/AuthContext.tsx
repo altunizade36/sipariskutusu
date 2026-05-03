@@ -13,6 +13,7 @@ import { backendRequest, isBackendApiConfigured, isBackendStrictMode } from '../
 import { getCacheValue, removeCacheValue, setCacheValue } from '../services/noSqlStore';
 import { AUTH_ME_CACHE_PREFIX } from '../constants/cacheKeys';
 import { deactivateMyPushTokens } from '../services/pushNotificationService';
+import { loginRevenueCat, logoutRevenueCat } from '../lib/revenuecat';
 import { AUTH_REDIRECT_URL, PASSWORD_RESET_REDIRECT_URL } from '../utils/authRedirect';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -294,6 +295,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession ?? null);
       syncMonitoringUser(nextSession ?? null);
+      if (nextSession?.user?.id) {
+        loginRevenueCat(nextSession.user.id).catch(() => {});
+      } else {
+        logoutRevenueCat().catch(() => {});
+      }
     });
 
     return () => {

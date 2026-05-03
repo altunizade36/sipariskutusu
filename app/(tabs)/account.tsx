@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useListings } from '../../src/context/ListingsContext';
+import { useSubscription } from '../../src/lib/revenuecat';
+import { getMyWallet, getPlanDisplayName } from '../../src/services/entitlementService';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
 import { fetchMyAccountCore, type AccountCoreProfile } from '../../src/services/profileService';
 import {
@@ -185,7 +188,9 @@ export default function AccountScreen() {
   const { preferences, updatePreference } = useUserPreferences();
   const { favorites } = useFavorites();
   const { hasStore, storeMessageCount } = useListings();
+  const { activePlan, creditBalance: rcCreditBalance, isRestoring, restorePurchases } = useSubscription();
 
+  const [creditBalance, setCreditBalance] = useState(0);
   const [toast, setToast] = useState('');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
@@ -208,6 +213,12 @@ export default function AccountScreen() {
   useEffect(() => {
     AsyncStorage.getItem(VACATION_KEY).then((v) => { if (v) setVacationMode(v === '1'); }).catch(() => {});
   }, []);
+
+  // load credit wallet balance
+  useEffect(() => {
+    if (!user) { setCreditBalance(0); return; }
+    getMyWallet().then((w) => { setCreditBalance(w?.balance ?? 0); }).catch(() => {});
+  }, [user?.id]);
 
   // load account core
   useEffect(() => {
@@ -885,6 +896,108 @@ export default function AccountScreen() {
               <Ionicons name="chevron-forward" size={16} color={palette.textMuted} />
             </Pressable>
           ) : null}
+
+        {/* ── Abonelik & Ödemeler Bölümü ── */}
+        {user ? (
+          <View style={{ marginHorizontal: 14, marginTop: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7, marginLeft: 2, gap: 6 }}>
+              <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: colors.primary + '20', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="diamond-outline" size={11} color={colors.primary} />
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: palette.sectionLabel, textTransform: 'uppercase', letterSpacing: 0.5 }}>Abonelik & Ödemeler</Text>
+            </View>
+            <View style={{ backgroundColor: palette.card, borderRadius: 14, borderWidth: 1, borderColor: palette.border }}>
+              {/* Plan banner */}
+              <Pressable
+                onPress={() => router.push('/subscription' as never)}
+                style={{ padding: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: palette.border }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Ionicons name="diamond-outline" size={16} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Paketim</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 1 }}>
+                    {getPlanDisplayName(activePlan as any)} planı aktif
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {activePlan === 'free' && (
+                    <View style={{ backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>Yükselt</Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={14} color={palette.textMuted} />
+                </View>
+              </Pressable>
+
+              {/* Credits row */}
+              <Pressable
+                onPress={() => router.push('/credits' as never)}
+                style={{ padding: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: palette.border }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#8B5CF615', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Ionicons name="diamond" size={16} color="#8B5CF6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Kredilerim</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 1 }}>
+                    {creditBalance} kredi mevcut
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={palette.textMuted} />
+              </Pressable>
+
+              {/* Boosts row */}
+              <Pressable
+                onPress={() => router.push('/my-boosts' as never)}
+                style={{ padding: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: palette.border }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F59E0B15', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Ionicons name="flash-outline" size={16} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Boostlarım</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 1 }}>Aktif boostlar ve geçmiş</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={palette.textMuted} />
+              </Pressable>
+
+              {/* Billing history row */}
+              <Pressable
+                onPress={() => router.push('/billing-history' as never)}
+                style={{ padding: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: palette.border }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#0EA5E915', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Ionicons name="receipt-outline" size={16} color="#0EA5E9" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>İşlem Geçmişi</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 1 }}>Abonelik, kredi, boost</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={palette.textMuted} />
+              </Pressable>
+
+              {/* Restore purchases row */}
+              <Pressable
+                onPress={async () => {
+                  const result = await restorePurchases();
+                  showToast(result ? 'Satın alımlar geri yüklendi.' : 'Geri yükleme tamamlandı.');
+                }}
+                disabled={isRestoring}
+                style={{ padding: 14, flexDirection: 'row', alignItems: 'center' }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#10B98115', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  {isRestoring ? <ActivityIndicator size="small" color="#10B981" /> : <Ionicons name="refresh-outline" size={16} color="#10B981" />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Satın Alımları Geri Yükle</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 1 }}>Cihaz değişikliğinde kullan</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         {/* ── 10 Settings Sections ── */}
         {sections.map((section) => (
