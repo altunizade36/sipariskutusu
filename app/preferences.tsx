@@ -27,17 +27,17 @@ type RegionOption = {
 };
 
 const themeOptions: ThemeOption[] = [
-  { id: 'light', label: 'Acik Tema', description: 'Aydinlik arayuz rengi kullanilir.' },
-  { id: 'dark', label: 'Koyu Tema', description: 'Dusuk isikta daha rahat gorunum saglar.' },
+  { id: 'light', label: 'Açık Tema', description: 'Aydınlık arayüz rengi kullanılır.' },
+  { id: 'dark', label: 'Koyu Tema', description: 'Düşük ışıkta daha rahat görünüm sağlar.' },
 ];
 
 const languageOptions: LanguageOption[] = [
-  { id: 'tr', label: 'Turkce', description: 'Varsayilan uygulama dili' },
+  { id: 'tr', label: 'Türkçe', description: 'Varsayılan uygulama dili' },
   { id: 'en', label: 'English', description: 'UI labels and helper texts in English' },
 ];
 
 const regionOptions: RegionOption[] = [
-  { id: 'TR', label: 'Turkiye', currency: 'TRY' },
+  { id: 'TR', label: 'Türkiye', currency: 'TRY' },
   { id: 'EU', label: 'Avrupa', currency: 'EUR' },
   { id: 'US', label: 'Amerika', currency: 'USD' },
 ];
@@ -56,28 +56,35 @@ export default function PreferencesScreen() {
     return 'TR';
   }, [preferences.currency]);
 
-  async function handleThemeChange(next: 'light' | 'dark') {
-    if (saving || selectedTheme === next) {
-      return;
-    }
+  const palette = {
+    screenBg: isDarkMode ? '#0F172A' : '#F7F7F7',
+    headerBg: isDarkMode ? '#111827' : '#FFFFFF',
+    cardBg: isDarkMode ? '#111827' : '#FFFFFF',
+    border: isDarkMode ? '#334155' : '#E5E7EB',
+    borderLight: isDarkMode ? '#1E293B' : '#33333315',
+    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
+    backBtn: isDarkMode ? '#1E293B' : '#F7F7F7',
+    activeItemBg: isDarkMode ? '#1E3A8A' : '#EFF6FF',
+    activeItemBorder: isDarkMode ? '#1E40AF' : '#93C5FD',
+    inactiveItemBg: isDarkMode ? '#1F2937' : '#FFFFFF',
+    iconBack: isDarkMode ? '#E5E7EB' : colors.textPrimary,
+  };
 
+  async function handleThemeChange(next: 'light' | 'dark') {
+    if (saving || selectedTheme === next) return;
     setSaving(true);
     try {
       await setDarkMode(next === 'dark');
       const ok = await updateMultiple({ theme: next });
-      if (!ok) {
-        Alert.alert('Hata', 'Tema tercihi kaydedilemedi.');
-      }
+      if (!ok) Alert.alert('Hata', 'Tema tercihi kaydedilemedi.');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleLanguageChange(next: 'tr' | 'en') {
-    if (saving || preferences.language === next) {
-      return;
-    }
-
+    if (saving || preferences.language === next) return;
     setSaving(true);
     try {
       const ok = await updateMultiple({ language: next });
@@ -86,41 +93,36 @@ export default function PreferencesScreen() {
         return;
       }
       LocalizationService.setLanguage(next);
-      Alert.alert('Bilgi', next === 'tr' ? 'Dil Turkce olarak guncellendi.' : 'Language updated to English.');
+      Alert.alert('Bilgi', next === 'tr' ? 'Dil Türkçe olarak güncellendi.' : 'Language updated to English.');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleRegionChange(region: RegionOption) {
-    if (saving || selectedRegion === region.id) {
-      return;
-    }
-
+    if (saving || selectedRegion === region.id) return;
     setSaving(true);
     try {
       const ok = await updateMultiple({ currency: region.currency });
-      if (!ok) {
-        Alert.alert('Hata', 'Bolge tercihi kaydedilemedi.');
-      }
+      if (!ok) Alert.alert('Hata', 'Bölge tercihi kaydedilemedi.');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F7F7F7]" edges={['top']}>
-      <View className="px-4 py-3 border-b border-[#33333315] flex-row items-center justify-between bg-white">
-        <Pressable onPress={() => router.back()} className="w-10 h-10 rounded-full bg-[#F7F7F7] items-center justify-center">
-          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.screenBg }} edges={['top']}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: palette.borderLight, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: palette.headerBg }}>
+        <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.backBtn, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="arrow-back" size={20} color={palette.iconBack} />
         </Pressable>
-        <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: colors.textPrimary }}>Tercihler</Text>
+        <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: palette.textPrimary }}>Tercihler</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        <View className="bg-white rounded-2xl border border-[#33333315] p-4 mb-4">
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 10 }}>Gorunum</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <View style={{ backgroundColor: palette.cardBg, borderRadius: 16, borderWidth: 1, borderColor: palette.borderLight, padding: 16, marginBottom: 16 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: palette.textSecondary, marginBottom: 10 }}>Görünüm</Text>
           {themeOptions.map((option) => {
             const active = selectedTheme === option.id;
             return (
@@ -128,20 +130,23 @@ export default function PreferencesScreen() {
                 key={option.id}
                 onPress={() => handleThemeChange(option.id)}
                 disabled={saving || isLoading}
-                className="rounded-xl px-3 py-3 mb-2"
                 style={{
                   borderWidth: 1,
-                  borderColor: active ? '#93C5FD' : '#E5E7EB',
-                  backgroundColor: active ? '#EFF6FF' : '#FFFFFF',
+                  borderColor: active ? palette.activeItemBorder : palette.border,
+                  backgroundColor: active ? palette.activeItemBg : palette.inactiveItemBg,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  marginBottom: 8,
                   opacity: saving ? 0.7 : 1,
                 }}
               >
-                <View className="flex-row items-center justify-between">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.primary : colors.textPrimary }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.primary : palette.textPrimary }}>
                       {option.label}
                     </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 3 }}>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>
                       {option.description}
                     </Text>
                   </View>
@@ -152,8 +157,8 @@ export default function PreferencesScreen() {
           })}
         </View>
 
-        <View className="bg-white rounded-2xl border border-[#33333315] p-4 mb-4">
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 10 }}>Dil</Text>
+        <View style={{ backgroundColor: palette.cardBg, borderRadius: 16, borderWidth: 1, borderColor: palette.borderLight, padding: 16, marginBottom: 16 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: palette.textSecondary, marginBottom: 10 }}>Dil</Text>
           {languageOptions.map((option) => {
             const active = preferences.language === option.id;
             return (
@@ -161,20 +166,23 @@ export default function PreferencesScreen() {
                 key={option.id}
                 onPress={() => handleLanguageChange(option.id)}
                 disabled={saving || isLoading}
-                className="rounded-xl px-3 py-3 mb-2"
                 style={{
                   borderWidth: 1,
-                  borderColor: active ? '#93C5FD' : '#E5E7EB',
-                  backgroundColor: active ? '#EFF6FF' : '#FFFFFF',
+                  borderColor: active ? palette.activeItemBorder : palette.border,
+                  backgroundColor: active ? palette.activeItemBg : palette.inactiveItemBg,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  marginBottom: 8,
                   opacity: saving ? 0.7 : 1,
                 }}
               >
-                <View className="flex-row items-center justify-between">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.primary : colors.textPrimary }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.primary : palette.textPrimary }}>
                       {option.label}
                     </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 3 }}>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>
                       {option.description}
                     </Text>
                   </View>
@@ -185,8 +193,8 @@ export default function PreferencesScreen() {
           })}
         </View>
 
-        <View className="bg-white rounded-2xl border border-[#33333315] p-4">
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: 10 }}>Bolge ve Para Birimi</Text>
+        <View style={{ backgroundColor: palette.cardBg, borderRadius: 16, borderWidth: 1, borderColor: palette.borderLight, padding: 16 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: palette.textSecondary, marginBottom: 10 }}>Bölge ve Para Birimi</Text>
           {regionOptions.map((option) => {
             const active = selectedRegion === option.id;
             return (
@@ -194,19 +202,22 @@ export default function PreferencesScreen() {
                 key={option.id}
                 onPress={() => handleRegionChange(option)}
                 disabled={saving || isLoading}
-                className="rounded-xl px-3 py-3 mb-2"
                 style={{
                   borderWidth: 1,
-                  borderColor: active ? '#93C5FD' : '#E5E7EB',
-                  backgroundColor: active ? '#EFF6FF' : '#FFFFFF',
+                  borderColor: active ? palette.activeItemBorder : palette.border,
+                  backgroundColor: active ? palette.activeItemBg : palette.inactiveItemBg,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  marginBottom: 8,
                   opacity: saving ? 0.7 : 1,
                 }}
               >
-                <View className="flex-row items-center justify-between">
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.primary : colors.textPrimary }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.primary : palette.textPrimary }}>
                     {option.label}
                   </Text>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: active ? colors.primary : colors.textSecondary }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: active ? colors.primary : palette.textSecondary }}>
                     {option.currency}
                   </Text>
                 </View>

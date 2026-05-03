@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Linking, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Image, Modal, ActivityIndicator } from 'react-native';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -65,6 +65,8 @@ export default function AccountScreen() {
   const { favorites } = useFavorites();
   const { hasStore, storeMessageCount } = useListings();
   const [toast, setToast] = useState('');
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
   const [accountCore, setAccountCore] = useState<AccountCoreProfile | null>(null);
   const [igConnection, setIgConnection] = useState<InstagramConnection | null>(null);
   const [myReports, setMyReports] = useState<ReportRecord[]>([]);
@@ -132,7 +134,11 @@ export default function AccountScreen() {
       })
       .catch((error) => {
         if (!active) return;
-        setReportsError(error instanceof Error ? error.message : 'Şikayetler yüklenemedi.');
+        const msg = error instanceof Error ? error.message : 'Şikayetler yüklenemedi.';
+        const lower = msg.toLowerCase();
+        if (!lower.includes('session') && !lower.includes('jwt') && !lower.includes('auth')) {
+          setReportsError(msg);
+        }
       })
       .finally(() => {
         if (!active) return;
@@ -211,6 +217,19 @@ export default function AccountScreen() {
     }
   }
 
+  async function handleConfirmSignOut() {
+    setLogoutBusy(true);
+    try {
+      await signOut();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Çıkış işlemi tamamlanamadı.';
+      showToast(message);
+    } finally {
+      setLogoutBusy(false);
+      setShowLogoutModal(false);
+    }
+  }
+
   function requireAuthForAction(message: string) {
     if (user) {
       return true;
@@ -231,7 +250,7 @@ export default function AccountScreen() {
       router.push(hasStore ? '/store-settings' : '/store-setup');
       return;
     }
-    if (label === 'Yardım') { router.push(buildMessagesInboxRoute()); return; }
+    if (label === 'Yardım') { router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }); return; }
     router.push('/search');
   }
 
@@ -287,14 +306,7 @@ export default function AccountScreen() {
         router.push('/auth');
         return;
       }
-
-      try {
-        await signOut();
-        showToast('Çıkış yapıldı.');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Çıkış işlemi tamamlanamadı.';
-        showToast(message);
-      }
+      setShowLogoutModal(true);
       return;
     }
     router.push(buildMessagesInboxRoute());
@@ -778,7 +790,7 @@ export default function AccountScreen() {
 
       {toast ? (
         <View
-          style={{ backgroundColor: isDarkMode ? '#1F2937' : '#1F2937' }}
+          style={{ backgroundColor: '#1F2937' }}
           className="absolute bottom-6 left-4 right-4 rounded-xl px-4 py-3"
         >
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#fff', textAlign: 'center' }}>
@@ -786,6 +798,58 @@ export default function AccountScreen() {
           </Text>
         </View>
       ) : null}
+
+      <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => setShowLogoutModal(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => { if (!logoutBusy) setShowLogoutModal(false); }}
+        >
+          <Pressable
+            style={{
+              backgroundColor: palette.surfaceBg,
+              borderRadius: 20,
+              padding: 24,
+              width: 300,
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+            onPress={() => {}}
+          >
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="log-out-outline" size={28} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: palette.textPrimary, textAlign: 'center' }}>
+              Çıkış yapmak istiyor musunuz?
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 19 }}>
+              Hesabınızdan güvenli bir şekilde çıkış yapılacak.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 22, width: '100%' }}>
+              <Pressable
+                onPress={() => setShowLogoutModal(false)}
+                disabled={logoutBusy}
+                style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: palette.surfaceAlt, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.border }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Vazgeç</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmSignOut}
+                disabled={logoutBusy}
+                style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', opacity: logoutBusy ? 0.7 : 1 }}
+              >
+                {logoutBusy ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>Çıkış Yap</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

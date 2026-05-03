@@ -1,0 +1,81 @@
+Instagram entegrasyonu ve mağaza sistemine ek olarak şu eksikleri de tamamla:
+
+1. Instagram Bağlantı Durumu
+- Bağlı hesap kartı göster.
+- Kullanıcı adı, profil resmi, takipçi, son senkronizasyon zamanı görünsün.
+- “Senkronize Et”, “İçerikleri Yönet”, “Bağlantıyı Kes” butonları olsun.
+
+2. Instagram İçerikleri Yönetimi
+- Tüm gönderiler/reels/story içerikleri ayrı ekranda listelensin.
+- Filtreler:
+  Tümü
+  Ürüne çevrilenler
+  Taslaklar
+  Eksik bilgili olanlar
+  Gizlenenler
+- Çoklu seçim:
+  Ürüne çevir
+  Gizle
+  Sil
+  Hikayeye çevir
+
+3. Sync Hata Yönetimi
+- Token süresi dolarsa:
+  “Instagram bağlantısını yenilemen gerekiyor.”
+- API limit dolarsa:
+  “Instagram senkronizasyonu geçici olarak durdu.”
+- İnternet yoksa:
+  “Bağlantı yok, son kayıtlı içerikler gösteriliyor.”
+
+4. Ürün Taslak Kalitesi
+- Caption’dan fiyat bulamazsa fiyat alanını boş bırak.
+- Kategori emin değilse “Kategori seçilmeli” göster.
+- Otomatik tahmin edilen alanlara “Tahmin edildi” etiketi koy.
+- Satıcı onaylamadan yayınlama.
+
+5. Mağaza Yayın Kontrolü
+- Mağazası olmayan kullanıcı Instagram bağlasa bile ürün yayınlayamasın.
+- Önce mağaza oluşturması istensin.
+- Bağlı Instagram içerikleri kaybolmasın, mağaza kurulunca kullanılabilsin.
+
+6. Admin Kontrolü
+Admin panelinde:
+- Instagram bağlı mağazalar
+- Son sync zamanı
+- Sync hataları
+- Instagram’dan gelen ürün taslakları
+- Şüpheli/yasaklı ürünler
+görünsün.
+
+7. Bildirimler
+Satıcıya bildirim gönder:
+- Instagram hesabın bağlandı.
+- Yeni Instagram içerikleri içe aktarıldı.
+- Ürün taslağın hazır.
+- Instagram bağlantın yenilenmeli.
+- Ürünün yayına alındı/reddedildi.
+
+8. Güvenlik
+- Access token frontend’de açıkta durmasın.
+- Token güvenli backend/Supabase tarafında saklansın.
+- Kullanıcı sadece kendi Instagram verisini görebilsin.
+- Başka mağazanın Instagram içeriklerine erişemesin.
+
+9. Performans
+- Görseller lazy load olsun.
+- Uzun listelerde FlatList kullan.
+- Çok fazla Instagram içeriği varsa sayfalama/pagination kullan.
+- Uygulama donmasın.
+
+10. Test
+- Bağlı değil ekranı
+- Bağlı ekran
+- Token süresi dolmuş ekran
+- Sync başarılı
+- Sync hatalı
+- İçerik ürüne çevrildi
+- İçerik gizlendi
+- Bağlantı kesildi
+hepsini test et.
+
+Mevcut sistemi bozma, sadece Instagram entegrasyonu ve mağaza bağlantılarını güçlendir.
