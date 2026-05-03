@@ -2,12 +2,29 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import CriticalActionModal from '../components/CriticalActionModal';
 
+const CATEGORIES = [
+  { id: 'women',      name: '👗 Kadın Giyim' },
+  { id: 'men',        name: '👔 Erkek Giyim' },
+  { id: 'mother-child', name: '🍼 Anne & Çocuk' },
+  { id: 'home',       name: '🏠 Ev & Yaşam' },
+  { id: 'electronics', name: '📱 Elektronik' },
+  { id: 'shoes-bags', name: '👠 Ayakkabı & Çanta' },
+  { id: 'cosmetics',  name: '💄 Kozmetik' },
+  { id: 'watches',    name: '⌚ Saat & Aksesuar' },
+  { id: 'sports',     name: '⚽ Spor & Outdoor' },
+  { id: 'supermarket', name: '🛒 Süpermarket' },
+  { id: 'books-hobby', name: '📚 Kitap & Hobi' },
+  { id: 'automotive', name: '🚗 Otomotiv' },
+  { id: 'pet',        name: '🐾 Pet Shop' },
+];
+
 interface Listing {
   id: string;
   title: string;
   price: number;
   status: string;
   source_type: string | null;
+  category_id: string | null;
   created_at: string;
   user_name: string;
   cover_url: string | null;
@@ -20,6 +37,7 @@ export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>('pending');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [acting, setActing] = useState(false);
@@ -49,15 +67,17 @@ export default function ListingsPage() {
       if (filter === 'pending') {
         setListings(data as Listing[]);
       } else {
-        const { data: other, error: otherErr } = await supabase
+        let query = supabase
           .from('listings')
           .select(`
-            id, title, price, status, source_type, created_at,
+            id, title, price, status, source_type, category_id, created_at,
             profiles (full_name, username)
           `)
           .eq('status', filter)
           .order('created_at', { ascending: false })
           .limit(100);
+
+        const { data: other, error: otherErr } = await query;
 
         if (otherErr) {
           setError(otherErr.message);
@@ -72,6 +92,7 @@ export default function ListingsPage() {
             price: l.price,
             status: l.status,
             source_type: l.source_type ?? null,
+            category_id: l.category_id ?? null,
             created_at: l.created_at,
             user_name: l.profiles?.full_name ?? l.profiles?.username ?? 'Anonim',
             cover_url: null,
@@ -159,17 +180,22 @@ export default function ListingsPage() {
     setActing(false);
   }
 
+  const filteredListings = useMemo(() => {
+    if (!categoryFilter) return listings;
+    return listings.filter((l) => l.category_id === categoryFilter);
+  }, [listings, categoryFilter]);
+
   const allSelected = useMemo(() => {
-    if (listings.length === 0) return false;
-    return listings.every(l => selectedIds.includes(l.id));
-  }, [listings, selectedIds]);
+    if (filteredListings.length === 0) return false;
+    return filteredListings.every(l => selectedIds.includes(l.id));
+  }, [filteredListings, selectedIds]);
 
   function toggleAll() {
     if (allSelected) {
       setSelectedIds([]);
       return;
     }
-    setSelectedIds(listings.map(l => l.id));
+    setSelectedIds(filteredListings.map(l => l.id));
   }
 
   function toggleOne(id: string) {
@@ -218,6 +244,16 @@ export default function ListingsPage() {
             {s === 'pending' ? 'Onay Bekliyor' : s === 'active' ? 'Aktif' : s === 'paused' ? 'Pasif' : 'Reddedilmis'}
           </button>
         ))}
+        <select
+          value={categoryFilter}
+          onChange={e => setCategoryFilter(e.target.value)}
+          style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 13, cursor: 'pointer', backgroundColor: categoryFilter ? '#EFF6FF' : undefined }}
+        >
+          <option value="">Tum Kategoriler</option>
+          {CATEGORIES.map(cat => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
         <button className={`btn ${autoRefresh ? 'btn-success' : 'btn-ghost'}`} onClick={() => setAutoRefresh(v => !v)}>
           {autoRefresh ? 'Canli Acik' : 'Canli Kapali'}
         </button>
@@ -254,6 +290,7 @@ export default function ListingsPage() {
                   </th>
                 )}
                 <th>Baslik</th>
+                <th>Kategori</th>
                 <th>Fiyat</th>
                 <th>Satici</th>
                 <th>Tarih</th>
@@ -263,9 +300,9 @@ export default function ListingsPage() {
               </tr>
             </thead>
             <tbody>
-              {listings.length === 0 ? (
-                <tr className="empty-row"><td colSpan={filter === 'pending' ? 8 : 7}>Kayit yok</td></tr>
-              ) : listings.map(l => (
+              {filteredListings.length === 0 ? (
+                <tr className="empty-row"><td colSpan={filter === 'pending' ? 9 : 8}>Kayit yok</td></tr>
+              ) : filteredListings.map(l => (
                 <tr key={l.id} className={selectedIds.includes(l.id) ? 'row-selected' : ''}>
                   {filter === 'pending' && (
                     <td>
@@ -277,6 +314,9 @@ export default function ListingsPage() {
                     </td>
                   )}
                   <td>{l.title}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
+                    {CATEGORIES.find(c => c.id === l.category_id)?.name ?? (l.category_id ?? '—')}
+                  </td>
                   <td>{Number(l.price).toLocaleString('tr-TR')} TL</td>
                   <td>{l.user_name}</td>
                   <td>{new Date(l.created_at).toLocaleDateString('tr-TR')}</td>

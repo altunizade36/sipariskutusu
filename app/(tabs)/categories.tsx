@@ -356,6 +356,9 @@ export default function CategoriesScreen() {
               <Text numberOfLines={1} style={styles.cardCity}>{cityText}</Text>
             </View>
           ) : null}
+          <View style={styles.cardViewBtn}>
+            <Text style={styles.cardViewBtnText}>Ürünü Gör →</Text>
+          </View>
         </View>
       </Pressable>
     );
@@ -824,6 +827,14 @@ const styles = StyleSheet.create({
   cardPrice: { fontFamily: fonts.bold, fontSize: 13, color: colors.primary, marginTop: 4 },
   cardSeller: { fontFamily: fonts.regular, fontSize: 9, color: colors.textMuted },
   cardCity: { fontFamily: fonts.regular, fontSize: 8, color: colors.textMuted },
+  cardViewBtn: {
+    marginTop: 7,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  cardViewBtnText: { fontFamily: fonts.bold, fontSize: 10, color: colors.primary },
 
   loader: { paddingVertical: 16, alignItems: 'center' },
   emptyState: {
