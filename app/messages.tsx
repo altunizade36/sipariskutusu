@@ -1916,24 +1916,15 @@ export default function MessagesScreen() {
               ) : null}
             </View>
           )}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {conversation ? (
-              <>
-                <Pressable onPress={openWhatsApp} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="WhatsApp aramasi baslat">
-                  <Ionicons name="call-outline" size={18} color={palette.textSecondary} />
-                </Pressable>
-                <Pressable onPress={openVideoMeeting} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Goruntulu gorusme baslat">
-                  <Ionicons name="videocam-outline" size={18} color={palette.textSecondary} />
-                </Pressable>
-                <Pressable onPress={openModerationActions} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Sohbet islemlerini ac">
-                  <Ionicons name="ellipsis-horizontal" size={19} color={colors.primary} />
-                </Pressable>
-              </>
-            ) : (
-              <Pressable onPress={openModerationActions} className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Mesaj yardim menusu">
-                <Ionicons name="help-circle-outline" size={19} color={colors.primary} />
-              </Pressable>
-            )}
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Pressable
+              onPress={openModerationActions}
+              style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.headerChipBg }}
+              accessibilityRole="button"
+              accessibilityLabel={conversation ? 'Sohbet islemlerini ac' : 'Mesaj yardim menusu'}
+            >
+              <Ionicons name={conversation ? 'ellipsis-vertical' : 'help-circle-outline'} size={19} color={colors.primary} />
+            </Pressable>
           </View>
         </View>
         {!conversation ? (
@@ -2139,9 +2130,9 @@ export default function MessagesScreen() {
             renderItem={({ item }) => {
               if (item.kind === 'separator') {
                 return (
-                  <View className="items-center my-2">
-                    <View style={{ backgroundColor: '#E5E7EB' }} className="px-3 py-0.5 rounded-full">
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textMuted }}>{item.label}</Text>
+                  <View style={{ alignItems: 'center', marginVertical: 12 }}>
+                    <View style={{ backgroundColor: 'rgba(0,0,0,0.07)', paddingHorizontal: 14, paddingVertical: 4, borderRadius: 20 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#666' }}>{item.label}</Text>
                     </View>
                   </View>
                 );
@@ -2181,7 +2172,7 @@ export default function MessagesScreen() {
                     <Pressable onLongPress={() => openMessageActions(item)} delayLongPress={320}>
                       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
                         {!mine ? <Image source={{ uri: conversation.avatar || storeData.avatar }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 7, marginBottom: 2 }} /> : null}
-                        <View style={{ backgroundColor: mine ? '#1E5FC6' : '#FFFFFF', opacity: item.status === 'sending' ? 0.7 : 1, shadowColor: '#111827', shadowOpacity: mine ? 0.18 : 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: mine ? 3 : 2, maxWidth: '82%', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 }}>
+                        <View style={{ backgroundColor: mine ? '#1E5FC6' : (isDarkMode ? '#2D3748' : '#ECECEC'), opacity: item.status === 'sending' ? 0.7 : 1, maxWidth: '82%', borderRadius: 20, borderTopLeftRadius: mine ? 20 : 5, borderTopRightRadius: mine ? 5 : 20, paddingHorizontal: 14, paddingVertical: 10 }}>
                         {item.replyToText ? (
                           <View style={{ borderLeftWidth: 2, borderLeftColor: mine ? '#BFDBFE' : colors.primary, paddingLeft: 8, marginBottom: 6, opacity: 0.9 }}>
                             <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: mine ? '#DBEAFE' : colors.textSecondary }} numberOfLines={2}>{truncateText(item.replyToText, 60)}</Text>
@@ -2289,9 +2280,14 @@ export default function MessagesScreen() {
               </ScrollView>
             ) : null}
 
-            <View className="flex-row items-center">
-              <Pressable onPress={handlePickAndSendImage} className="w-10 h-10 rounded-full items-center justify-center mr-2" style={{ backgroundColor: palette.headerChipBg }} accessibilityRole="button" accessibilityLabel="Galeriden gorsel gonder">
-                <Ionicons name="camera" size={18} color={colors.primary} />
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+              <Pressable
+                onPress={handlePickAndSendImage}
+                style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.headerChipBg, marginBottom: 3 }}
+                accessibilityRole="button"
+                accessibilityLabel="Galeriden gorsel gonder"
+              >
+                <Ionicons name="image-outline" size={19} color={colors.primary} />
               </Pressable>
               <TextInput
                 ref={composerInputRef}
@@ -2305,21 +2301,24 @@ export default function MessagesScreen() {
                 accessibilityLabel="Mesaj yazma alani"
               />
               {currentDraft ? (
-                <Pressable onPress={handleSend} disabled={!currentDraft || isSending} style={{ backgroundColor: currentDraft && !isSending ? colors.primary : '#AFC7ED', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }} accessibilityRole="button" accessibilityLabel="Mesaji gonder">
-                  <Ionicons name="send" size={19} color="#fff" />
+                <Pressable
+                  onPress={handleSend}
+                  disabled={!currentDraft || isSending}
+                  style={{ backgroundColor: currentDraft && !isSending ? colors.primary : '#AFC7ED', width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginBottom: 1 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mesaji gonder"
+                >
+                  <Ionicons name="send" size={18} color="#fff" />
                 </Pressable>
               ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8, gap: 6 }}>
-                  <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' }}>
-                    <Ionicons name="mic-outline" size={17} color={colors.primary} />
-                  </Pressable>
-                  <Pressable onPress={handlePickAndSendImage} style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' }}>
-                    <Ionicons name="image-outline" size={17} color={colors.primary} />
-                  </Pressable>
-                  <Pressable onPress={() => setShowOfferModal(true)} style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4F8' }}>
-                    <Ionicons name="pricetag-outline" size={17} color={colors.primary} />
-                  </Pressable>
-                </View>
+                <Pressable
+                  onPress={() => setShowOfferModal(true)}
+                  style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.headerChipBg, marginBottom: 3 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fiyat teklifi ver"
+                >
+                  <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
+                </Pressable>
               )}
             </View>
           </View>
