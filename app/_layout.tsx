@@ -134,6 +134,7 @@ function RootLayout() {
                 <Stack.Screen name="messages" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                 <Stack.Screen name="follow-list" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                 <Stack.Screen name="notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+                <Stack.Screen name="notification-settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                 <Stack.Screen name="report-moderation" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                 <Stack.Screen name="my-reports" options={{ presentation: 'card', animation: 'slide_from_right' }} />
                 <Stack.Screen name="cart" options={{ presentation: 'card', animation: 'slide_from_right' }} />

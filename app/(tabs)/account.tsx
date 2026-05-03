@@ -1,69 +1,191 @@
-import { View, Text, ScrollView, Pressable, Linking, Image, Modal, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Linking,
+  Image,
+  Modal,
+  ActivityIndicator,
+  Alert,
+  Switch,
+} from 'react-native';
 import { useFavorites } from '../../src/hooks/useFavorites';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, fonts } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useListings } from '../../src/context/ListingsContext';
 import { useAndroidTabBackToHome } from '../../src/hooks/useAndroidTabBackToHome';
 import { fetchMyAccountCore, type AccountCoreProfile } from '../../src/services/profileService';
-import { fetchMyReports, fetchPendingReportsAdmin, reviewReportAdmin, type ReportRecord, type ReportStatus } from '../../src/services/reportService';
-import { fetchUnreadNotificationCount, subscribeToMyNotifications } from '../../src/services/inAppNotificationService';
+import {
+  fetchMyReports,
+  fetchPendingReportsAdmin,
+  reviewReportAdmin,
+  type ReportRecord,
+  type ReportStatus,
+} from '../../src/services/reportService';
+import {
+  fetchUnreadNotificationCount,
+  subscribeToMyNotifications,
+} from '../../src/services/inAppNotificationService';
 import { buildMessagesInboxRoute } from '../../src/utils/messageRouting';
 import { useUserPreferences } from '../../src/hooks/useUserPreferences';
 import { t } from '../../src/i18n';
-import { getInstagramConnection, formatIgCount, type InstagramConnection } from '../../src/services/instagramService';
+import {
+  getInstagramConnection,
+  formatIgCount,
+  type InstagramConnection,
+} from '../../src/services/instagramService';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
 const SUPPORT_EMAIL = 'iletisim@sipariskutusu.com';
+const VACATION_KEY = '@sipariskutusu/store_vacation_mode';
 
-type SectionItem = { icon: IoniconName; label: string; badge?: string; color?: string };
-type Section = { title: string; items: SectionItem[] };
-
-function buildSections(): Section[] {
-  return [
-    {
-      title: t.account.myAccount,
-      items: [
-        { icon: 'person-outline', label: t.account.personalInfo },
-        { icon: 'storefront-outline', label: t.account.storeProfile },
-        { icon: 'location-outline', label: t.account.addresses },
-        { icon: 'card-outline', label: t.account.paymentMethods },
-        { icon: 'bag-handle-outline', label: t.account.conversationHistory },
-        { icon: 'shield-checkmark-outline', label: t.account.security },
-      ],
-    },
-    {
-      title: t.account.support,
-      items: [
-        { icon: 'chatbubbles-outline', label: t.account.liveSupport },
-        { icon: 'help-circle-outline', label: t.account.helpCenter },
-        { icon: 'mail-outline', label: t.account.contactEmail },
-        { icon: 'document-text-outline', label: t.account.termsPrivacy },
-        { icon: 'language-outline', label: t.account.languageRegion, badge: 'TR' },
-      ],
-    },
-    {
-      title: t.account.app,
-      items: [
-        { icon: 'notifications-outline', label: t.account.notifications },
-        { icon: 'moon-outline', label: t.account.appearance },
-        { icon: 'log-out-outline', label: t.account.signOut, color: colors.danger },
-      ],
-    },
-  ];
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface SettingsItem {
+  icon: IoniconName;
+  label: string;
+  badge?: string;
+  color?: string;
+  rightIcon?: IoniconName;
+  toggle?: boolean;
+  toggleValue?: boolean;
+  onToggle?: (v: boolean) => void;
+  onPress?: () => void;
+  info?: string;
 }
 
+interface SettingsSection {
+  id: string;
+  title: string;
+  icon?: IoniconName;
+  color?: string;
+  items: SettingsItem[];
+  hidden?: boolean;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function SectionRow({
+  item,
+  isLast,
+  palette,
+}: {
+  item: SettingsItem;
+  isLast: boolean;
+  palette: ReturnType<typeof buildPalette>;
+}) {
+  const iconBg = (item.color ?? colors.primary) + '18';
+  return (
+    <Pressable
+      onPress={item.onPress}
+      disabled={!item.onPress && !item.toggle}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: palette.border,
+        backgroundColor: 'transparent',
+      }}
+    >
+      <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={item.icon} size={16} color={item.color ?? colors.primary} />
+      </View>
+      <View style={{ flex: 1, marginLeft: 11 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: item.color ?? palette.textPrimary }}>
+          {item.label}
+        </Text>
+        {item.info ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 1 }}>
+            {item.info}
+          </Text>
+        ) : null}
+      </View>
+      {item.badge && !item.toggle ? (
+        <View style={{ backgroundColor: (item.color ?? colors.primary) + '20', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, marginRight: 6 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: item.color ?? colors.primary }}>{item.badge}</Text>
+        </View>
+      ) : null}
+      {item.toggle ? (
+        <Switch
+          value={item.toggleValue}
+          onValueChange={item.onToggle}
+          trackColor={{ false: '#D1D5DB', true: (item.color ?? colors.primary) + '80' }}
+          thumbColor={item.toggleValue ? (item.color ?? colors.primary) : '#9CA3AF'}
+        />
+      ) : (
+        <Ionicons name={item.rightIcon ?? 'chevron-forward'} size={15} color={palette.textMuted} />
+      )}
+    </Pressable>
+  );
+}
+
+function SettingsSectionCard({
+  section,
+  palette,
+}: {
+  section: SettingsSection;
+  palette: ReturnType<typeof buildPalette>;
+}) {
+  if (section.hidden) return null;
+  const visibleItems = section.items.filter(Boolean);
+  if (visibleItems.length === 0) return null;
+  return (
+    <View style={{ marginHorizontal: 14, marginTop: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7, marginLeft: 2, gap: 6 }}>
+        {section.icon ? (
+          <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: (section.color ?? colors.primary) + '20', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={section.icon} size={11} color={section.color ?? colors.primary} />
+          </View>
+        ) : null}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: palette.sectionLabel, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {section.title}
+        </Text>
+      </View>
+      <View style={{ backgroundColor: palette.card, borderRadius: 16, borderWidth: 1, borderColor: palette.border, overflow: 'hidden' }}>
+        {visibleItems.map((item, idx) => (
+          <SectionRow key={item.label} item={item} isLast={idx === visibleItems.length - 1} palette={palette} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
+function buildPalette(isDarkMode: boolean) {
+  return {
+    screenBg: isDarkMode ? '#0F172A' : '#F2F3F7',
+    card: isDarkMode ? '#111827' : '#FFFFFF',
+    border: isDarkMode ? '#1E293B' : '#E5E7EB',
+    sectionLabel: isDarkMode ? '#4B5563' : '#9CA3AF',
+    textPrimary: isDarkMode ? '#E5E7EB' : '#111827',
+    textSecondary: isDarkMode ? '#94A3B8' : '#6B7280',
+    textMuted: isDarkMode ? '#4B5563' : '#9CA3AF',
+    avatarBg: isDarkMode ? '#1E3A8A' : '#DBEAFE',
+    badgeBg: isDarkMode ? '#1E293B' : '#F3F4F6',
+    buttonAlt: isDarkMode ? '#1E3A8A' : '#EFF6FF',
+    buttonBorder: isDarkMode ? '#1E40AF' : '#BFDBFE',
+    quickBg: isDarkMode ? '#1F2937' : '#FFFFFF',
+    headerBg: colors.primary,
+    surfaceBg: isDarkMode ? '#111827' : '#FFFFFF',
+    surfaceAlt: isDarkMode ? '#1E293B' : '#F3F4F6',
+  };
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AccountScreen() {
   const router = useRouter();
   useAndroidTabBackToHome();
-  const { user, signOut, isConfigured, isDarkMode } = useAuth();
-  const { preferences } = useUserPreferences();
+  const { user, signOut, isConfigured, isDarkMode, setDarkMode } = useAuth();
+  const { preferences, updatePreference } = useUserPreferences();
   const { favorites } = useFavorites();
   const { hasStore, storeMessageCount } = useListings();
+
   const [toast, setToast] = useState('');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
@@ -75,54 +197,40 @@ export default function AccountScreen() {
   const [reportsError, setReportsError] = useState('');
   const [reportActionBusyId, setReportActionBusyId] = useState<string | null>(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [vacationMode, setVacationMode] = useState(false);
+  const [cacheBusy, setCacheBusy] = useState(false);
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  const palette = buildPalette(isDarkMode);
+
+  // load vacation mode
+  useEffect(() => {
+    AsyncStorage.getItem(VACATION_KEY).then((v) => { if (v) setVacationMode(v === '1'); }).catch(() => {});
+  }, []);
+
+  // load account core
   useEffect(() => {
     let active = true;
-
-    if (!user || !isConfigured) {
-      setAccountCore(null);
-      return () => {
-        active = false;
-      };
-    }
-
+    if (!user || !isConfigured) { setAccountCore(null); return () => { active = false; }; }
     fetchMyAccountCore()
-      .then((profile) => {
-        if (active) {
-          setAccountCore(profile);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setAccountCore(null);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+      .then((p) => { if (active) setAccountCore(p); })
+      .catch(() => { if (active) setAccountCore(null); });
+    return () => { active = false; };
   }, [isConfigured, user]);
 
+  // load ig connection
   useEffect(() => {
     if (!hasStore) return;
     getInstagramConnection().then(setIgConnection).catch(() => {});
   }, [hasStore]);
 
+  // load reports
   useEffect(() => {
     let active = true;
-
-    if (!user || !isConfigured) {
-      setMyReports([]);
-      setPendingReports([]);
-      setReportsError('');
-      return () => {
-        active = false;
-      };
-    }
-
+    if (!user || !isConfigured) { setMyReports([]); setPendingReports([]); setReportsError(''); return () => { active = false; }; }
     setReportsLoading(true);
     setReportsError('');
-
     Promise.all([
       fetchMyReports(30),
       accountCore?.resolved_role === 'admin' ? fetchPendingReportsAdmin(50) : Promise.resolve([]),
@@ -132,60 +240,85 @@ export default function AccountScreen() {
         setMyReports(mine);
         setPendingReports(pending);
       })
-      .catch((error) => {
+      .catch((err) => {
         if (!active) return;
-        const msg = error instanceof Error ? error.message : 'Şikayetler yüklenemedi.';
+        const msg = err instanceof Error ? err.message : 'Şikayetler yüklenemedi.';
         const lower = msg.toLowerCase();
-        if (!lower.includes('session') && !lower.includes('jwt') && !lower.includes('auth')) {
-          setReportsError(msg);
-        }
+        if (!lower.includes('session') && !lower.includes('jwt') && !lower.includes('auth')) setReportsError(msg);
       })
-      .finally(() => {
-        if (!active) return;
-        setReportsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
+      .finally(() => { if (active) setReportsLoading(false); });
+    return () => { active = false; };
   }, [accountCore?.resolved_role, isConfigured, user?.id]);
 
+  // unread notifications badge
   useEffect(() => {
     let active = true;
-
-    if (!user || !isConfigured) {
-      setUnreadNotificationCount(0);
-      return () => {
-        active = false;
-      };
-    }
-
-    const refreshUnread = () => {
+    if (!user || !isConfigured) { setUnreadNotificationCount(0); return () => { active = false; }; }
+    const refresh = () => {
       fetchUnreadNotificationCount()
-        .then((count) => {
-          if (active) {
-            setUnreadNotificationCount(count);
-          }
-        })
-        .catch(() => {
-          if (active) {
-            setUnreadNotificationCount(0);
-          }
-        });
+        .then((c) => { if (active) setUnreadNotificationCount(c); })
+        .catch(() => { if (active) setUnreadNotificationCount(0); });
     };
-
-    refreshUnread();
-    const unsubscribe = subscribeToMyNotifications(user.id, refreshUnread);
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
+    refresh();
+    const unsub = subscribeToMyNotifications(user.id, refresh);
+    return () => { active = false; unsub(); };
   }, [isConfigured, user?.id]);
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2000);
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
+
+  function requireAuth(msg: string) {
+    if (user) return true;
+    showToast(msg);
+    router.push('/auth');
+    return false;
+  }
+
+  const handleVacationToggle = useCallback(async (v: boolean) => {
+    setVacationMode(v);
+    await AsyncStorage.setItem(VACATION_KEY, v ? '1' : '0').catch(() => {});
+    showToast(v ? 'Tatil modu açıldı. Mağazanız geçici olarak kapalı görünecek.' : 'Tatil modu kapatıldı.');
+  }, []);
+
+  const handlePrivateToggle = useCallback(async (v: boolean) => {
+    await updatePreference('privateProfile', v);
+    showToast(v ? 'Profil gizliliği açıldı.' : 'Profil herkese açık.');
+  }, [updatePreference]);
+
+  const handleThemeToggle = useCallback(async (v: boolean) => {
+    await setDarkMode(v);
+  }, [setDarkMode]);
+
+  const handleClearCache = useCallback(async () => {
+    Alert.alert(
+      'Önbelleği Temizle',
+      'Önbelleğe alınmış resimler ve geçici veriler silinecek. Devam etmek istiyor musunuz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Temizle',
+          style: 'destructive',
+          onPress: async () => {
+            setCacheBusy(true);
+            try {
+              const keys = await AsyncStorage.getAllKeys();
+              const cacheKeys = keys.filter((k) => k.includes('cache') || k.includes('recently_viewed'));
+              if (cacheKeys.length > 0) await AsyncStorage.multiRemove(cacheKeys);
+              showToast('Önbellek temizlendi.');
+            } catch {
+              showToast('Önbellek temizlenemedi.');
+            } finally {
+              setCacheBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }, []);
+
+  async function handleConfirmSignOut() {
+    setLogoutBusy(true);
+    try { await signOut(); } catch (err) { showToast(err instanceof Error ? err.message : 'Çıkış yapılamadı.'); }
+    finally { setLogoutBusy(false); setShowLogoutModal(false); }
   }
 
   function formatReportStatus(status: ReportStatus): { label: string; color: string; bg: string } {
@@ -210,110 +343,23 @@ export default function AccountScreen() {
       setMyReports(mine);
       setPendingReports(pending);
       showToast('Şikayet güncellendi.');
-    } catch (error) {
-      setReportsError(error instanceof Error ? error.message : 'Şikayet güncellenemedi.');
+    } catch (err) {
+      setReportsError(err instanceof Error ? err.message : 'Şikayet güncellenemedi.');
     } finally {
       setReportActionBusyId(null);
     }
   }
 
-  async function handleConfirmSignOut() {
-    setLogoutBusy(true);
-    try {
-      await signOut();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Çıkış işlemi tamamlanamadı.';
-      showToast(message);
-    } finally {
-      setLogoutBusy(false);
-      setShowLogoutModal(false);
-    }
+  async function openEmail(subject: string) {
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+    const canOpen = await Linking.canOpenURL(mailto);
+    if (canOpen) await Linking.openURL(mailto);
+    else showToast(`İletişim: ${SUPPORT_EMAIL}`);
   }
 
-  function requireAuthForAction(message: string) {
-    if (user) {
-      return true;
-    }
-
-    showToast(message);
-    router.push('/auth');
-    return false;
-  }
-
-  function handleQuickAction(label: string) {
-    if (label === 'Favoriler') { router.push('/(tabs)/favorites'); return; }
-    if (label === 'Sepetim') { router.push('/(tabs)/cart'); return; }
-    if (label === 'Kategoriler') { router.push('/(tabs)/categories'); return; }
-    if (label === 'Mesajlar')  { router.push(buildMessagesInboxRoute()); return; }
-    if (label === 'Mağazam') {
-      if (!requireAuthForAction('Mağaza paneline girmek için giriş yapman gerekiyor.')) return;
-      router.push(hasStore ? '/store-settings' : '/store-setup');
-      return;
-    }
-    if (label === 'Yardım') { router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }); return; }
-    router.push('/search');
-  }
-
-  async function handleSectionItem(label: string) {
-    if (label === t.account.liveSupport)          { router.push(buildMessagesInboxRoute()); return; }
-    if (label === t.account.helpCenter)           { router.push(buildMessagesInboxRoute()); return; }
-    if (label === t.account.contactEmail) {
-      const mailto = `mailto:${SUPPORT_EMAIL}?subject=Siparis%20Kutusu%20Destek`;
-      const canOpen = await Linking.canOpenURL(mailto);
-      if (canOpen) {
-        await Linking.openURL(mailto);
-      } else {
-        showToast(`Iletisim: ${SUPPORT_EMAIL}`);
-      }
-      return;
-    }
-    if (label === t.account.personalInfo) {
-      if (!requireAuthForAction('Kişisel bilgiler için giriş yapman gerekiyor.')) return;
-      router.push('/profile-edit');
-      return;
-    }
-    if (label === t.account.storeProfile) {
-      if (!requireAuthForAction('Mağaza profili için giriş yapman gerekiyor.')) return;
-      router.push(hasStore ? '/store-settings' : '/store-setup');
-      return;
-    }
-    if (label === t.account.addresses) {
-      if (!requireAuthForAction('Adresler için giriş yapman gerekiyor.')) return;
-      router.push('/addresses');
-      return;
-    }
-    if (label === t.account.paymentMethods) {
-      if (!requireAuthForAction('Ödeme yöntemleri için giriş yapman gerekiyor.')) return;
-      router.push('/payment-methods');
-      return;
-    }
-    if (label === t.account.conversationHistory) {
-      if (!requireAuthForAction('Görüşme geçmişi için giriş yapman gerekiyor.')) return;
-      router.push('/(tabs)/orders');
-      return;
-    }
-    if (label === t.account.security) {
-      if (!requireAuthForAction('Güvenlik ayarları için giriş yapman gerekiyor.')) return;
-      router.push('/security');
-      return;
-    }
-    if (label === t.account.termsPrivacy) { router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }); return; }
-    if (label === t.account.languageRegion) { router.push('/preferences'); return; }
-    if (label === t.account.notifications)  { router.push('/notifications'); return; }
-    if (label === t.account.appearance)     { router.push('/preferences'); return; }
-    if (label === t.account.signOut) {
-      if (!user) {
-        router.push('/auth');
-        return;
-      }
-      setShowLogoutModal(true);
-      return;
-    }
-    router.push(buildMessagesInboxRoute());
-  }
-
+  // ─── Derived ────────────────────────────────────────────────────────────────
   const displayName = (user?.user_metadata?.full_name as string | undefined) ?? 'Misafir Kullanıcı';
-  const displayEmail = user?.email ?? (isConfigured ? 'Giriş yapılmadı' : 'Supabase .env yapılandırması eksik');
+  const displayEmail = user?.email ?? (isConfigured ? 'Giriş yapılmadı' : 'Yapılandırma eksik');
   const resolvedRole = accountCore?.resolved_role ?? (hasStore ? 'seller' : 'buyer');
   const roleLabel = resolvedRole === 'seller' ? 'Satıcı / İçerik Üretici' : resolvedRole === 'admin' ? 'Yönetici' : 'Alıcı';
   const sellerContactLine = accountCore?.seller_profile
@@ -321,533 +367,700 @@ export default function AccountScreen() {
         accountCore.seller_profile.store_name,
         accountCore.seller_profile.instagram_handle ? `@${accountCore.seller_profile.instagram_handle}` : null,
         accountCore.seller_profile.whatsapp,
-        accountCore.seller_profile.website,
       ].filter(Boolean).join(' • ')
     : null;
   const profileBioLine = accountCore?.bio?.trim() || null;
-  const languageBadge = `${preferences.language === 'en' ? 'EN' : 'TR'}/${preferences.currency === 'EUR' ? 'EU' : preferences.currency === 'USD' ? 'US' : 'TR'}`;
-  const themeBadge = preferences.theme === 'dark' ? 'Koyu' : preferences.theme === 'light' ? 'Acik' : 'Oto';
+  const themeBadge = isDarkMode ? 'Koyu' : 'Açık';
+  const langBadge = preferences.language === 'en' ? 'EN' : 'TR';
+  const savedSearchCount = preferences.savedSearches?.length ?? 0;
 
-  const palette = {
-    screenBg: isDarkMode ? '#0F172A' : '#F7F7F7',
-    surfaceBg: isDarkMode ? '#111827' : '#FFFFFF',
-    surfaceAlt: isDarkMode ? '#1E293B' : '#F7F7F7',
-    border: isDarkMode ? '#334155' : '#33333315',
-    borderAlt: isDarkMode ? '#1E293B' : '#D1D5DB',
-    avatarBg: isDarkMode ? '#1E3A8A' : '#DBEAFE',
-    badgeBg: isDarkMode ? '#1E293B' : '#F3F4F6',
-    buttonAlt: isDarkMode ? '#1E3A8A' : '#EFF6FF',
-    buttonBorder: isDarkMode ? '#1E40AF' : '#BFDBFE',
-    quickActionBg: isDarkMode ? '#1F2937' : '#FFFFFF',
-    textPrimary: isDarkMode ? '#E5E7EB' : colors.textPrimary,
-    textSecondary: isDarkMode ? '#94A3B8' : colors.textSecondary,
-    textMuted: isDarkMode ? '#64748B' : colors.textMuted,
-  };
-
-  const sectionList = buildSections().map((section) => ({
-    ...section,
-    items: section.items.map((item) => {
-      if (item.label === t.account.notifications) {
-        return {
-          ...item,
+  // ─── Sections ────────────────────────────────────────────────────────────────
+  const sections: SettingsSection[] = [
+    {
+      id: 'account',
+      title: '1. Hesap Ayarları',
+      icon: 'person-circle-outline',
+      color: '#3B82F6',
+      items: [
+        {
+          icon: 'person-outline',
+          label: 'Kişisel Bilgiler',
+          info: 'Ad, kullanıcı adı, biyografi',
+          color: '#3B82F6',
+          onPress: () => { if (!requireAuth('Kişisel bilgiler için giriş yapman gerekiyor.')) return; router.push('/profile-edit'); },
+        },
+        {
+          icon: 'mail-outline',
+          label: 'Telefon / E-posta',
+          info: user?.email ?? '—',
+          color: '#6366F1',
+          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; router.push('/profile-edit'); },
+        },
+        {
+          icon: 'key-outline',
+          label: 'Şifre Değiştir',
+          color: '#8B5CF6',
+          onPress: () => { if (!requireAuth('Şifre değiştirmek için giriş yapman gerekiyor.')) return; router.push('/security'); },
+        },
+        {
+          icon: 'pause-circle-outline',
+          label: 'Hesabı Dondur',
+          info: 'Profilin geçici olarak gizlenir',
+          color: '#F59E0B',
+          onPress: () => {
+            if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return;
+            setShowFreezeModal(true);
+          },
+        },
+        {
+          icon: 'trash-outline',
+          label: 'Hesap Silme Talebi',
+          info: 'Hesabın kalıcı olarak kapatılır',
+          color: '#EF4444',
+          onPress: () => {
+            if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return;
+            setShowDeleteModal(true);
+          },
+        },
+      ],
+    },
+    {
+      id: 'store',
+      title: '2. Mağaza Ayarları',
+      icon: 'storefront-outline',
+      color: '#10B981',
+      hidden: !user,
+      items: hasStore
+        ? [
+            {
+              icon: 'storefront-outline',
+              label: 'Mağaza Profili Düzenle',
+              info: 'İsim, açıklama, kapak fotoğrafı',
+              color: '#10B981',
+              onPress: () => router.push('/store-settings'),
+            },
+            {
+              icon: 'logo-instagram',
+              label: 'Instagram Bağlantısı',
+              info: igConnection?.connected ? `@${igConnection.username} bağlı` : 'Bağlı değil',
+              color: '#E1306C',
+              onPress: () => router.push('/instagram-connect' as never),
+            },
+            {
+              icon: 'eye-outline',
+              label: 'Mağaza Görünürlüğü',
+              info: 'Profilini herkese açık tut',
+              color: '#3B82F6',
+              toggle: true,
+              toggleValue: !vacationMode,
+              onToggle: (v) => handleVacationToggle(!v),
+            },
+            {
+              icon: 'moon-outline',
+              label: 'Tatil Modu / Geçici Kapalı',
+              info: vacationMode ? 'Mağazanız şu an kapalı görünüyor' : 'Satışları geçici durdurur',
+              color: '#F59E0B',
+              toggle: true,
+              toggleValue: vacationMode,
+              onToggle: handleVacationToggle,
+            },
+          ]
+        : [
+            {
+              icon: 'add-circle-outline',
+              label: 'Satıcı Hesabı Aç',
+              info: 'Mağaza kurarak satış yapmaya başla',
+              color: '#10B981',
+              onPress: () => router.push('/store-setup'),
+            },
+          ],
+    },
+    {
+      id: 'notifications',
+      title: '3. Bildirim Ayarları',
+      icon: 'notifications-outline',
+      color: '#6366F1',
+      items: [
+        {
+          icon: 'settings-outline',
+          label: 'Bildirim Tercihleri',
+          info: 'Her bildirim türünü aç/kapat',
+          color: '#6366F1',
           badge: unreadNotificationCount > 0 ? String(Math.min(unreadNotificationCount, 99)) : undefined,
-        };
-      }
-
-      if (item.label === t.account.languageRegion) {
-        return {
-          ...item,
-          badge: languageBadge,
-        };
-      }
-
-      if (item.label === t.account.appearance) {
-        return {
-          ...item,
+          onPress: () => router.push('/notification-settings' as never),
+        },
+        {
+          icon: 'list-outline',
+          label: 'Bildirim Geçmişi',
+          info: 'Tüm bildirimlerini görüntüle',
+          color: '#8B5CF6',
+          badge: unreadNotificationCount > 0 ? String(Math.min(unreadNotificationCount, 99)) : undefined,
+          onPress: () => router.push('/notifications'),
+        },
+      ],
+    },
+    {
+      id: 'privacy',
+      title: '4. Gizlilik ve Güvenlik',
+      icon: 'shield-checkmark-outline',
+      color: '#EF4444',
+      items: [
+        {
+          icon: 'shield-checkmark-outline',
+          label: 'Güvenlik Ayarları',
+          info: 'Şifre, 2FA, oturumlar, giriş geçmişi',
+          color: '#EF4444',
+          onPress: () => { if (!requireAuth('Güvenlik ayarları için giriş yapman gerekiyor.')) return; router.push('/security'); },
+        },
+        {
+          icon: 'person-remove-outline',
+          label: 'Engellenen Kullanıcılar',
+          info: `${preferences.blockedUserIds?.length ?? 0} engellenen kullanıcı`,
+          color: '#F97316',
+          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; showToast('Engellenen kullanıcılar yakında burada.'); },
+        },
+        {
+          icon: 'flag-outline',
+          label: 'Şikayet Geçmişim',
+          info: `${myReports.length} kayıt`,
+          color: '#F59E0B',
+          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; router.push('/my-reports'); },
+        },
+        {
+          icon: 'eye-off-outline',
+          label: 'Profil Görünürlüğü',
+          info: preferences.privateProfile ? 'Sadece takipçiler görebilir' : 'Herkese açık',
+          color: '#64748B',
+          toggle: true,
+          toggleValue: preferences.privateProfile,
+          onToggle: handlePrivateToggle,
+        },
+        {
+          icon: 'chatbubble-ellipses-outline',
+          label: 'Mesaj Alma İzinleri',
+          info: 'Kimlerin mesaj gönderebileceğini belirle',
+          color: '#6366F1',
+          onPress: () => showToast('Bu özellik yakında kullanıma açılacak.'),
+        },
+      ],
+    },
+    {
+      id: 'locale',
+      title: '5. Dil ve Bölge',
+      icon: 'language-outline',
+      color: '#0EA5E9',
+      items: [
+        {
+          icon: 'language-outline',
+          label: 'Dil / Bölge / Para Birimi',
+          info: `${langBadge} • ${preferences.currency ?? 'TRY'}`,
+          color: '#0EA5E9',
+          badge: langBadge,
+          onPress: () => router.push('/preferences'),
+        },
+      ],
+    },
+    {
+      id: 'appearance',
+      title: '6. Görünüm',
+      icon: 'color-palette-outline',
+      color: '#8B5CF6',
+      items: [
+        {
+          icon: 'moon-outline',
+          label: 'Koyu Mod',
+          info: isDarkMode ? 'Aktif' : 'Kapalı',
+          color: '#6366F1',
+          toggle: true,
+          toggleValue: isDarkMode,
+          onToggle: handleThemeToggle,
+        },
+        {
+          icon: 'sunny-outline',
+          label: 'Tema Tercihleri',
+          info: `${themeBadge} tema seçili`,
+          color: '#F59E0B',
           badge: themeBadge,
-        };
-      }
-
-      return item;
-    }),
-  }));
+          onPress: () => router.push('/preferences'),
+        },
+      ],
+    },
+    {
+      id: 'favorites',
+      title: '7. Favori ve Takip',
+      icon: 'heart-outline',
+      color: '#EF4444',
+      items: [
+        {
+          icon: 'heart-outline',
+          label: 'Favori Ürünlerim',
+          info: `${favorites.length} ürün`,
+          color: '#EF4444',
+          badge: favorites.length > 0 ? String(favorites.length) : undefined,
+          onPress: () => router.push('/(tabs)/favorites'),
+        },
+        {
+          icon: 'storefront-outline',
+          label: 'Takip Ettiğim Mağazalar',
+          info: 'Takip listeni yönet',
+          color: '#10B981',
+          onPress: () => { if (!requireAuth('Bu özellik için giriş yapman gerekiyor.')) return; router.push('/follow-list' as never); },
+        },
+        {
+          icon: 'time-outline',
+          label: 'Son Baktığım Ürünler',
+          info: 'Ana sayfada görüntülenebilir',
+          color: '#F59E0B',
+          onPress: () => router.push('/(tabs)'),
+        },
+        {
+          icon: 'search-outline',
+          label: 'Kaydedilen Aramalar',
+          info: `${savedSearchCount} kayıtlı arama`,
+          color: '#6366F1',
+          badge: savedSearchCount > 0 ? String(savedSearchCount) : undefined,
+          onPress: () => router.push('/search'),
+        },
+      ],
+    },
+    {
+      id: 'support',
+      title: '8. Destek',
+      icon: 'help-circle-outline',
+      color: '#06B6D4',
+      items: [
+        {
+          icon: 'headset-outline',
+          label: 'Canlı Destek',
+          info: 'Temsilciyle sohbet et',
+          color: '#06B6D4',
+          onPress: () => router.push(buildMessagesInboxRoute()),
+        },
+        {
+          icon: 'help-circle-outline',
+          label: 'Yardım Merkezi',
+          info: 'Sık sorulan sorular ve kılavuzlar',
+          color: '#0EA5E9',
+          onPress: () => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }),
+        },
+        {
+          icon: 'mail-outline',
+          label: 'İletişim E-postası',
+          info: SUPPORT_EMAIL,
+          color: '#6366F1',
+          onPress: () => openEmail('Sipariş Kutusu Destek'),
+        },
+        {
+          icon: 'chatbubbles-outline',
+          label: 'Geri Bildirim Gönder',
+          info: 'Görüş ve önerilerini paylaş',
+          color: '#8B5CF6',
+          onPress: () => openEmail('Geri Bildirim — Sipariş Kutusu'),
+        },
+      ],
+    },
+    {
+      id: 'legal',
+      title: '9. Yasal',
+      icon: 'document-text-outline',
+      color: '#64748B',
+      items: [
+        {
+          icon: 'document-text-outline',
+          label: 'Kullanım Şartları',
+          color: '#64748B',
+          onPress: () => router.push({ pathname: '/legal/[doc]', params: { doc: 'terms-of-use' } }),
+        },
+        {
+          icon: 'lock-closed-outline',
+          label: 'Gizlilik Politikası & KVKK',
+          color: '#64748B',
+          onPress: () => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy-kvkk' } }),
+        },
+        {
+          icon: 'ban-outline',
+          label: 'Yasaklı Ürünler',
+          color: '#64748B',
+          onPress: () => router.push({ pathname: '/legal/[doc]', params: { doc: 'prohibited-products' } }),
+        },
+        {
+          icon: 'alert-circle-outline',
+          label: 'Sorumluluk Reddi',
+          color: '#64748B',
+          onPress: () => router.push({ pathname: '/legal/[doc]', params: { doc: 'platform-liability' } }),
+        },
+      ],
+    },
+    {
+      id: 'app',
+      title: '10. Uygulama',
+      icon: 'apps-outline',
+      color: '#94A3B8',
+      items: [
+        {
+          icon: 'information-circle-outline',
+          label: 'Sürüm Bilgisi',
+          info: 'v1.0.0 (derleme 4)',
+          color: '#94A3B8',
+          rightIcon: 'ellipse-outline',
+          onPress: () => showToast('Sipariş Kutusu v1.0.0 — En son sürüm'),
+        },
+        {
+          icon: 'refresh-outline',
+          label: cacheBusy ? 'Temizleniyor...' : 'Önbelleği Temizle',
+          info: 'Geçici dosyalar ve resimler',
+          color: '#3B82F6',
+          onPress: handleClearCache,
+        },
+        {
+          icon: 'bug-outline',
+          label: 'Hata Bildir',
+          info: 'Hata ve sorunları bildirin',
+          color: '#F97316',
+          onPress: () => openEmail('Hata Bildirimi — Sipariş Kutusu'),
+        },
+        {
+          icon: 'log-out-outline',
+          label: 'Çıkış Yap',
+          color: '#EF4444',
+          onPress: () => { if (!user) { router.push('/auth'); return; } setShowLogoutModal(true); },
+        },
+      ],
+    },
+  ];
 
   return (
-    <SafeAreaView style={{ backgroundColor: palette.screenBg }} className="flex-1" edges={['top']}>
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View style={{ backgroundColor: colors.primary }} className="px-4 pt-4 pb-20">
-          <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: '#fff' }}>
-            {t.account.title}
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.screenBg }} edges={['top']}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* ── Header ── */}
+        <View style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 80 }}>
+          <Text style={{ fontFamily: fonts.headingBold, fontSize: 22, color: '#fff' }}>{t.account.title}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#BFDBFE', marginTop: 2 }}>
+            Profil ve uygulama ayarları
           </Text>
         </View>
 
-        <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="mx-4 -mt-14 rounded-2xl p-4 shadow-sm border">
-          <View className="flex-row items-center">
-            {accountCore?.avatar_url ? (
-              <Image
-                source={{ uri: accountCore.avatar_url }}
-                style={{ width: 64, height: 64, borderRadius: 32 }}
-              />
-            ) : (
-              <View
-                style={{ backgroundColor: palette.avatarBg }}
-                className="w-16 h-16 rounded-full items-center justify-center"
-              >
-                <Text style={{ fontFamily: fonts.headingBold, fontSize: 24, color: colors.primary }}>
-                  {(displayName[0] ?? 'M').toUpperCase()}
-                </Text>
+        {/* ── Profile Card ── */}
+        <View style={{ marginHorizontal: 14, marginTop: -60, backgroundColor: palette.card, borderRadius: 20, padding: 16, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, borderWidth: 1, borderColor: palette.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {accountCore?.avatar_url
+              ? <Image source={{ uri: accountCore.avatar_url }} style={{ width: 68, height: 68, borderRadius: 34, borderWidth: 2, borderColor: colors.primary + '40' }} />
+              : (
+                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: palette.avatarBg, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.primary + '40' }}>
+                  <Text style={{ fontFamily: fonts.headingBold, fontSize: 26, color: colors.primary }}>{(displayName[0] ?? 'M').toUpperCase()}</Text>
+                </View>
+              )}
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>{displayName}</Text>
+                {user
+                  ? <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="checkmark-sharp" size={11} color="#059669" /></View>
+                  : null}
               </View>
-            )}
-            <View className="flex-1 ml-3">
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>
-                {displayName}
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
-                {displayEmail}
-              </Text>
-              {profileBioLine ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 4 }} numberOfLines={2}>
-                  {profileBioLine}
-                </Text>
-              ) : null}
-              <View style={{ alignSelf: 'flex-start', backgroundColor: resolvedRole === 'seller' ? palette.avatarBg : palette.badgeBg }} className="mt-2 rounded-full px-2.5 py-1">
-                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: resolvedRole === 'seller' ? colors.primary : palette.textSecondary }}>
-                  {roleLabel}
-                </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 1 }}>{displayEmail}</Text>
+              {profileBioLine
+                ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 4 }} numberOfLines={2}>{profileBioLine}</Text>
+                : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <View style={{ backgroundColor: resolvedRole === 'seller' ? palette.avatarBg : palette.badgeBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: resolvedRole === 'seller' ? colors.primary : palette.textSecondary }}>{roleLabel}</Text>
+                </View>
+                {sellerContactLine
+                  ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }} numberOfLines={1}>{sellerContactLine}</Text>
+                  : null}
               </View>
-              {sellerContactLine ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 6 }}>
-                  {sellerContactLine}
-                </Text>
-              ) : null}
             </View>
-            {user && (
-              <View style={{ backgroundColor: isDarkMode ? '#064E3B' : '#D1FAE5' }} className="w-6 h-6 rounded-full items-center justify-center">
-                <Ionicons name="checkmark-sharp" size={14} color={isDarkMode ? '#86EFAC' : '#059669'} />
-              </View>
-            )}
-            {!user && (
-              <Pressable onPress={() => router.push('/auth')} className="active:opacity-70">
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-              </Pressable>
-            )}
           </View>
 
-          {!user ? (
-            <Pressable
-              onPress={() => router.push('/auth')}
-              className="mt-3 rounded-xl items-center justify-center"
-              style={{ height: 38, backgroundColor: palette.buttonAlt }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>Giriş Yap / Kayıt Ol</Text>
-            </Pressable>
-          ) : null}
+          {/* Profil düzenle butonu */}
+          {user
+            ? (
+              <Pressable
+                onPress={() => router.push('/profile-edit')}
+                style={{ marginTop: 12, height: 38, borderRadius: 12, backgroundColor: palette.buttonAlt, borderWidth: 1, borderColor: palette.buttonBorder, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+              >
+                <Ionicons name="create-outline" size={14} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>Profili Düzenle</Text>
+              </Pressable>
+            )
+            : (
+              <Pressable
+                onPress={() => router.push('/auth')}
+                style={{ marginTop: 12, height: 38, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>Giriş Yap / Kayıt Ol</Text>
+              </Pressable>
+            )}
 
-          {user && resolvedRole === 'buyer' ? (
-            <Pressable
-              onPress={() => router.push('/store-setup')}
-              style={{ borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt }}
-              className="mt-3 rounded-xl border px-3 py-3 active:opacity-80"
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
-                Satıcı / İçerik Üretici hesabına geç
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>
-                Mağaza aç, Instagram ve WhatsApp ile satış akışını başlat.
-              </Text>
-            </Pressable>
-          ) : null}
+          {user && resolvedRole === 'buyer'
+            ? (
+              <Pressable
+                onPress={() => router.push('/store-setup')}
+                style={{ marginTop: 8, borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>Satıcı / İçerik Üretici hesabına geç →</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>Mağaza aç, Instagram ile satış akışını başlat</Text>
+              </Pressable>
+            ) : null}
 
-          <View style={{ borderTopColor: palette.border }} className="flex-row mt-4 pt-4 border-t">
-            <Pressable
-              className="flex-1 items-center active:opacity-70"
-              onPress={() => {
-                if (!requireAuthForAction('Mağaza ayarları için giriş yapman gerekiyor.')) return;
-                router.push(hasStore ? '/store-settings' : '/store-setup');
-              }}
-            >
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>{hasStore ? 1 : 0}</Text>
+          {/* Stats row */}
+          <View style={{ flexDirection: 'row', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.border }}>
+            <Pressable style={{ flex: 1, alignItems: 'center' }} onPress={() => { if (requireAuth('Mağaza için giriş yapman gerekiyor.')) router.push(hasStore ? '/store-settings' : '/store-setup'); }}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: palette.textPrimary }}>{hasStore ? 1 : 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }}>Mağaza</Text>
             </Pressable>
             <View style={{ width: 1, backgroundColor: palette.border }} />
-            <Pressable className="flex-1 items-center active:opacity-70" onPress={() => router.push('/(tabs)/favorites')}>
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: palette.textPrimary }}>{favorites.length}</Text>
+            <Pressable style={{ flex: 1, alignItems: 'center' }} onPress={() => router.push('/(tabs)/favorites')}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: palette.textPrimary }}>{favorites.length}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }}>Favori</Text>
             </Pressable>
             <View style={{ width: 1, backgroundColor: palette.border }} />
-            <Pressable className="flex-1 items-center active:opacity-70" onPress={() => router.push(buildMessagesInboxRoute())}>
-              <Text style={{ fontFamily: fonts.headingBold, fontSize: 16, color: colors.primary }}>{storeMessageCount}</Text>
+            <Pressable style={{ flex: 1, alignItems: 'center' }} onPress={() => router.push(buildMessagesInboxRoute())}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 18, color: storeMessageCount > 0 ? colors.primary : palette.textPrimary }}>{storeMessageCount}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary }}>Mesaj</Text>
             </Pressable>
           </View>
         </View>
 
-        <View className="flex-row mx-4 mt-3 gap-2">
-          {[
-            { icon: 'heart' as const, label: 'Favoriler', color: '#3B82F6', badge: null as string | null },
-            { icon: 'cart' as const, label: 'Sepetim', color: '#F59E0B', badge: null as string | null },
-            { icon: 'grid' as const, label: 'Kategoriler', color: '#8B5CF6', badge: null as string | null },
-            { icon: 'chatbubble-ellipses' as const, label: 'Mesajlar', color: '#0F766E', badge: storeMessageCount > 0 ? String(Math.min(storeMessageCount, 99)) : null },
-            { icon: 'storefront' as const, label: 'Mağazam', color: '#1E5FC6', badge: null as string | null },
-            { icon: 'help-circle' as const, label: 'Yardım', color: '#60A5FA', badge: null as string | null },
-          ].map((a) => (
+        {/* ── Quick Actions ── */}
+        <View style={{ flexDirection: 'row', marginHorizontal: 14, marginTop: 12, gap: 8 }}>
+          {([
+            { icon: 'heart' as const,              label: 'Favoriler',  color: '#3B82F6', badge: null as string | null, route: '/(tabs)/favorites' },
+            { icon: 'cart' as const,               label: 'Sepetim',    color: '#F59E0B', badge: null,                   route: '/(tabs)/cart' },
+            { icon: 'grid' as const,               label: 'Kategoriler',color: '#8B5CF6', badge: null,                   route: '/(tabs)/categories' },
+            { icon: 'chatbubble-ellipses' as const,label: 'Mesajlar',   color: '#0F766E', badge: storeMessageCount > 0 ? String(Math.min(storeMessageCount, 99)) : null, route: null },
+            { icon: 'storefront' as const,         label: 'Mağazam',    color: '#1E5FC6', badge: null,                   route: null },
+          ] as const).map((a) => (
             <Pressable
               key={a.label}
-              onPress={() => handleQuickAction(a.label)}
-              style={{ backgroundColor: palette.quickActionBg, borderColor: palette.border }}
-              className="flex-1 rounded-xl items-center py-3 border active:opacity-80"
+              onPress={() => {
+                if (a.label === 'Mesajlar') { router.push(buildMessagesInboxRoute()); return; }
+                if (a.label === 'Mağazam') { if (!requireAuth('Mağaza için giriş yapman gerekiyor.')) return; router.push(hasStore ? '/store-settings' : '/store-setup'); return; }
+                router.push(a.route as never);
+              }}
+              style={{ flex: 1, backgroundColor: palette.quickBg, borderColor: palette.border, borderWidth: 1, borderRadius: 14, alignItems: 'center', paddingVertical: 11 }}
             >
-              <View
-                style={{ backgroundColor: a.color + '22' }}
-                className="w-9 h-9 rounded-full items-center justify-center mb-1.5"
-              >
-                <Ionicons name={a.icon} size={16} color={a.color} />
-                {a.badge ? (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -4,
-                      right: -4,
-                      backgroundColor: '#EF4444',
-                      borderRadius: 8,
-                      minWidth: 16,
-                      height: 16,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingHorizontal: 3,
-                    }}
-                  >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#fff' }}>{a.badge}</Text>
-                  </View>
-                ) : null}
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: a.color + '20', alignItems: 'center', justifyContent: 'center', marginBottom: 5 }}>
+                <Ionicons name={a.icon} size={15} color={a.color} />
+                {a.badge
+                  ? <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#EF4444', borderRadius: 8, minWidth: 15, height: 15, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 8, color: '#fff' }}>{a.badge}</Text>
+                    </View>
+                  : null}
               </View>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textPrimary }}>
-                {a.label}
-              </Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: palette.textPrimary }}>{a.label}</Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Instagram Integration Card — only for sellers */}
-        {hasStore && user ? (
-          <Pressable
-            onPress={() => router.push('/instagram-connect' as never)}
-            style={{
-              marginHorizontal: 16, marginTop: 12,
-              backgroundColor: igConnection?.connected ? '#FFF0F5' : palette.surfaceBg,
-              borderRadius: 18, borderWidth: 1.5,
-              borderColor: igConnection?.connected ? '#E1306C44' : palette.border,
-              padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
-            }}
-          >
-            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="logo-instagram" size={22} color="#E1306C" />
-            </View>
-            <View style={{ flex: 1 }}>
-              {igConnection?.connected ? (
-                <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>@{igConnection.username}</Text>
-                    <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#16A34A' }}>BAĞLI</Text>
-                    </View>
-                  </View>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 2 }}>
-                    {formatIgCount(igConnection.followersCount)} takipçi • İçerikleri görüntüle
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Instagram Bağla</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 2 }}>
-                    Gönderilerini otomatik ürüne dönüştür
-                  </Text>
-                </>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={palette.textMuted} />
-          </Pressable>
-        ) : null}
-
-        {sectionList.map((section) => (
-          <View key={section.title} className="mx-4 mt-4">
-            <Text
-              style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textSecondary }}
-              className="mb-2 ml-1 uppercase"
-            >
-              {section.title}
-            </Text>
-            <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="rounded-2xl border overflow-hidden">
-              {section.items.map((item, idx) => (
-                <Pressable
-                  key={item.label}
-                  onPress={() => handleSectionItem(item.label)}
-                  style={{
-                    borderBottomWidth: idx < section.items.length - 1 ? 1 : 0,
-                    borderBottomColor: palette.border,
-                    backgroundColor: 'transparent',
-                  }}
-                  className="flex-row items-center px-4 py-3.5 active:opacity-70"
-                >
-                  <View
-                    style={{ backgroundColor: palette.surfaceAlt }}
-                    className="w-8 h-8 rounded-lg items-center justify-center"
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={16}
-                      color={item.color ?? palette.textPrimary}
-                    />
-                  </View>
-                  <Text
-                    style={{
-                      fontFamily: fonts.medium,
-                      fontSize: 13,
-                      color: item.color ?? palette.textPrimary,
-                    }}
-                    className="flex-1 ml-3"
-                  >
-                    {item.label}
-                  </Text>
-                  {item.badge ? (
-                    <View
-                      style={{ backgroundColor: (item.color ?? colors.primary) + '22' }}
-                      className="px-2 py-0.5 rounded-full mr-2"
-                    >
-                      <Text
-                        style={{
-                          fontFamily: fonts.bold,
-                          fontSize: 10,
-                          color: item.color ?? colors.primary,
-                        }}
-                      >
-                        {item.badge}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <Ionicons name="chevron-forward" size={16} color={palette.textMuted} />
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ))}
-
-        {user ? (
-          <View className="mx-4 mt-4">
-            <View className="flex-row items-center justify-between mb-2 ml-1">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textSecondary }} className="uppercase">
-                Şikayetlerim
-              </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textMuted }}>
-                {myReports.length} kayıt
-              </Text>
-            </View>
+        {/* ── Instagram Integration Card (sellers only) ── */}
+        {hasStore && user
+          ? (
             <Pressable
-              onPress={() => router.push('/my-reports')}
-              style={{ borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt }}
-              className="mb-3 rounded-xl border px-3 py-2.5"
+              onPress={() => router.push('/instagram-connect' as never)}
+              style={{ marginHorizontal: 14, marginTop: 12, backgroundColor: igConnection?.connected ? (isDarkMode ? '#3D0A1A' : '#FFF0F5') : palette.card, borderRadius: 16, borderWidth: 1.5, borderColor: igConnection?.connected ? '#E1306C44' : palette.border, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
-                Tüm Şikayetlerimi Gör
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>
-                Geçmiş kayıtlar, karar notları ve durum filtreleri
-              </Text>
-            </Pressable>
-            <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="rounded-2xl border p-3">
-              {reportsLoading ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
-                  Şikayetler yükleniyor...
-                </Text>
-              ) : myReports.length > 0 ? (
-                myReports.slice(0, 6).map((report, index) => {
-                  const statusMeta = formatReportStatus(report.status);
-                  return (
-                    <View
-                      key={report.id}
-                      style={{ borderBottomWidth: index < Math.min(myReports.length, 6) - 1 ? 1 : 0, borderBottomColor: palette.border }}
-                      className="py-2.5"
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textPrimary }}>
-                          {formatReportTarget(report.targetType)} • {report.reason}
-                        </Text>
-                        <View style={{ backgroundColor: statusMeta.bg }} className="px-2 py-0.5 rounded-full">
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: statusMeta.color }}>
-                            {statusMeta.label}
-                          </Text>
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#E1306C15', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="logo-instagram" size={20} color="#E1306C" />
+              </View>
+              <View style={{ flex: 1 }}>
+                {igConnection?.connected
+                  ? <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>@{igConnection.username}</Text>
+                        <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#16A34A' }}>BAĞLI</Text>
                         </View>
                       </View>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>
-                        {new Date(report.createdAt).toLocaleString('tr-TR')}
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 2 }}>
+                        {formatIgCount(igConnection.followersCount)} takipçi • İçerikleri görüntüle
                       </Text>
-                      {report.description ? (
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginTop: 3 }}>
-                          {report.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })
-              ) : (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
-                  Henüz şikayet kaydın bulunmuyor.
-                </Text>
-              )}
-            </View>
-          </View>
-        ) : null}
-
-        {user && accountCore?.resolved_role === 'admin' ? (
-          <View className="mx-4 mt-4">
-            <View className="flex-row items-center justify-between mb-2 ml-1">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textSecondary }} className="uppercase">
-                Bekleyen Şikayetler (Admin)
-              </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: palette.textMuted }}>
-                {pendingReports.length} bekleyen
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => router.push('/report-moderation')}
-              style={{ borderColor: palette.buttonBorder, backgroundColor: palette.buttonAlt }}
-              className="mb-3 rounded-xl border px-3 py-2.5"
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.primary }}>
-                Gelişmiş Moderasyon Ekranını Aç
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 3 }}>
-                Filtre, istatistik ve toplu akış görünümü
-              </Text>
+                    </>
+                  : <>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Instagram Bağla</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary, marginTop: 2 }}>Gönderilerini otomatik ürüne dönüştür</Text>
+                    </>}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={palette.textMuted} />
             </Pressable>
-            <View style={{ backgroundColor: palette.surfaceBg, borderColor: palette.border }} className="rounded-2xl border p-3">
-              {pendingReports.length > 0 ? (
-                pendingReports.slice(0, 8).map((report, index) => (
-                  <View
-                    key={report.id}
-                    style={{ borderBottomWidth: index < Math.min(pendingReports.length, 8) - 1 ? 1 : 0, borderBottomColor: palette.border }}
-                    className="py-2.5"
-                  >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textPrimary }}>
-                      {formatReportTarget(report.targetType)} • {report.reason}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 2 }}>
-                      {new Date(report.createdAt).toLocaleString('tr-TR')}
-                    </Text>
-                    {report.description ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginTop: 3 }}>
-                        {report.description}
-                      </Text>
-                    ) : null}
-                    <View className="flex-row mt-3" style={{ gap: 8 }}>
-                      <Pressable
-                        disabled={reportActionBusyId === report.id}
-                        onPress={() => handleAdminReportDecision(report.id, 'reviewed')}
-                        style={{ borderColor: isDarkMode ? '#1E40AF' : '#93C5FD', backgroundColor: isDarkMode ? '#1E3A8A' : '#EFF6FF', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDarkMode ? '#93C5FD' : '#1E40AF' }}>İncelendi</Text>
-                      </Pressable>
-                      <Pressable
-                        disabled={reportActionBusyId === report.id}
-                        onPress={() => handleAdminReportDecision(report.id, 'resolved')}
-                        style={{ borderColor: isDarkMode ? '#065F46' : '#86EFAC', backgroundColor: isDarkMode ? '#064E3B' : '#ECFDF5', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDarkMode ? '#86EFAC' : '#065F46' }}>Çözüldü</Text>
-                      </Pressable>
-                      <Pressable
-                        disabled={reportActionBusyId === report.id}
-                        onPress={() => handleAdminReportDecision(report.id, 'rejected')}
-                        style={{ borderColor: isDarkMode ? '#7F1D1D' : '#FCA5A5', backgroundColor: isDarkMode ? '#7F1D1D' : '#FEF2F2', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: isDarkMode ? '#FECACA' : '#991B1B' }}>Reddet</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>
-                  Bekleyen şikayet bulunmuyor.
-                </Text>
-              )}
+          ) : null}
+
+        {/* ── 10 Settings Sections ── */}
+        {sections.map((section) => (
+          <SettingsSectionCard key={section.id} section={section} palette={palette} />
+        ))}
+
+        {/* ── Reports (kullanıcı şikayetleri) ── */}
+        {user
+          ? (
+            <View style={{ marginHorizontal: 14, marginTop: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7, marginLeft: 2, gap: 6 }}>
+                <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: '#F59E0B20', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="flag-outline" size={11} color="#F59E0B" />
+                </View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: palette.sectionLabel, textTransform: 'uppercase', letterSpacing: 0.5 }}>Şikayetlerim</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginLeft: 'auto' }}>{myReports.length} kayıt</Text>
+              </View>
+              <Pressable
+                onPress={() => router.push('/my-reports')}
+                style={{ backgroundColor: palette.buttonAlt, borderColor: palette.buttonBorder, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10 }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>Tüm Şikayetlerimi Gör →</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>Geçmiş kayıtlar, karar notları, durum filtreleri</Text>
+              </Pressable>
+              <View style={{ backgroundColor: palette.card, borderRadius: 14, borderWidth: 1, borderColor: palette.border, padding: 12 }}>
+                {reportsLoading
+                  ? <ActivityIndicator size="small" color={colors.primary} />
+                  : myReports.length > 0
+                    ? myReports.slice(0, 5).map((r, i) => {
+                        const s = formatReportStatus(r.status);
+                        return (
+                          <View key={r.id} style={{ borderBottomWidth: i < Math.min(myReports.length, 5) - 1 ? 1 : 0, borderBottomColor: palette.border, paddingVertical: 10 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textPrimary }}>{formatReportTarget(r.targetType)} • {r.reason}</Text>
+                              <View style={{ backgroundColor: s.bg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 }}>
+                                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: s.color }}>{s.label}</Text>
+                              </View>
+                            </View>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 2 }}>{new Date(r.createdAt).toLocaleString('tr-TR')}</Text>
+                          </View>
+                        );
+                      })
+                    : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>Henüz şikayet kaydın bulunmuyor.</Text>}
+              </View>
             </View>
-          </View>
-        ) : null}
+          ) : null}
 
-        {reportsError ? (
-          <View style={{ borderColor: isDarkMode ? '#7F1D1D' : '#FCA5A5', backgroundColor: isDarkMode ? '#7F1D1D' : '#FEF2F2' }} className="mx-4 mt-3 rounded-xl border px-3 py-2.5">
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: isDarkMode ? '#FECACA' : '#991B1B' }}>
-              {reportsError}
-            </Text>
-          </View>
-        ) : null}
+        {/* ── Admin Panel ── */}
+        {user && accountCore?.resolved_role === 'admin'
+          ? (
+            <View style={{ marginHorizontal: 14, marginTop: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7, marginLeft: 2, gap: 6 }}>
+                <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: '#EF444420', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="shield-outline" size={11} color="#EF4444" />
+                </View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: palette.sectionLabel, textTransform: 'uppercase', letterSpacing: 0.5 }}>Admin — Bekleyen Şikayetler</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginLeft: 'auto' }}>{pendingReports.length} bekleyen</Text>
+              </View>
+              <Pressable onPress={() => router.push('/report-moderation')} style={{ backgroundColor: palette.buttonAlt, borderColor: palette.buttonBorder, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>Gelişmiş Moderasyon Ekranı →</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 3 }}>Filtre, istatistik ve toplu akış görünümü</Text>
+              </Pressable>
+              <View style={{ backgroundColor: palette.card, borderRadius: 14, borderWidth: 1, borderColor: palette.border, padding: 12 }}>
+                {pendingReports.length > 0
+                  ? pendingReports.slice(0, 6).map((r, i) => (
+                      <View key={r.id} style={{ borderBottomWidth: i < Math.min(pendingReports.length, 6) - 1 ? 1 : 0, borderBottomColor: palette.border, paddingVertical: 10 }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: palette.textPrimary }}>{formatReportTarget(r.targetType)} • {r.reason}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textSecondary, marginTop: 2 }}>{new Date(r.createdAt).toLocaleString('tr-TR')}</Text>
+                        {r.description ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted, marginTop: 2 }}>{r.description}</Text> : null}
+                        <View style={{ flexDirection: 'row', marginTop: 8, gap: 8 }}>
+                          {(['reviewed', 'resolved', 'rejected'] as const).map((action) => {
+                            const cfg = {
+                              reviewed: { label: 'İncelendi', bg: '#EFF6FF', border: '#93C5FD', text: '#1E40AF' },
+                              resolved: { label: 'Çözüldü', bg: '#ECFDF5', border: '#86EFAC', text: '#065F46' },
+                              rejected: { label: 'Reddet', bg: '#FEF2F2', border: '#FCA5A5', text: '#991B1B' },
+                            }[action];
+                            return (
+                              <Pressable
+                                key={action}
+                                disabled={reportActionBusyId === r.id}
+                                onPress={() => handleAdminReportDecision(r.id, action)}
+                                style={{ backgroundColor: cfg.bg, borderColor: cfg.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
+                              >
+                                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: cfg.text }}>{cfg.label}</Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ))
+                  : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: palette.textSecondary }}>Bekleyen şikayet bulunmuyor.</Text>}
+              </View>
+            </View>
+          ) : null}
 
-        <View className="items-center mt-6 mb-4">
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted }}>
-            Sürüm 1.0.0
-          </Text>
+        {reportsError
+          ? <View style={{ marginHorizontal: 14, marginTop: 10, backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#991B1B' }}>{reportsError}</Text>
+            </View>
+          : null}
+
+        {/* Footer */}
+        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 12 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: palette.textMuted }}>Sipariş Kutusu v1.0.0 • © 2025</Text>
         </View>
       </ScrollView>
 
-      {toast ? (
-        <View
-          style={{ backgroundColor: '#1F2937' }}
-          className="absolute bottom-6 left-4 right-4 rounded-xl px-4 py-3"
-        >
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#fff', textAlign: 'center' }}>
-            {toast}
-          </Text>
-        </View>
-      ) : null}
+      {/* ── Toast ── */}
+      {toast
+        ? <View style={{ position: 'absolute', bottom: 24, left: 16, right: 16, backgroundColor: '#1F2937', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff', textAlign: 'center' }}>{toast}</Text>
+          </View>
+        : null}
 
+      {/* ── Logout Modal ── */}
       <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => setShowLogoutModal(false)}>
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
-          onPress={() => { if (!logoutBusy) setShowLogoutModal(false); }}
-        >
-          <Pressable
-            style={{
-              backgroundColor: palette.surfaceBg,
-              borderRadius: 20,
-              padding: 24,
-              width: 300,
-              alignItems: 'center',
-              shadowColor: '#000',
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 8,
-            }}
-            onPress={() => {}}
-          >
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => { if (!logoutBusy) setShowLogoutModal(false); }}>
+          <View style={{ backgroundColor: palette.card, borderRadius: 22, padding: 24, width: 300, alignItems: 'center' }}>
             <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
               <Ionicons name="log-out-outline" size={28} color="#EF4444" />
             </View>
-            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: palette.textPrimary, textAlign: 'center' }}>
-              Çıkış yapmak istiyor musunuz?
-            </Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 19 }}>
-              Hesabınızdan güvenli bir şekilde çıkış yapılacak.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 22, width: '100%' }}>
-              <Pressable
-                onPress={() => setShowLogoutModal(false)}
-                disabled={logoutBusy}
-                style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: palette.surfaceAlt, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.border }}
-              >
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: palette.textPrimary, textAlign: 'center' }}>Çıkış yapmak istiyor musunuz?</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 19 }}>Hesabınızdan güvenli çıkış yapılacak.</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, width: '100%' }}>
+              <Pressable disabled={logoutBusy} onPress={() => setShowLogoutModal(false)} style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: palette.surfaceAlt, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.border }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: palette.textPrimary }}>Vazgeç</Text>
               </Pressable>
-              <Pressable
-                onPress={handleConfirmSignOut}
-                disabled={logoutBusy}
-                style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', opacity: logoutBusy ? 0.7 : 1 }}
-              >
-                {logoutBusy ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>Çıkış Yap</Text>
-                )}
+              <Pressable disabled={logoutBusy} onPress={handleConfirmSignOut} style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', opacity: logoutBusy ? 0.7 : 1 }}>
+                {logoutBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>Çıkış Yap</Text>}
               </Pressable>
             </View>
-          </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ── Hesabı Dondur Modal ── */}
+      <Modal visible={showFreezeModal} transparent animationType="fade" onRequestClose={() => setShowFreezeModal(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowFreezeModal(false)}>
+          <View style={{ backgroundColor: palette.card, borderRadius: 22, padding: 24, width: 300, alignItems: 'center' }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="pause-circle-outline" size={28} color="#F59E0B" />
+            </View>
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: palette.textPrimary, textAlign: 'center' }}>Hesabı Dondur</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 19 }}>
+              Hesabınız geçici olarak gizlenecek. Dilediğinizde tekrar aktif edebilirsiniz. Bu özellik yakında kullanıma açılacak.
+            </Text>
+            <Pressable onPress={() => setShowFreezeModal(false)} style={{ marginTop: 18, width: '100%', height: 46, borderRadius: 12, backgroundColor: palette.buttonAlt, borderWidth: 1, borderColor: palette.buttonBorder, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>Tamam</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ── Hesap Sil Modal ── */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => setShowDeleteModal(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowDeleteModal(false)}>
+          <View style={{ backgroundColor: palette.card, borderRadius: 22, padding: 24, width: 300, alignItems: 'center' }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="trash-outline" size={28} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 17, color: palette.textPrimary, textAlign: 'center' }}>Hesap Silme Talebi</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: palette.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 19 }}>
+              Hesabınızın silinmesi için destek ekibimize başvurmanız gerekmektedir. Tüm verileriniz kalıcı olarak silinecektir.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 18, width: '100%' }}>
+              <Pressable onPress={() => setShowDeleteModal(false)} style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: palette.textPrimary }}>Vazgeç</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => { setShowDeleteModal(false); await openEmail('Hesap Silme Talebi'); }}
+                style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>Talep Gönder</Text>
+              </Pressable>
+            </View>
+          </View>
         </Pressable>
       </Modal>
     </SafeAreaView>

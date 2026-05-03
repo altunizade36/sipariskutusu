@@ -46,6 +46,29 @@ Configured as a static site deployment:
 - **Build:** `cd web-admin && npm run build`
 - **Public dir:** `web-admin/dist`
 
+## Mobile App Key Screens
+
+- **Splash** — Mascot animation (box-loading.png), spring entry, loading dots
+- **Account / Profile** — 10-section settings hub (see below)
+- **Notification Settings** — `/notification-settings` — 8 per-type toggle switches (AsyncStorage)
+- **Profile Edit** — `/profile-edit` — name, email, bio, phone, avatar upload
+- **Store Settings** — `/store-settings` — cover photo, icon picker, delivery, IG handle
+- **Security** — `/security` — password, 2FA, sessions, login history
+- **Preferences** — `/preferences` — language, currency, theme
+- **Notifications** — `/notifications` — notification list with read/delete
+
+### Account Screen Sections (app/(tabs)/account.tsx)
+1. Hesap Ayarları — Kişisel Bilgiler, Telefon/E-posta, Şifre Değiştir, Hesabı Dondur, Hesap Silme
+2. Mağaza Ayarları — Mağaza Profili, Instagram Bağlantısı, Görünürlük toggle, Tatil Modu toggle
+3. Bildirim Ayarları — → /notification-settings, → /notifications
+4. Gizlilik ve Güvenlik — Güvenlik, Engellenen Kullanıcılar, Şikayet Geçmişi, Profil Görünürlük toggle
+5. Dil ve Bölge — → /preferences
+6. Görünüm — Koyu Mod toggle, Tema Tercihleri → /preferences
+7. Favori ve Takip — Favoriler, Takip Listesi, Son Baktıklarım, Kaydedilen Aramalar
+8. Destek — Canlı Destek, Yardım Merkezi, E-posta, Geri Bildirim
+9. Yasal — Kullanım Şartları, Gizlilik & KVKK, Yasaklı Ürünler, Sorumluluk Reddi
+10. Uygulama — Sürüm Bilgisi, Önbellek Temizle, Hata Bildir, Çıkış Yap
+
 ## Admin Panel Features
 
 - Dashboard
