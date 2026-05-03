@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
+  Share,
   TextInput,
   Alert,
 } from 'react-native';
@@ -70,6 +72,8 @@ export default function StoreScreen() {
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(null);
   const [highlightTitleDraft, setHighlightTitleDraft] = useState('');
   const [liveStoreData, setLiveStoreData] = useState<import('../../src/services/storeService').DiscoverStore | null>(null);
+  const [isLoadingStore, setIsLoadingStore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user, isDarkMode } = useAuth();
   const {
     hasStore,
@@ -105,10 +109,27 @@ export default function StoreScreen() {
     const lookupKey = (sellerId || storeKey || '').trim();
     if (!lookupKey) return;
     let cancelled = false;
+    setIsLoadingStore(true);
     fetchStoreBySellerIdOrKey(lookupKey)
       .then((data) => { if (!cancelled && data) setLiveStoreData(data); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setIsLoadingStore(false); });
     return () => { cancelled = true; };
+  }, [viewingOtherStore, sellerId, storeKey]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      if (viewingOtherStore) {
+        const lookupKey = (sellerId || storeKey || '').trim();
+        if (lookupKey) {
+          const data = await fetchStoreBySellerIdOrKey(lookupKey).catch(() => null);
+          if (data) setLiveStoreData(data);
+        }
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [viewingOtherStore, sellerId, storeKey]);
 
   useEffect(() => {
@@ -183,6 +204,26 @@ export default function StoreScreen() {
     : (sellerStore ?? storeData);
 
   const selectedSellerKey = (sellerId || selectedDiscoverSeller?.id || storeKey || '').trim();
+  const handleShareStore = useCallback(async () => {
+    try {
+      const handle = (currentStore.username || '').replace(/^@/, '');
+      const shareUrl = handle ? `https://sipariskutusu.app/store/${handle}` : 'https://sipariskutusu.app';
+      await Share.share({
+        message: `${currentStore.name} mağazasını Sipariş Kutusu'nda keşfet: ${shareUrl}`,
+        url: shareUrl,
+        title: currentStore.name,
+      });
+      trackEvent(TELEMETRY_EVENTS.STORE_CTA_CLICKED, {
+        seller_id: selectedSellerKey || user?.id || null,
+        store_name: currentStore.name,
+        cta: 'share',
+        source: 'store_header',
+      });
+    } catch {
+      /* user cancelled */
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.name, currentStore?.username, selectedSellerKey, user?.id]);
   const isFollowingCurrentStore = viewingOtherStore ? Boolean(selectedSellerKey && followedSellers[selectedSellerKey]) : isFollowingStore;
   const activeStoreProducts = viewingOtherStore ? otherStoreProducts : storeProducts;
   const activeStorePosts = viewingOtherStore ? otherStorePosts : storePosts;
@@ -392,7 +433,10 @@ export default function StoreScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.screenBg }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+      >
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
           <Text style={{ fontSize: 18, fontFamily: fonts.bold, color: palette.textPrimary }}>
@@ -401,6 +445,9 @@ export default function StoreScreen() {
           {user ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Pressable onPress={() => router.push('/share-story')} accessibilityRole="button" accessibilityLabel="Hikaye paylas">
+                <Ionicons name="add-circle-outline" size={24} color={palette.textPrimary} />
+              </Pressable>
+              <Pressable onPress={handleShareStore} accessibilityRole="button" accessibilityLabel="Magazayi paylas">
                 <Ionicons name="share-outline" size={22} color={palette.textPrimary} />
               </Pressable>
               <FavoriteButton />
@@ -830,10 +877,24 @@ export default function StoreScreen() {
         {activeTab === 'stories' && (
           <View style={{ paddingBottom: 18 }}>
             {activeReels.length === 0 ? (
-              <View style={{ paddingHorizontal: 16, paddingTop: 22 }}>
-                <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: fonts.medium }}>
-                  Video ürün reels henüz yok.
+              <View style={{ paddingHorizontal: 24, paddingTop: 36, paddingBottom: 12, alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: palette.softBg, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="play-circle-outline" size={32} color={colors.primary} />
+                </View>
+                <Text style={{ fontSize: 14, color: palette.textPrimary, fontFamily: fonts.bold, textAlign: 'center' }}>
+                  {isOwnStoreView ? 'Henüz reels yok' : 'Bu mağazada reels bulunmuyor'}
                 </Text>
+                <Text style={{ fontSize: 12, color: palette.textSecondary, fontFamily: fonts.regular, textAlign: 'center', lineHeight: 18 }}>
+                  {isOwnStoreView ? 'Video ürün hikayen burada görünecek.' : 'Satıcı yakında video paylaşacak.'}
+                </Text>
+                {isOwnStoreView ? (
+                  <Pressable
+                    onPress={() => router.push('/share-story')}
+                    style={{ marginTop: 4, height: 40, borderRadius: 10, paddingHorizontal: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: '#FFFFFF' }}>+ Hikaye / Reel Paylaş</Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2, paddingTop: 2 }}>
@@ -917,22 +978,22 @@ export default function StoreScreen() {
               />
             </View>
 
-            <View style={{ marginBottom: 20, borderWidth: 1, borderColor: colors.borderLight, borderRadius: 14, backgroundColor: '#FFFFFF', padding: 12 }}>
-              <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.textPrimary, marginBottom: 8 }}>
+            <View style={{ marginBottom: 20, borderWidth: 1, borderColor: palette.border, borderRadius: 14, backgroundColor: palette.surfaceBg, padding: 12 }}>
+              <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: palette.textPrimary, marginBottom: 8 }}>
                 Mağaza Analitikleri
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <View>
-                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textMuted }}>CTR</Text>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: palette.textMuted }}>CTR</Text>
                   <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.primary }}>{storeAnalytics.ctr.toFixed(1)}%</Text>
                 </View>
                 <View>
-                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textMuted }}>Mesaj / Iletisim</Text>
-                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.textPrimary }}>{storeAnalytics.contactClicks.toLocaleString('tr-TR')}</Text>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: palette.textMuted }}>Mesaj / İletişim</Text>
+                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: palette.textPrimary }}>{storeAnalytics.contactClicks.toLocaleString('tr-TR')}</Text>
                 </View>
                 <View>
-                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.textMuted }}>Takipci</Text>
-                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.textPrimary }}>{activeFollowersCount.toLocaleString('tr-TR')}</Text>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: palette.textMuted }}>Takipçi</Text>
+                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: palette.textPrimary }}>{activeFollowersCount.toLocaleString('tr-TR')}</Text>
                 </View>
               </View>
             </View>

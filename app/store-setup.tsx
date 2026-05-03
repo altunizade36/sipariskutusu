@@ -68,6 +68,7 @@ export default function StoreSetupScreen() {
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [isUsernameManuallyEdited, setIsUsernameManuallyEdited] = useState(false);
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
@@ -261,6 +262,30 @@ export default function StoreSetupScreen() {
     }
   }
 
+  function slugifyUsername(value: string): string {
+    return value
+      .toLocaleLowerCase('tr-TR')
+      .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
+      .replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
+      .replace(/[^a-z0-9_.]+/g, '')
+      .slice(0, 30);
+  }
+
+  function handleNameChange(value: string) {
+    setName(value);
+    // Otomatik kullanıcı adı önerisi — sadece kullanıcı manuel düzenlememişse
+    if (!isUsernameManuallyEdited) {
+      setUsername(slugifyUsername(value));
+    }
+  }
+
+  function handleUsernameChange(value: string) {
+    const cleaned = slugifyUsername(value);
+    setUsername(cleaned);
+    // Kullanıcı manuel düzenlediyse işaretle; tamamen temizlerse otomatik öneriye geri dön
+    setIsUsernameManuallyEdited(cleaned.length > 0);
+  }
+
   function applyTemplate(template: typeof STORE_TEMPLATES[0]) {
     setSelectedTemplate(template.id);
     setProfileImage(template.avatar);
@@ -272,8 +297,9 @@ export default function StoreSetupScreen() {
     setDeliveryInfo(template.data.deliveryInfo);
     setShowTemplates(false);
     setSetupStage('identity');
-    setName(`${template.name} ${Math.random().toString(36).substring(7)}`);
-    setUsername(`${template.id}-${Date.now().toString().slice(-5)}`);
+    setName(template.name);
+    setUsername(slugifyUsername(template.name));
+    setIsUsernameManuallyEdited(false);
     setDescription(`${template.description} - Kaliteli ürünler ile hizmetinizdeyiz.`);
   }
 
@@ -450,25 +476,36 @@ export default function StoreSetupScreen() {
         </View>
 
         {[
-          { label: 'Mağaza Adı *', value: name, setValue: setName, placeholder: 'Örn. ModaStore Türkiye' },
-          { label: 'Kullanıcı Adı *', value: username, setValue: setUsername, placeholder: 'Örn. modastoretr' },
-          { label: 'Şehir *', value: city, setValue: setCity, placeholder: 'Örn. İstanbul' },
-          { label: 'Açıklama *', value: description, setValue: setDescription, placeholder: 'Ne satıyorsun, hangi stile hitap ediyorsun?' },
+          { label: 'Mağaza Adı *', value: name, setValue: handleNameChange, placeholder: 'Örn. ModaStore Türkiye', maxLength: 60, hint: 'Ad değiştikçe kullanıcı adı otomatik önerilir.' },
+          { label: 'Kullanıcı Adı *', value: username, setValue: handleUsernameChange, placeholder: 'Örn. modastoretr', maxLength: 30, hint: 'Sadece harf, rakam, nokta ve alt çizgi.' },
+          { label: 'Şehir *', value: city, setValue: setCity, placeholder: 'Örn. İstanbul', maxLength: 40 },
+          { label: 'Açıklama *', value: description, setValue: setDescription, placeholder: 'Ne satıyorsun, hangi stile hitap ediyorsun?', maxLength: 200 },
         ].map((field) => (
           <View key={field.label} className="rounded-xl border border-[#33333315] bg-white p-3">
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{field.label}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{field.label}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: (field.value?.length || 0) > field.maxLength * 0.9 ? '#EF4444' : colors.textMuted }}>
+                {(field.value?.length || 0)}/{field.maxLength}
+              </Text>
+            </View>
             <TextInput
               value={field.value}
               onChangeText={field.setValue}
               showSoftInputOnFocus
-              autoCorrect
-              autoCapitalize="sentences"
+              autoCorrect={field.label !== 'Kullanıcı Adı *'}
+              autoCapitalize={field.label === 'Kullanıcı Adı *' ? 'none' : 'sentences'}
               placeholder={field.placeholder}
               placeholderTextColor={colors.textMuted}
+              maxLength={field.maxLength}
               style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary }}
               className="mt-2 rounded-xl border border-[#33333315] bg-[#F7F7F7] px-3 py-3"
               multiline={field.label === 'Açıklama *'}
             />
+            {field.hint ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textMuted, marginTop: 6 }}>
+                {field.hint}
+              </Text>
+            ) : null}
           </View>
         ))}
 
