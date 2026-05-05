@@ -1,0 +1,233 @@
+Instagram Business/Creator entegrasyonu + otomatik ürünleştirme + mağaza sistemi kur.
+
+AMAÇ:
+Satıcı Instagram hesabını bağladığında gönderiler, reels ve hikayeler uygulamaya gelsin. Ancak içerikler direkt ürün olarak yayınlanmasın. Sistem otomatik ürün taslağı oluştursun, satıcı sadece hızlıca onaylasın.
+
+---
+
+1. INSTAGRAM BAĞLAMA
+
+* Sadece Business/Creator hesaplar bağlanabilsin
+* Bağlandıktan sonra çekilecek veriler:
+
+  * gönderiler (media)
+  * reels videolar
+  * aktif hikayeler
+  * takipçi sayısı
+  * beğeni, yorum, görüntülenme
+
+---
+
+2. INSTAGRAM İÇERİK AKIŞI
+   Instagram’dan gelen her içerik:
+
+* imported_from_instagram status ile kaydedilsin
+* ürün olarak yayınlanmasın
+* “Instagram İçerikleri” alanında listelensin
+
+Her içerikte:
+
+* görsel/video
+* caption (açıklama)
+* tarih
+* beğeni
+* yorum
+* görüntülenme
+* “Ürüne Çevir” butonu
+* “Hikayeye Çevir” butonu
+
+---
+
+3. OTOMATİK ÜRÜN TASLAĞI (EN KRİTİK KISIM)
+
+Instagram caption aynen alınır ve sistem otomatik analiz eder.
+
+Caption’dan otomatik çıkar:
+
+* ürün adı
+* fiyat
+* kategori
+* alt kategori
+* beden/ölçü
+* renk
+* şehir
+* stok durumu
+* teslimat bilgisi
+
+Örnek:
+“Yeni sezon sneaker 1250 TL 36-44 numara siyah stokta”
+→ ürün adı: sneaker
+→ fiyat: 1250
+→ kategori: ayakkabı
+→ beden: 36-44
+→ renk: siyah
+→ stok: stokta
+
+---
+
+4. HIZLI ONAY EKRANI (UZUN FORM YOK)
+
+“Ürüne Çevir” tıklanınca kısa ekran aç:
+
+* görsel
+* ürün adı (otomatik)
+* fiyat (otomatik)
+* kategori (otomatik)
+* açıklama (caption)
+* beden/renk
+* konum
+
+Eksik alanlar kırmızı:
+
+* “Fiyat eksik”
+* “Kategori seçilmeli”
+
+Butonlar:
+
+* Yayınla
+* Detaylı düzenle
+
+---
+
+5. TOPLU ÜRÜN EKLEME
+
+* Çoklu seçim olsun
+* Birden fazla gönderiyi seç
+* Otomatik taslak oluştur
+* Eksiksiz olanları tek tuşla yayınla
+
+---
+
+6. HİKAYE SİSTEMİ
+   Instagram’dan gelen:
+
+* aktif story → direkt hikaye alanına düşebilir
+* gönderi → “Hikayeye Çevir” ile paylaşılır
+
+Hikaye:
+
+* 24 saat aktif
+* görüntülenme sayısı
+* beğeni
+* mesaj gönderme
+
+Mesaj:
+“Merhaba, hikayede paylaştığınız ürün hakkında bilgi istiyorum”
+→ Messages sistemine düşsün
+
+---
+
+7. MAĞAZA PROFİLİ (INSTAGRAM TARZI)
+
+Üst:
+
+* kapak görsel
+* profil foto
+* mağaza adı
+* @username
+* takipçi
+* takip
+* ürün sayısı
+
+Sekmeler:
+
+* grid = ürünler
+* video = reels
+* info = mağaza bilgileri
+
+---
+
+8. MAĞAZA BİLGİLERİ (INFO SEKME)
+
+* açıklama
+* şehir
+* e-posta
+* telefon
+* teslimat modeli
+* puan
+* değerlendirme sayısı
+
+Alt:
+
+* Kullanım Şartları
+* Gizlilik & KVKK
+* Sorumluluk Reddi
+* Yasaklı Ürünler
+
+---
+
+9. İSTATİSTİKLER
+
+Instagram:
+
+* takipçi
+* beğeni
+* yorum
+* reels izlenme
+
+Uygulama:
+
+* ürün görüntülenme
+* mağaza görüntülenme
+* hikaye izlenme
+* mesaj sayısı
+* takipçi
+* satış/lead
+
+---
+
+10. DURUM AKIŞI
+
+imported_from_instagram
+auto_draft
+needs_review
+ready_to_publish
+published
+rejected
+
+---
+
+11. GÜVENLİK
+
+* fiyat yoksa yayınlama
+* kategori yoksa yayınlama
+* yasaklı ürünleri kontrol et
+* otomatik veri kesin kabul edilmesin
+* satıcı onayı şart
+
+---
+
+12. TASARIM DÜZELTMELERİ
+
+* çentiğe taşma olmasın
+* görseller düzgün oranlı
+* grid taşmasın
+* bottom bar üstünü kapatmasın
+* hikaye alanı düzgün hizalansın
+
+---
+
+13. BAĞLANTILAR
+
+* Ürüne Çevir → ürün listesine
+* Hikayeye Çevir → ana sayfa hikayelerine
+* Mesaj → Messages sistemine
+* Mağaza → profil sayfasına
+
+---
+
+14. TEST
+
+* Instagram bağlanıyor mu?
+* içerikler geliyor mu?
+* otomatik ürün oluşuyor mu?
+* hızlı onay çalışıyor mu?
+* hikaye sistemi çalışıyor mu?
+* mesaj düşüyor mu?
+* mağaza ekranı düzgün mü?
+* ekran taşmaları düzeldi mi?
+
+---
+
+MEVCUT SİSTEMİ BOZMA.
+Eksik import, type, navigation hatalarını kendin düzelt.

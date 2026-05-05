@@ -1,0 +1,75 @@
+Mobil uygulamamda mevcut mesajlaşma bölümünü bozmadan profesyonel hale getir.
+
+Uygulama mantığı:
+Bu uygulama Instagram satıcılarının ürün/ilan paylaştığı bir platform. Alıcılar ürün detayından satıcıya mesaj atabiliyor. Satıcı ve alıcı uygulama içinde konuşuyor. Şimdilik ödeme/kargo yok, sadece ilan + mesajlaşma sistemi var.
+
+İstediğim geliştirme:
+
+1. Mesajlar ana ekranı
+- Tüm konuşmaları listele.
+- Her konuşmada satıcı/alıcı adı, profil resmi, son mesaj, son mesaj saati görünsün.
+- Okunmamış mesaj varsa mavi rozet göster.
+- Ürünle bağlantılı konuşmalarda ürün küçük görseli, ürün adı ve fiyatı görünsün.
+- Arama kutusu olsun: kullanıcı adı, mağaza adı veya ürün adına göre arama yapsın.
+- Konuşmaları son mesaja göre sırala.
+
+2. Konuşma detay ekranı
+- WhatsApp/Instagram DM benzeri temiz sohbet ekranı yap.
+- Üstte karşı tarafın adı, profil resmi, mağaza adı ve aktiflik durumu görünsün.
+- Eğer konuşma bir üründen başladıysa üstte sabit ürün kartı olsun:
+  ürün görseli, ürün adı, fiyat, “Ürünü Gör” butonu.
+- Mesaj balonları sağ/sol ayrımıyla görünsün.
+- Saat bilgisi, gönderildi/okundu durumu olsun.
+- Mesaj yazma alanında:
+  metin yazma,
+  fotoğraf gönderme butonu,
+  hızlı cevap butonu,
+  gönder butonu olsun.
+
+3. Hızlı cevaplar
+Satıcılar için hazır cevaplar ekle:
+- “Merhaba, ürün hâlâ mevcut.”
+- “Son fiyat budur.”
+- “Hangi şehir/ilçedesiniz?”
+- “Instagram hesabımdan da bakabilirsiniz.”
+- “Detaylı ölçü/fotoğraf atabilirim.”
+- “Teslimat/kargo için mesajlaşabiliriz.”
+
+4. Ürün üzerinden mesaj başlatma
+- ProductDetailScreen içindeki “Mesaj Gönder” butonu çalışsın.
+- Kullanıcı üründen mesaj atınca otomatik konuşma oluşsun.
+- İlk mesaj örneği:
+  “Merhaba, bu ürün hakkında bilgi almak istiyorum: [ürün adı]”
+- Aynı ürün ve aynı kullanıcı arasında daha önce konuşma varsa yeni konuşma açma, eski konuşmaya yönlendir.
+
+5. Bildirim mantığı
+- Yeni mesaj gelince NotificationCenterScreen’e bildirim düşsün.
+- Bildirim metni:
+  “[Kullanıcı adı] size [ürün adı] hakkında mesaj gönderdi.”
+- Okunmamış mesaj sayısı Messages tab ikonunda rozet olarak görünsün.
+
+6. Güvenlik ve kullanıcı deneyimi
+- Kullanıcı kendine mesaj atamasın.
+- Boş mesaj gönderilemesin.
+- Çok uzun mesajlarda ekran bozulmasın.
+- Silinmiş/pasif ürünlerde ürün kartında “Bu ilan artık yayında değil” yazsın.
+- Engelle/şikayet et seçenekleri konuşma detayında üç nokta menüsünde olsun.
+
+7. Tasarım
+- Modern, mavi-beyaz marka rengine uygun yap.
+- Kartlar yuvarlak, temiz, mobil uyumlu olsun.
+- Instagram DM + sahibinden mesajlaşma karışımı gibi profesyonel görünsün.
+- Mevcut navigasyonu, mevcut auth yapısını ve mevcut ilan sistemini bozma.
+- Eksik type/interface varsa düzgün ekle.
+- Fake/demo data varsa gerçek state yapısına uygun düzenle.
+- Hata verirse tüm importları ve dosya yollarını düzelt.
+
+Kontrol et:
+- Mesajlar ekranı açılıyor mu?
+- Ürün detayından mesaj başlıyor mu?
+- Konuşma detayında ürün kartı geliyor mu?
+- Mesaj gönderince liste güncelleniyor mu?
+- Okunmamış rozet çalışıyor mu?
+- Bildirim merkezi mesaj bildirimi alıyor mu?
+
+Kodları mevcut projeye uygun şekilde üret ve bozmadan uygula.

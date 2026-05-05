@@ -1,0 +1,111 @@
+modules = ["nodejs-20", "web", "postgresql-16"]
+[agent]
+expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Expo Go"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Panel"
+
+[[workflows.workflow]]
+name = "Expo Go"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx expo start --tunnel"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "CI=1 DANGEROUSLY_DISABLE_HOST_CHECK=true npx expo start --web --port 5000"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Admin Panel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd web-admin && npm run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3003
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 8082
+externalPort = 4200
+
+[deployment]
+deploymentTarget = "static"
+build = ["bash", "-c", "cd web-admin && npm run build"]
+publicDir = "web-admin/dist"
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_EMAIL_OTP_LENGTH = "8"
+EXPO_PUBLIC_MEDIA_STORAGE_MODE = "supabase"
+EXPO_PUBLIC_IMAGE_UPLOAD_TIMEOUT_MS = "20000"
+EXPO_PUBLIC_MAX_IMAGE_BYTES = "8388608"
+EXPO_PUBLIC_IMAGE_UPLOAD_CONCURRENCY = "2"
+EXPO_PUBLIC_NOTIFICATION_DISPATCH_TIMEOUT_MS = "10000"
+EXPO_PUBLIC_BACKEND_STRICT_MODE = "false"
+EXPO_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.com"
+EXPO_PUBLIC_BACKEND_API_URL = ""
+
+[objectStorage]
+defaultBucketID = "replit-objstore-8fd55029-9bba-4649-9bd8-4247e58b05c1"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000

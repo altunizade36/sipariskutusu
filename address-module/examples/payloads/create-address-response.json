@@ -1,0 +1,19 @@
+{
+  "id": 12001,
+  "provinceId": 34,
+  "districtId": 34016,
+  "neighborhoodId": 9001,
+  "streetId": 555,
+  "buildingNo": "12",
+  "unitNo": "3",
+  "postalCode": "34710",
+  "fullText": "Istanbul Kadikoy Caferaga Mah Moda Caddesi No 12 Daire 3",
+  "normalizedFullText": "istanbul kadikoy caferaga mahalle moda caddesi no 12 daire 3",
+  "confidenceScore": "1.0000",
+  "snapshotJson": {
+    "province": "Istanbul",
+    "district": "Kadikoy",
+    "neighborhood": "Caferaga",
+    "street": "Moda Caddesi"
+  }
+}

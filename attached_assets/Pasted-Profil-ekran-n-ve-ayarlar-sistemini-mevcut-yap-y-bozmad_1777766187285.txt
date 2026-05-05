@@ -1,0 +1,181 @@
+Profil ekranını ve ayarlar sistemini mevcut yapıyı bozmadan tam çalışan, bağlantılı ve profesyonel hale getir.
+
+AMAÇ:
+Profil ekranındaki tüm kartlar ve menüler gerçekten ilgili ekranlara gitsin. Pasif duran alan kalmasın. Dark mode, dil, bildirim ayarları, mağaza profili, Instagram bağlama, favoriler, mesajlar ve şikayetler düzgün çalışsın.
+
+1. PROFİL ANA EKRANI
+
+Profil üst kartında şunlar doğru gelsin:
+- kullanıcı adı
+- e-posta
+- profil fotoğrafı
+- hesap türü: Alıcı / Satıcı / İçerik Üretici
+- doğrulama durumu
+- mağaza sayısı
+- favori sayısı
+- mesaj sayısı
+
+Sayılar gerçek veriden gelsin:
+- Mağaza: kullanıcının mağazası varsa 1, yoksa 0
+- Favori: kullanıcının favorilediği ürün sayısı
+- Mesaj: okunmamış + toplam konuşma sayısı
+
+2. HIZLI KISAYOLLAR
+
+Şu butonlar aktif çalışsın:
+- Favoriler → FavoritesScreen
+- Sepetim → CartScreen veya ödeme yoksa “Sepet sistemi yakında” ekranı
+- Kategoriler → CategoriesScreen
+- Mesajlar → MessagesScreen
+- Mağazam → StoreScreen / mağaza yoksa StoreCreateScreen
+- Yardım → HelpCenterScreen
+
+Hiçbiri boş kalmasın.
+
+3. INSTAGRAM BAĞLA
+
+“Instagram Bağla” kartı çalışsın:
+- InstagramConnectScreen’e gitsin
+- Instagram bağlıysa:
+  “Instagram Bağlandı”
+  “İçerikleri Yönet”
+  yazsın
+- Bağlı değilse:
+  “Instagram Bağla”
+  “Gönderilerini otomatik ürüne dönüştür”
+  yazsın
+
+4. HESABIM MENÜLERİ
+
+Şu menüleri aktif yap:
+
+- Kişisel Bilgiler
+  Kullanıcı adı, e-posta, telefon, profil fotoğrafı düzenleme
+
+- Mağaza Profili
+  Mağaza varsa StoreEditScreen
+  Mağaza yoksa StoreCreateScreen
+
+- Adreslerim
+  şehir, ilçe, mahalle, açık adres ekleme/düzenleme/silme
+
+- Ödeme Tercihlerim
+  Şimdilik ödeme aktif değilse bilgi ekranı:
+  “Ödeme sistemi şu anda aktif değildir. Satıcı ile mesajlaşarak anlaşabilirsiniz.”
+
+- Görüşme Geçmişim
+  Mesajlaşma geçmişi / konuşmalar ekranına yönlendir
+
+- Güvenlik
+  şifre değiştir
+  e-posta doğrulama durumu
+  çıkış yapılan cihazlar
+  hesabı silme talebi
+
+5. DESTEK MENÜLERİ
+
+- Canlı Destek
+  destek mesajı oluşturma ekranı
+
+- Yardım Merkezi
+  sık sorulan sorular ekranı
+
+- İletişim E-postası
+  destek e-postası veya iletişim formu
+
+- Şartlar & Gizlilik
+  kullanım şartları, gizlilik, KVKK, sorumluluk reddi, yasaklı ürünler
+
+- Dil & Bölge
+  Türkçe / İngilizce seçimi
+  seçilen dil uygulama geneline uygulansın
+
+6. UYGULAMA MENÜLERİ
+
+- Bildirimler
+  bildirim izinleri ve uygulama içi bildirim tercihleri:
+  mesaj bildirimleri
+  favori bildirimleri
+  beğeni bildirimleri
+  takip bildirimleri
+  admin duyuruları
+
+- Görünüm
+  Tema seçimi:
+  Sistem
+  Açık
+  Koyu
+
+Dark mode gerçekten çalışsın.
+Tüm ekranlarda arka plan, kart, yazı, ikon ve border renkleri tema ile değişsin.
+Sadece profil değil; ana sayfa, keşfet, mağaza, mesajlar, kategoriler, ilan ver ekranları da bozulmadan koyu temaya uyumlu olsun.
+
+7. ÇIKIŞ YAP
+
+- Çıkış Yap butonu çalışsın.
+- Basınca onay modalı çıksın:
+  “Çıkış yapmak istiyor musunuz?”
+  Vazgeç / Çıkış Yap
+- Çıkış sonrası LoginScreen’e yönlendir.
+
+8. ŞİKAYETLERİM
+
+Profil altında “Şikayetlerim” bölümü çalışsın.
+- Kullanıcının yaptığı şikayetler listelensin.
+- Kayıt yoksa:
+  “Henüz şikayet kaydın bulunmuyor.”
+- “Tüm Şikayetlerimi Gör” butonu ReportsScreen’e gitsin.
+- Aktif session hatası görünmesin. Session kontrolünü düzelt.
+
+9. SESSION / AUTH HATASI
+
+Şu hata düzeltilsin:
+“Aktif session missing!”
+
+- Kullanıcı giriş yaptıysa profil verisi doğru yüklensin.
+- Session yoksa LoginScreen’e yönlendir.
+- Profil ekranında kırmızı hata kartı kalmasın.
+- Auth state değişince profil otomatik güncellensin.
+
+10. VERİ BAĞLANTILARI
+
+Profil ekranı şu verilerle bağlantılı olsun:
+- currentUser
+- storeProfile
+- favorites
+- messages
+- notifications
+- reports
+- instagramConnection
+- appSettings
+- theme
+- language
+
+Fake/dummy veri varsa gerçek state/service yapısına bağla.
+
+11. TASARIM DÜZELTME
+
+- Üst mavi alan çentiğe taşmasın.
+- Profil kartı düzgün hizalansın.
+- Menü kartları eşit boşlukla görünsün.
+- Bottom tab içerik üstünü kapatmasın.
+- Küçük telefonlarda taşma olmasın.
+- Uzun metinler ... ile kısalsın.
+- Dark mode’da beyaz kart/yazı hatası kalmasın.
+
+12. TEST ET
+
+Kontrol et:
+- Favoriler butonu favorilere gidiyor mu?
+- Mesajlar butonu mesajlara gidiyor mu?
+- Mağazam butonu doğru mağazaya gidiyor mu?
+- Instagram Bağla ekranı açılıyor mu?
+- Kişisel bilgiler düzenleniyor mu?
+- Dil değişince uygulama metinleri değişiyor mu?
+- Dark mode tüm ekranlarda düzgün çalışıyor mu?
+- Bildirim ayarları kaydediliyor mu?
+- Çıkış yap çalışıyor mu?
+- Session hatası kalktı mı?
+- Şikayetlerim ekranı çalışıyor mu?
+
+Mevcut çalışan auth, ürün, mağaza, mesaj, favori, bildirim, Instagram ve kategori sistemini bozma. Eksik import, type/interface, navigation, route ve state hatalarını kendin çöz.

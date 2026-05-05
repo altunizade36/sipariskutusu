@@ -1,0 +1,2 @@
+timestamp,tester_id,role,scenario,success,duration_min,severity,screen,issue_summary,repro_steps,expected_result,actual_result,device,os_version,app_version,network,notes
+,,,,,,,,,,,,,,,,
