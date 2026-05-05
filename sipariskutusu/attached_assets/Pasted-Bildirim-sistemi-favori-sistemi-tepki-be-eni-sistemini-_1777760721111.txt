@@ -1,0 +1,211 @@
+Bildirim sistemi + favori sistemi + tepki/beğeni sistemini mevcut yapıyı bozmadan profesyonel hale getir.
+
+AMAÇ:
+Kullanıcı ürünleri favorileyebilsin, beğenebilsin, takip edebilsin. Satıcıya ve kullanıcıya doğru bildirimler gitsin. Bildirimler okunmuş/okunmamış olarak çalışsın. Favoriler ekleme/çıkarma/görme sistemi tam olsun.
+
+1. BİLDİRİM SİSTEMİ
+
+NotificationCenterScreen geliştir.
+
+Bildirim tipleri:
+- yeni mesaj
+- ürün favorilendi
+- ürün beğenildi
+- ürüne yorum geldi
+- satıcı takip edildi
+- hikaye beğenildi
+- hikayeden mesaj geldi
+- mağaza takip edildi
+- ürün onaylandı
+- ürün reddedildi
+- admin uyarısı
+- sistem duyurusu
+
+Her bildirimde:
+- ikon
+- başlık
+- açıklama
+- tarih/saat
+- okunmuş/okunmamış durumu
+- ilgili ekrana yönlendirme
+- sağdan sola kaydırınca silme
+- tümünü okundu yap
+- tümünü temizle
+
+Örnek bildirimler:
+- “Ayşe, ürününüzü favorilere ekledi.”
+- “Mehmet, hikayenizdeki ürüne mesaj gönderdi.”
+- “Yeni mesajınız var.”
+- “Ürününüz yayına alındı.”
+- “Ürününüz admin tarafından reddedildi.”
+
+Bildirim modeli:
+Notification {
+  id,
+  userId,
+  type,
+  title,
+  body,
+  targetType,
+  targetId,
+  senderId,
+  senderName,
+  senderAvatar,
+  productId,
+  storeId,
+  storyId,
+  isRead,
+  createdAt
+}
+
+2. BİLDİRİM ROZETLERİ
+
+- Alt tab Messages ikonunda okunmamış mesaj sayısı görünsün.
+- Alt tab Notifications varsa okunmamış bildirim sayısı görünsün.
+- Bildirim okununca rozet azalsın.
+- Mesaj açılınca mesaj bildirimi okundu sayılsın.
+
+3. FAVORİ SİSTEMİ
+
+Ürün detayında ve ürün kartlarında favori kalp butonu olsun.
+
+Davranış:
+- Kullanıcı favoriye ekleyince kalp kırmızı dolu olsun.
+- Tekrar basınca favoriden çıksın.
+- Favori sayısı artsın/azalsın.
+- Kullanıcı favorilediği ürünleri FavoritesScreen’de görebilsin.
+- Favoriler ekranında ürün kartları düzgün listelensin.
+- Ürün silinmiş/pasifse favorilerde “Bu ürün artık yayında değil” yazsın.
+- Kullanıcı kendi ürününü favorileyemesin.
+
+Favori modeli:
+Favorite {
+  id,
+  userId,
+  productId,
+  sellerId,
+  createdAt
+}
+
+4. FAVORİ BİLDİRİMİ
+
+- Bir kullanıcı ürünü favorileyince satıcıya bildirim gitsin:
+  “[Kullanıcı adı] ürününüzü favorilere ekledi.”
+- Favoriden çıkarınca bildirim gönderme.
+- Aynı kullanıcı aynı ürünü tekrar tekrar favorileyince spam bildirim oluşturma.
+- Aynı ürün için kısa sürede tekrar favori bildirimi üretme.
+
+5. BEĞENİ / TEPKİ SİSTEMİ
+
+Ürün, hikaye ve yorumlarda beğeni sistemi olsun.
+
+Davranış:
+- Kalp normalde boş olsun.
+- Beğenince kırmızı dolu olsun.
+- Tekrar basınca beğeni kalksın.
+- Sayı doğru artsın/azalsın.
+- Kullanıcı aynı şeyi birden fazla kez beğenemesin.
+
+Like modeli:
+Like {
+  id,
+  userId,
+  targetType,
+  targetId,
+  sellerId,
+  createdAt
+}
+
+targetType:
+- product
+- story
+- comment
+
+6. BEĞENİ BİLDİRİMİ
+
+- Ürün beğenilince satıcıya bildirim:
+  “[Kullanıcı adı] ürününüzü beğendi.”
+- Hikaye beğenilince satıcıya bildirim:
+  “[Kullanıcı adı] hikayenizi beğendi.”
+- Spam bildirim oluşturma.
+- Kullanıcı kendi ürününü/hikayesini beğenirse bildirim gönderme.
+
+7. TAKİP SİSTEMİ
+
+Satıcı/mağaza takip etme çalışsın.
+
+Davranış:
+- Takip Et butonu çalışsın.
+- Takip edilince “Takip Ediliyor” yazsın.
+- Tekrar basınca takipten çıksın.
+- Satıcının takipçi sayısı artsın/azalsın.
+- Kullanıcı kendi mağazasını takip edemesin.
+
+Follow modeli:
+Follow {
+  id,
+  followerId,
+  sellerId,
+  storeId,
+  createdAt
+}
+
+Bildirim:
+- “[Kullanıcı adı] mağazanızı takip etti.”
+
+8. FAVORİLER EKRANI
+
+FavoritesScreen ekle/geliştir:
+- Kullanıcının favorilediği ürünler listelensin.
+- Arama ve filtre olsun.
+- Fiyat, kategori, mağaza adı, şehir görünsün.
+- Kalp butonuna tekrar basınca favoriden çıkarılsın.
+- Boş ekran:
+  “Henüz favori ürününüz yok.”
+  “Beğendiğiniz ürünleri kalp ikonuna basarak buraya ekleyebilirsiniz.”
+
+9. VERİ TUTARLILIĞI
+
+- Favori/beğeni/takip işlemleri optimistic update ile hızlı görünsün.
+- Hata olursa eski haline dönsün.
+- Aynı kullanıcı aynı ürünü iki kez favorileyemesin.
+- Aynı kullanıcı aynı ürünü iki kez beğenemesin.
+- Sayılar yanlış artmasın.
+- Silinen ürünlerde kırık ekran oluşmasın.
+
+10. ADMIN PANEL
+
+Admin panelinde istatistik olarak göster:
+- toplam bildirim
+- okunmamış bildirim
+- en çok favorilenen ürünler
+- en çok beğenilen ürünler
+- en çok takip edilen mağazalar
+- en çok mesaj alan ürünler
+- şikayet alan ürünler
+
+11. TASARIM
+
+- Kalp ikonu favori/beğeni durumunda kırmızı dolu olsun.
+- Boşken gri/çizgili olsun.
+- Bildirim ekranı kartlı, temiz ve mobil uyumlu olsun.
+- Okunmamış bildirimlerde hafif mavi arka plan olsun.
+- Kartlar taşmasın.
+- Küçük telefonlarda yazılar bozulmasın.
+
+12. TEST
+
+Kontrol et:
+- Ürün favoriye ekleniyor mu?
+- Favoriden çıkarılıyor mu?
+- Favoriler ekranında görünüyor mu?
+- Kalp rengi doğru değişiyor mu?
+- Favori sayısı doğru mu?
+- Beğeni çalışıyor mu?
+- Takip çalışıyor mu?
+- Satıcıya bildirim gidiyor mu?
+- Okunmamış bildirim rozeti çalışıyor mu?
+- Bildirime tıklayınca doğru ekrana gidiyor mu?
+- Silinen/pasif ürünlerde ekran bozulmuyor mu?
+
+Mevcut çalışan ürün, mesaj, mağaza, hikaye ve keşfet sistemini bozma. Eksik import, type/interface, navigation ve state hatalarını kendin düzelt.

@@ -1,0 +1,15 @@
+[33m› [1m[@sentry/react-native/expo][22m Missing config for [1morganization, project[22m. Environment variables will be used as a fallback during the build. https://docs.sentry.io/platforms/react-native/manual-setup/[0m
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+Error: Cannot pipe to a closed or destroyed stream
+    at pipelineImpl (node:internal/streams/pipeline:264:15)
+    at node:stream/promises:31:5
+    at new Promise (<anonymous>)
+    at pipeline (node:stream/promises:20:10)
+    at respond (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo-server\src\vendor\http.ts:138:19)
+    at C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo-server\src\vendor\http.ts:68:13
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".
+"shadow*" style props are deprecated. Use "boxShadow".

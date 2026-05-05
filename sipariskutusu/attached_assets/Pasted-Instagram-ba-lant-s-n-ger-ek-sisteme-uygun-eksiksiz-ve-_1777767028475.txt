@@ -1,0 +1,155 @@
+Instagram bağlantısını gerçek sisteme uygun, eksiksiz ve güvenli hale getir.
+
+AMAÇ:
+Kullanıcı “Instagram Hesabı Bağla” dediğinde Instagram/Facebook yetkilendirme ekranı açılsın. Kullanıcı Business veya Creator hesabını bağlasın. Bağlandıktan sonra gönderiler, reels, hikayeler, takipçi bilgileri ve etkileşim verileri doğru şekilde uygulamaya çekilsin.
+
+1. BAĞLANTI AKIŞI
+- Instagram Bağla butonu manuel kullanıcı adıyla bağlamasın.
+- Butona basınca gerçek OAuth bağlantısı açılsın.
+- Instagram/Facebook izin ekranı açılsın.
+- Kullanıcı izin verirse uygulamaya geri dönsün.
+- Access token güvenli şekilde kaydedilsin.
+- Token süresi ve yenileme mantığı olsun.
+- Bağlantı başarısız olursa net hata göster:
+  “Instagram bağlantısı kurulamadı.”
+
+2. HESAP KONTROLÜ
+- Sadece Business veya Creator hesap bağlanabilsin.
+- Kişisel hesap bağlanamazsa uyarı göster:
+  “Sadece Business veya Creator hesaplar desteklenir.”
+- Bağlanan hesap bilgileri gösterilsin:
+  - kullanıcı adı
+  - profil fotoğrafı
+  - hesap türü
+  - takipçi sayısı
+  - medya sayısı
+
+3. VERİ ÇEKME
+Bağlandıktan sonra şunları çek:
+- gönderiler
+- reels
+- aktif hikayeler
+- görsel/video URL
+- thumbnail
+- caption
+- paylaşım tarihi
+- permalink
+- beğeni sayısı
+- yorum sayısı
+- görüntülenme/insight varsa
+- takipçi sayısı
+
+4. ÖLÇÜ VE GÖRSEL UYUMU
+- Instagram’dan gelen görseller orijinal oranıyla gösterilsin.
+- Kare, dikey, yatay gönderiler bozulmasın.
+- Reels 9:16 oranıyla gösterilsin.
+- Story 9:16 tam ekran gösterilsin.
+- Görseller sıkışmasın, yamulmasın.
+- Gerekirse aspectRatio kullan.
+
+5. İÇERİK YÖNETİMİ
+Instagram’dan gelen içerikler direkt ürün olmasın.
+Önce “Instagram İçerikleri” ekranına düşsün.
+
+Kullanıcı her içerik için şunları yapabilsin:
+- ürüne çevir
+- hikayeye çevir
+- gizle
+- tekrar göster
+- sil / uygulamadan kaldır
+- seçili içerikleri toplu ürüne çevir
+
+6. OTOMATİK GÜNCELLEME
+- Bağlandıktan sonra içerikler otomatik senkronize edilsin.
+- Uygulama açılınca kontrol et.
+- Mağaza ekranına girince kontrol et.
+- Kullanıcı isterse “Şimdi Senkronize Et” butonu ile manuel yenileyebilsin.
+- Aynı Instagram gönderisi iki kez eklenmesin.
+- instagramMediaId unique olsun.
+- lastInstagramSyncAt tutulmalı.
+- Çok sık API çağrısı yapma; örnek 10-15 dakika cache kullan.
+
+7. ÜRÜNE ÇEVİRME
+- Caption açıklama olarak otomatik gelsin.
+- Görsel ürün görseli olsun.
+- Caption’dan fiyat, kategori, renk, beden, stok tahmin edilsin.
+- Eksik alan varsa kullanıcıya göster.
+- Kullanıcı onaylamadan ürün yayınlanmasın.
+
+8. HİKAYEYE ÇEVİRME
+- Story veya gönderi “Hikayeye Çevir” ile uygulama hikayesine düşsün.
+- 24 saat aktif kalsın.
+- Hikayeden mesaj atılınca Messages ekranına düşsün.
+- Görüntülenme ve beğeni sayısı tutulsun.
+
+9. BAĞLANTIYI KALDIRMA
+Instagram bağlantı ekranında:
+- Bağlantıyı Kes butonu olsun.
+- Bağlantı kesilince token silinsin.
+- Daha önce ürüne çevrilmiş ürünler silinmesin.
+- Sadece yeni senkronizasyon dursun.
+
+10. DURUM GÖSTERİMİ
+Instagram ekranında durumlar gösterilsin:
+- Bağlı değil
+- Bağlanıyor
+- Bağlandı
+- Senkronize ediliyor
+- Son senkronizasyon zamanı
+- Hata oluştu
+
+11. VERİ MODELİ
+Şu yapıları ekle/güncelle:
+
+InstagramConnection {
+  id,
+  userId,
+  storeId,
+  instagramUserId,
+  username,
+  accountType,
+  profilePictureUrl,
+  followerCount,
+  mediaCount,
+  accessToken,
+  tokenExpiresAt,
+  lastSyncAt,
+  isConnected,
+  createdAt,
+  updatedAt
+}
+
+InstagramContent {
+  id,
+  userId,
+  storeId,
+  instagramMediaId,
+  mediaType,
+  mediaUrl,
+  thumbnailUrl,
+  caption,
+  permalink,
+  likeCount,
+  commentCount,
+  viewCount,
+  timestamp,
+  status,
+  isHidden,
+  convertedProductId,
+  createdAt
+}
+
+12. TEST ET
+- Instagram Bağla butonu OAuth ekranı açıyor mu?
+- Bağlandıktan sonra uygulamaya geri dönüyor mu?
+- Business/Creator kontrolü çalışıyor mu?
+- Gönderiler geliyor mu?
+- Reels doğru ölçüde geliyor mu?
+- Story tam ekran bozulmadan açılıyor mu?
+- Aynı gönderi iki kez eklenmiyor mu?
+- Senkronizasyon çalışıyor mu?
+- Kullanıcı içerik gizleyip tekrar gösterebiliyor mu?
+- Bağlantıyı kesince token siliniyor mu?
+- Ürüne çevirme ve hikayeye çevirme çalışıyor mu?
+
+Mevcut mağaza, ürün, hikaye, mesaj, kategori ve profil sistemini bozma. Eksik import, type/interface, navigation, route, auth ve state hatalarını kendin çöz.

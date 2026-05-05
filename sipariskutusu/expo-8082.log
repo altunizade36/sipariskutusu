@@ -1,0 +1,238 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY DATABASE_URL EXPO_PUBLIC_EMAIL_OTP_LENGTH EXPO_PUBLIC_MEDIA_STORAGE_MODE EXPO_PUBLIC_IMAGE_UPLOAD_TIMEOUT_MS EXPO_PUBLIC_MAX_IMAGE_BYTES EXPO_PUBLIC_IMAGE_UPLOAD_CONCURRENCY EXPO_PUBLIC_NOTIFICATION_DISPATCH_TIMEOUT_MS EMAIL_FROM_ADDRESS EMAIL_FROM_NAME EXPO_PUBLIC_SENTRY_DSN EXPO_PUBLIC_POSTHOG_API_KEY SUPABASE_SERVICE_ROLE_KEY META_APP_SECRET META_APP_ID META_GRAPH_API_VERSION INSTAGRAM_APP_ID INSTAGRAM_APP_SECRET EXPO_PUBLIC_META_APP_ID EXPO_PUBLIC_INSTAGRAM_APP_ID EXPO_PUBLIC_META_REDIRECT_URI EXPO_PUBLIC_META_APP_RETURN_URI EXPO_PUBLIC_META_GRAPH_API_VERSION EXPO_PUBLIC_META_AUTH_PROVIDER EXPO_PUBLIC_INSTAGRAM_OAUTH_SCOPES EXPO_PUBLIC_BACKEND_STRICT_MODE EXPO_PUBLIC_POSTHOG_HOST
+Starting project at C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu
+[33m› [1m[@sentry/react-native/expo][22m Missing config for [1morganization, project[22m. Environment variables will be used as a fallback during the build. https://docs.sentry.io/platforms/react-native/manual-setup/[0m
+Starting Metro Bundler
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+λ Bundled 2451ms node_modules\expo-router\node\render.js (2037 modules)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2180/2180)
+λ Bundled 42ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
+  console.warnedKeys [as warn] (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
+  warnOnce (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\warnOnce\index.js:25:5)
+  createElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\createDOMProps\index.js:806:3)
+  writingDirection (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\createElement\index.js:24:36)
+  View (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\View\index.js:112:5)
+  Object.react-stack-bottom-frame (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8971:9)
+  request (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4710:22)
+  renderElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5548:17)
+  retryNode (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5911:15)
+  renderNodeDestructive (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5852:5)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2180/2180)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 5689ms node_modules\expo-router\entry.js (2180 modules)
+Error: Cannot pipe to a closed or destroyed stream
+    at pipelineImpl (node:internal/streams/pipeline:264:15)
+    at node:stream/promises:31:5
+    at new Promise (<anonymous>)
+    at pipeline (node:stream/promises:20:10)
+    at respond (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo-server\src\vendor\http.ts:138:19)
+    at C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo-server\src\vendor\http.ts:68:13
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+Web Bundled 584ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 720ms node_modules\expo-router\entry.js (2071 modules)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 163ms node_modules\expo-notifications\build\index.js (423 modules)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 64ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
+  console.warnedKeys [as warn] (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
+  warnOnce (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\warnOnce\index.js:25:5)
+  createElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\createDOMProps\index.js:806:3)
+  writingDirection (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\createElement\index.js:24:36)
+  View (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\View\index.js:112:5)
+  Object.react-stack-bottom-frame (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8971:9)
+  request (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4710:22)
+  renderElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5548:17)
+  retryNode (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5911:15)
+  renderNodeDestructive (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5852:5)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 591ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 67ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 16ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 65ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
+  console.warnedKeys [as warn] (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
+  warnOnce (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\warnOnce\index.js:25:5)
+  createElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\createDOMProps\index.js:806:3)
+  writingDirection (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\createElement\index.js:24:36)
+  View (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\View\index.js:112:5)
+  Object.react-stack-bottom-frame (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8971:9)
+  request (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4710:22)
+  renderElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5548:17)
+  retryNode (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5911:15)
+  renderNodeDestructive (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5852:5)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 580ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 66ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 16ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 45ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
+  console.warnedKeys [as warn] (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
+  warnOnce (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\warnOnce\index.js:25:5)
+  createElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\createDOMProps\index.js:806:3)
+  writingDirection (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\createElement\index.js:24:36)
+  View (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\View\index.js:112:5)
+  Object.react-stack-bottom-frame (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8971:9)
+  request (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4710:22)
+  renderElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5548:17)
+  retryNode (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5911:15)
+  renderNodeDestructive (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5852:5)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 492ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 71ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 14ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 47ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+λ  WARN  props.pointerEvents is deprecated. Use style.pointerEvents 
+  console.warnedKeys [as warn] (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\expo\node_modules\@expo\cli\src\start\server\serverLogLikeMetro.ts:161:21)
+  warnOnce (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\warnOnce\index.js:25:5)
+  createElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\modules\createDOMProps\index.js:806:3)
+  writingDirection (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\createElement\index.js:24:36)
+  View (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-native-web\dist\exports\View\index.js:112:5)
+  Object.react-stack-bottom-frame (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:8971:9)
+  request (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:4710:22)
+  renderElement (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5548:17)
+  retryNode (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5911:15)
+  renderNodeDestructive (C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5852:5)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 485ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 69ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 14ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 1594ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 3622ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 442ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 40ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 154ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 1334ms node_modules\expo-router\entry.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 462ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 2195ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 200ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 43ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 570ms node_modules\expo-router\entry.js (1 module)
+λ Bundled 772ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web Bundled 73ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 21ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 110ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 1716ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 68ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 17ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 1463ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 2240ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 327ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 23ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 72ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 888ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 90ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 15ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 236ms node_modules\expo-router\entry.js (1 module)
+λ Bundled 286ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web Bundled 68ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 16ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 49ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 465ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 79ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 15ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 332ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 1123ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 62ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 15ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 221ms node_modules\expo-router\entry.js (1 module)
+λ Bundled 294ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web Bundled 61ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 15ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 213ms node_modules\expo-router\entry.js (1 module)
+λ Bundled 296ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web Bundled 67ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 14ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 40ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 472ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 69ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 15ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 492ms node_modules\expo-router\entry.js (1 module)
+λ Bundled 549ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+"shadow*" style props are deprecated. Use "boxShadow".
+Web Bundled 60ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 16ms node_modules\expo-notifications\build\index.js (1 module)

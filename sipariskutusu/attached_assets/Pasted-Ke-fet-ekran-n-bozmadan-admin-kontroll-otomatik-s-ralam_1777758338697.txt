@@ -1,0 +1,171 @@
+Keşfet ekranını bozmadan “admin kontrollü + otomatik sıralamalı satıcı keşfet sistemi” haline getir.
+
+Amaç:
+Keşfet ekranında satıcılar, mağazalar, hikayeler ve liderlik alanları otomatik istatistiklere göre sıralansın. Admin panelinden bu alanlar yönetilebilsin. Kullanıcı satıcıya/mağazaya tıklayınca mağaza profiline, ürünlerine ve hikayelerine gidebilsin.
+
+1. Keşfet ana yapısı
+- Üstte arama alanı kalsın.
+- Popüler Satıcılar yatay story/avatar sırası düzgün çalışsın.
+- Mağaza akışı 2’li grid olarak düzgün devam etsin.
+- “Haftanın Yükselen Satıcıları” kartı canlı ve dinamik olsun.
+- Kupa ikonuna basınca Leaderboard ekranı açılsın.
+
+2. Otomatik sıralama sistemi
+Satıcıları şu metriklere göre otomatik sırala:
+- satış sayısı
+- ürün görüntülenmesi
+- mağaza görüntülenmesi
+- hikaye görüntülenmesi
+- beğeni sayısı
+- favoriye eklenme sayısı
+- yorum sayısı
+- mesaj alma sayısı
+- takipçi artışı
+- yeni ürün/drop sayısı
+- aktiflik durumu
+- ortalama puan
+
+3. Zaman filtreleri
+Keşfet ve liderlik ekranında filtre olsun:
+- Günlük
+- Haftalık
+- Aylık
+- Yıllık
+- Tüm zamanlar
+
+Seçilen filtreye göre sıralama değişsin.
+
+4. Liderlik kategorileri
+Leaderboard ekranında ayrı sıralamalar olsun:
+- En Çok Satış Yapanlar
+- En Çok Beğenilenler
+- En Çok Yorum Alanlar
+- En Çok Takip Edilenler
+- En Çok Mesaj Alanlar
+- En Çok Görüntülenenler
+- En Yeni Drop Yapanlar
+- En Yüksek Puanlılar
+- Haftanın Yükselenleri
+
+5. Skor hesaplama
+Her satıcı için discoveryScore hesapla.
+
+Örnek mantık:
+salesCount * 5
++ productViews * 1
++ storeViews * 2
++ storyViews * 1
++ likes * 2
++ favorites * 3
++ comments * 3
++ messages * 4
++ followerGrowth * 4
++ newProducts * 2
++ ratingAverage * 10
+
+Bu skor zaman filtresine göre yeniden hesaplansın.
+
+6. Admin panel kontrolü
+Admin paneline “Keşfet Yönetimi” bölümü ekle:
+- Satıcıyı öne çıkar
+- Satıcıyı gizle
+- Mağazayı öne çıkar
+- Mağazayı gizle
+- Hikayeyi öne çıkar
+- Hikayeyi kaldır
+- Liderlik sıralamasını manuel sabitle
+- Manuel sıralama ver
+- Otomatik sıralamayı aç/kapat
+- Kampanya etiketi ekle
+- Rozet ekle: “Yükselen”, “Popüler”, “Güvenilir”, “Yeni Drop”, “Haftanın Satıcısı”
+
+7. Admin istatistikleri
+Admin panelinde her satıcı için şu istatistikler görünsün:
+- Toplam satış
+- Günlük/haftalık/aylık/yıllık satış
+- Toplam görüntülenme
+- Hikaye görüntülenme
+- Ürün görüntülenme
+- Mağaza görüntülenme
+- Beğeni
+- Favori
+- Yorum
+- Mesaj
+- Takipçi
+- Puan
+- Şikayet sayısı
+- Son aktiflik
+- Keşfet skoru
+
+8. Keşfet ekranındaki tıklamalar
+- Popüler satıcı avatarına tıklayınca satıcının mağaza profiline git.
+- Mağaza kartına tıklayınca mağaza profiline git.
+- Ürün/hikaye kartına tıklayınca ilgili ürün veya hikaye detayına git.
+- Takip Et butonu çalışsın.
+- Takip edilince buton “Takip Ediliyor” olsun.
+- Satıcıya mesaj atma butonu varsa Messages sistemine bağlansın.
+
+9. Canlı güncelleme mantığı
+- Kullanıcı ürün görüntülediğinde productViews artsın.
+- Mağazaya girildiğinde storeViews artsın.
+- Hikaye izlendiğinde storyViews artsın.
+- Beğeni/favori/yorum/mesaj/takip olayları istatistiklere işlensin.
+- Keşfet sıralaması bu metriklere göre güncellensin.
+- Çok sık yenileme yapıp uygulamayı yavaşlatma; cache veya memoization kullan.
+
+10. Tasarım düzeltmeleri
+- Keşfet ekranında üst yazılar telefon çentiğine taşmasın.
+- Kartlar taşmasın.
+- İkili grid eşit hizalansın.
+- Satıcı isimleri uzun olursa ... ile kısaltılsın.
+- Görseller sabit oranlı olsun.
+- Marka rengi mavi-beyaz kalsın.
+- Kupa ikonuna basınca doğru liderlik ekranı açılsın.
+
+11. Veri modeli
+Gerekirse şu yapıları ekle/güncelle:
+
+SellerStats {
+  sellerId,
+  salesCount,
+  productViews,
+  storeViews,
+  storyViews,
+  likes,
+  favorites,
+  comments,
+  messages,
+  followers,
+  followerGrowth,
+  newProducts,
+  ratingAverage,
+  reportCount,
+  lastActiveAt,
+  discoveryScore,
+  period
+}
+
+DiscoverSettings {
+  autoRankingEnabled,
+  featuredSellerIds,
+  hiddenSellerIds,
+  pinnedSellerIds,
+  featuredStoryIds,
+  hiddenStoryIds,
+  manualRanks,
+  badges,
+  campaignLabels
+}
+
+12. Test et
+- Keşfet ekranı açılıyor mu?
+- Kupa ikonundan leaderboard açılıyor mu?
+- Günlük/haftalık/aylık/yıllık filtre çalışıyor mu?
+- Satıcıya tıklayınca mağazaya gidiyor mu?
+- Takip Et çalışıyor mu?
+- Hikaye/ürün/mağaza görüntülenince istatistik artıyor mu?
+- Admin panelinde istatistikler görünüyor mu?
+- Admin öne çıkar/gizle/sabitle işlemleri keşfete yansıyor mu?
+- Ekran taşmaları ve grid bozuklukları düzeldi mi?
+
+Mevcut çalışan yapıyı bozma. Eksik dosya, import, type/interface ve navigation hatalarını kendin düzelt.

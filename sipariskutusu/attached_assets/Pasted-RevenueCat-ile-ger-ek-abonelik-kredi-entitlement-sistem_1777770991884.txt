@@ -1,0 +1,478 @@
+RevenueCat ile gerçek abonelik + kredi + entitlement sistemi kur. Bu final production mimaridir.
+
+RevenueCat para tahsilatını bize yapmaz. Para Apple App Store Connect ve Google Play Console ödeme hesabımıza yatar. RevenueCat sadece satın alma doğrulama, entitlement, abonelik durumu, restore purchase, webhook, iptal/yenileme/expire ve kredi IAP takibi için kullanılacak.
+
+ÖNEMLİ KURAL:
+Client’tan gelen “ben Pro oldum” bilgisine güvenme.
+Kalıcı haklar Supabase user_entitlements tablosundan gelsin.
+RevenueCat customerInfo sadece hızlı UI güncellemesi için kullanılabilir.
+Asıl doğrulama RevenueCat webhook + Supabase backend ile yapılır.
+
+1. REVENUECAT USER ID
+
+RevenueCat App User ID olarak Supabase auth user id kullan.
+
+Örnek:
+Purchases.configure({
+  apiKey: REVENUECAT_PUBLIC_API_KEY,
+  appUserID: supabaseUser.id
+})
+
+Kullanıcı çıkış yapınca:
+Purchases.logOut()
+
+Yeni kullanıcı giriş yapınca:
+Purchases.logIn(supabaseUser.id)
+
+2. REVENUECAT ENTITLEMENTS
+
+Sadece abonelikler entitlement olsun:
+
+Entitlements:
+- starter
+- plus
+- pro
+- elite
+
+Kredi ürünlerini entitlement’a bağlama.
+Krediler consumable/non-subscription purchase olarak takip edilecek ve webhook ile credit_wallets tablosuna eklenecek.
+
+3. PRODUCTS
+
+Subscriptions:
+- com.sipariskutusu.starter.monthly
+- com.sipariskutusu.plus.monthly
+- com.sipariskutusu.pro.monthly
+- com.sipariskutusu.elite.monthly
+- com.sipariskutusu.starter.yearly
+- com.sipariskutusu.plus.yearly
+- com.sipariskutusu.pro.yearly
+- com.sipariskutusu.elite.yearly
+
+Consumable credits:
+- com.sipariskutusu.credits.30
+- com.sipariskutusu.credits.80
+- com.sipariskutusu.credits.180
+- com.sipariskutusu.credits.420
+- com.sipariskutusu.credits.1000
+
+4. PLAN HAKLARI
+
+free:
+- 10 aktif ürün
+- günde 1 hikaye
+- Instagram import sınırsız
+- aktif Instagram ürünü 10
+- discoveryMultiplier 1.0
+
+starter:
+- ₺79 / ay
+- 20 aktif ürün
+- günde 3 hikaye
+- aylık 15 kredi
+- Instagram import sınırsız
+- discoveryMultiplier 1.05
+
+plus:
+- ₺149 / ay
+- 50 aktif ürün
+- günde 8 hikaye
+- aylık 50 kredi
+- Instagram import sınırsız
+- discoveryMultiplier 1.12
+- basit mağaza istatistikleri
+
+pro:
+- ₺299 / ay
+- 200 aktif ürün
+- günde 25 hikaye
+- aylık 150 kredi
+- discoveryMultiplier 1.25
+- Pro Satıcı rozeti
+- gelişmiş istatistik
+
+elite:
+- ₺599 / ay
+- sınırsız aktif ürün
+- sınırsız hikaye
+- aylık 400 kredi
+- discoveryMultiplier 1.5
+- Elite Satıcı rozeti
+- ana sayfa vitrin hakkı
+- en yüksek öncelik
+
+Yıllık:
+- starter yearly ₺790
+- plus yearly ₺1490
+- pro yearly ₺2990
+- elite yearly ₺5990
+
+UI’da yıllık için:
+“Aylığa göre 2 ay avantajlı”
+yaz.
+
+5. STORE FİYATLARI
+
+SubscriptionScreen ve CreditsScreen fiyatları RevenueCat Offerings üzerinden çeksin.
+Elle yazılan fiyat sadece fallback olarak kalsın.
+Store’dan gelen localizedPrice öncelikli olsun.
+
+6. SUPABASE TABLOLARI
+
+Oluştur/güncelle:
+
+subscriptions
+- id
+- user_id
+- revenuecat_app_user_id
+- entitlement
+- plan
+- product_id
+- billing_period
+- platform
+- status
+- started_at
+- expires_at
+- auto_renewing
+- last_credit_grant_at
+- raw_payload
+- created_at
+- updated_at
+
+user_entitlements
+- id
+- user_id
+- plan
+- max_active_products
+- daily_story_limit
+- monthly_credit_grant
+- active_instagram_product_limit
+- discovery_multiplier
+- can_use_advanced_stats
+- can_use_store_badge
+- store_badge_label
+- can_use_homepage_showcase
+- support_priority
+- updated_at
+
+credit_wallets
+- id
+- user_id
+- balance
+- lifetime_purchased
+- lifetime_spent
+- updated_at
+
+credit_transactions
+- id
+- user_id
+- type
+- amount
+- reason
+- product_id
+- revenuecat_transaction_id
+- created_at
+
+revenuecat_events
+- id
+- event_id
+- app_user_id
+- user_id
+- event_type
+- product_id
+- entitlement_id
+- transaction_id
+- original_transaction_id
+- raw_payload
+- created_at
+
+boosts
+- id
+- user_id
+- type
+- product_id
+- story_id
+- store_id
+- credit_cost
+- starts_at
+- ends_at
+- is_active
+- created_at
+
+usage_counters
+- id
+- user_id
+- date
+- published_products_count
+- stories_created_count
+- instagram_products_published_count
+- created_at
+- updated_at
+
+7. WEBHOOK
+
+Supabase Edge Function oluştur:
+supabase/functions/revenuecat-webhook/index.ts
+
+RevenueCat webhook endpoint:
+https://YOUR_PROJECT.functions.supabase.co/revenuecat-webhook
+
+Webhook şu eventleri işlemeli:
+- INITIAL_PURCHASE
+- RENEWAL
+- CANCELLATION
+- UNCANCELLATION
+- EXPIRATION
+- BILLING_ISSUE
+- PRODUCT_CHANGE
+- NON_RENEWING_PURCHASE
+- SUBSCRIPTION_PAUSED
+- TRANSFER
+
+Webhook güvenliği:
+- RevenueCat authorization header / secret kontrol et.
+- event_id daha önce işlendi mi kontrol et.
+- Aynı event tekrar gelirse ikinci kez kredi ekleme.
+- Idempotent çalış.
+
+8. WEBHOOK MANTIĞI
+
+INITIAL_PURCHASE:
+- abonelikse subscriptions güncelle
+- user_entitlements güncelle
+- aylık kredi grant ver
+- credit_transactions kaydı oluştur
+
+RENEWAL:
+- subscription expires_at güncelle
+- aylık kredi grant ver
+- aynı renewal için iki kez kredi verme
+
+CANCELLATION:
+- status cancelled yap
+- expires_at bitene kadar entitlement aktif kalabilir
+
+UNCANCELLATION:
+- status active yap
+
+EXPIRATION:
+- kullanıcıyı free haklara düşür
+- limit üstü ürünleri limit_locked/passive yap
+- ürünleri silme
+
+BILLING_ISSUE:
+- status grace_period veya billing_issue yap
+- kullanıcıya bildirim gönder:
+“Abonelik ödemenizde sorun var.”
+
+PRODUCT_CHANGE:
+- plan değiştiyse user_entitlements güncelle
+
+NON_RENEWING_PURCHASE:
+- kredi ürünü ise credit_wallets.balance artır
+- credit_transactions purchase kaydı oluştur
+- aynı transaction_id ikinci kez işlenmesin
+
+TRANSFER:
+- kullanıcı değişimi/restore durumlarında app_user_id eşleşmesini dikkatli güncelle
+
+9. KREDİ MANTIĞI
+
+Kredi paketleri:
+- ₺39 = 30 kredi
+- ₺79 = 80 kredi
+- ₺149 = 180 kredi
+- ₺299 = 420 kredi
+- ₺599 = 1000 kredi
+
+Kredi satın alma:
+- RevenueCat purchasePackage ile alınır
+- NON_RENEWING_PURCHASE webhook gelince cüzdana eklenir
+- client anlık gösterebilir ama kesin bakiye Supabase credit_wallets tablosundan gelir
+
+Kredi harcama:
+- ürün öne çıkar: 5 kredi / 24 saat
+- hikaye boost: 3 kredi / 24 saat
+- kategori üst sıra: 8 kredi / 24 saat
+- keşfete çıkar: 12 kredi / 24 saat
+- mağaza öne çıkar: 20 kredi / 3 gün
+- ana sayfa vitrin: 40 kredi / 24 saat
+- +5 aktif ürün slotu / 30 gün: 30 kredi
+- +10 aktif ürün slotu / 30 gün: 50 kredi
+- +25 aktif ürün slotu / 30 gün: 100 kredi
+
+Kredi harcama sadece backend/service fonksiyonundan geçsin.
+Kullanıcı bakiyesi yetersizse boost başlatma.
+
+10. UYGULAMA EKRANLARI
+
+Profil > Ayarlar altına ekle:
+
+- Paketim
+  SubscriptionScreen’e gider.
+  Mevcut paket, yenileme tarihi, haklar, ürün kullanımı, hikaye hakkı, kredi bakiyesi gösterir.
+
+- Kredilerim
+  CreditsScreen’e gider.
+  Kredi paketleri, bakiye, işlem geçmişi gösterir.
+
+- Boostlarım
+  MyBoostsScreen’e gider.
+  Aktif boostlar, kalan süre, kullanılan kredi gösterir.
+
+- İşlem Geçmişi
+  BillingHistoryScreen’e gider.
+  abonelik, kredi, boost harcamaları gösterir.
+
+- Satın Alımları Geri Yükle
+  RevenueCat restorePurchases çalıştırır.
+
+- Aboneliği Yönet
+  iOS ise App Store abonelik yönetimine,
+  Android ise Play Store abonelik yönetimine yönlendirir.
+
+11. SUBSCRIPTION SCREEN
+
+RevenueCat offerings çek.
+Paket kartları:
+- Free
+- Starter
+- Plus
+- Pro
+- Elite
+
+Her kartta:
+- store’dan gelen fiyat
+- ürün limiti
+- hikaye limiti
+- aylık kredi
+- Instagram import sınırsız
+- keşfet avantajı
+- rozet
+- istatistik hakkı
+
+Mevcut pakette:
+“Mevcut Paket”
+
+Plus veya Pro’da:
+“Önerilen”
+
+Elite’te:
+“En Güçlü”
+
+12. CREDITS SCREEN
+
+RevenueCat offerings içinden kredi paketlerini göster.
+Kredi paketlerinde:
+- kredi miktarı
+- fiyat
+- “En Popüler” rozeti
+- satın al butonu
+
+Satın alma sonrası:
+- işlem pending olabilir
+- bakiye kesin olarak webhook sonrası güncellenir
+- kullanıcıya:
+“Kredi satın alma işleniyor. Birkaç saniye içinde bakiyene yansır.”
+göster.
+
+13. ENTITLEMENT SERVICE
+
+src/services/entitlementService.ts oluştur.
+
+Fonksiyonlar:
+- getMyEntitlements()
+- refreshRevenueCatCustomerInfo()
+- syncCustomerInfoToSupabase()
+- canPublishProduct()
+- canPublishInstagramProduct()
+- canCreateStory()
+- canUseAdvancedStats()
+- getDiscoveryMultiplier()
+- getStoreBadge()
+- canStartBoost(type)
+- spendCreditsAndCreateBoost(type, targetId)
+
+14. GERÇEK KONTROLLER
+
+Şu ekranlarda mutlaka entitlement kontrolü yap:
+
+- CreateListingScreen
+  ürün yayınlama limiti
+
+- InstagramContentScreen
+  Instagram import sınırsız
+  ama aktif ürün yayını paket limitli
+
+- StoryCreateScreen
+  günlük hikaye limiti
+
+- ProductDetailScreen
+  ürün sahibi için boost butonu
+
+- StoreManageScreen
+  mağaza boost/vitrin butonu
+
+- DiscoverScreen
+  discoveryMultiplier ve active boost etkisi
+
+- AdminPanelScreen
+  paket, kredi, boost, limit_locked ürünleri göster
+
+15. PAKET DÜŞÜNCE
+
+Abonelik expire olursa:
+- kullanıcı free’e düşer
+- ürünler silinmez
+- limit üstü published ürünler limit_locked/passive yapılır
+- kullanıcıya göster:
+“Paketin sona erdi. Ürünlerin silinmedi; sadece limit üstü ürünler yayından kaldırıldı.”
+
+Öncelik:
+- en yeni veya en çok görüntülenen 10 ürün aktif kalsın
+- diğerleri limit_locked olsun
+
+16. REVENUECAT SETUP NOTLARI
+
+RevenueCat dashboard:
+- iOS app ekle
+- Android app ekle
+- App Store shared secret / App Store Connect API bilgilerini bağla
+- Google Play service account bağla
+- Products import et
+- Offerings oluştur:
+  default
+  subscriptions
+  credits
+- Entitlements oluştur:
+  starter, plus, pro, elite
+- Sadece abonelik ürünlerini entitlement’a bağla
+- Kredi ürünlerini entitlement’a bağlama
+- Webhook URL ekle
+- Webhook secret oluştur
+
+17. APPLE / GOOGLE BANKA
+
+RevenueCat’e IBAN girilmez.
+Para:
+- Apple App Store Connect banka hesabına
+- Google Play Console payments profile banka hesabına
+yatar.
+
+18. TEST
+
+Test et:
+- RevenueCat configure doğru mu?
+- Supabase user id RevenueCat appUserID oldu mu?
+- Offerings geliyor mu?
+- Abonelik satın alınıyor mu?
+- Entitlement aktif oluyor mu?
+- Webhook Supabase’e geliyor mu?
+- user_entitlements güncelleniyor mu?
+- Kredi satın alınca sadece bir kez ekleniyor mu?
+- Restore purchases çalışıyor mu?
+- Expire olunca free’e düşüyor mu?
+- Ürün/hikaye limitleri gerçekten uygulanıyor mu?
+- Fake client plan değişimi kabul edilmiyor mu?
+
+Mevcut ürün, mağaza, Instagram, hikaye, mesaj, bildirim, favori, kategori, keşfet, admin ve profil sistemini bozma. Eksik import, route, navigation, type/interface, Supabase query, RLS ve state hatalarını kendin çöz.

@@ -1,0 +1,51 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY DATABASE_URL EXPO_PUBLIC_EMAIL_OTP_LENGTH EXPO_PUBLIC_MEDIA_STORAGE_MODE EXPO_PUBLIC_IMAGE_UPLOAD_TIMEOUT_MS EXPO_PUBLIC_MAX_IMAGE_BYTES EXPO_PUBLIC_IMAGE_UPLOAD_CONCURRENCY EXPO_PUBLIC_NOTIFICATION_DISPATCH_TIMEOUT_MS EMAIL_FROM_ADDRESS EMAIL_FROM_NAME EXPO_PUBLIC_SENTRY_DSN EXPO_PUBLIC_POSTHOG_API_KEY SUPABASE_SERVICE_ROLE_KEY META_APP_SECRET META_APP_ID EXPO_PUBLIC_BACKEND_STRICT_MODE EXPO_PUBLIC_POSTHOG_HOST
+Starting project at C:\Users\altun\OneDrive\Masaüstü\sipariskutusu\sipariskutusu
+Starting Metro Bundler
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 3066ms node_modules\expo-router\node\render.js (2242 modules)
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2178/2178)
+Web platform detected. Using RevenueCat in Browser Mode.
+Web node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2178/2178)
+Web Bundled 6904ms node_modules\expo-router\entry.js (2178 modules)
+Web Bundled 733ms node_modules\expo-router\entry.js (2071 modules)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 197ms node_modules\expo-notifications\build\index.js (337 modules)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 591ms node_modules\expo-router\entry.js (1 module)
+λ Bundled 826ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+Web Bundled 183ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 37ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 100ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 945ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 101ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 17ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 52ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 579ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 81ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 15ms node_modules\expo-notifications\build\index.js (1 module)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 55ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+λ Bundled 66ms node_modules\expo-router\node\render.js (1 module)
+Web platform detected. Using RevenueCat in Browser Mode.
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 1393ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 725ms node_modules\expo-router\entry.js (1 module)
+Web Bundled 119ms node_modules\expo-router\entry.js (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 16ms node_modules\expo-notifications\build\index.js (1 module)
